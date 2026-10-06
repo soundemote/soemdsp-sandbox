@@ -86,15 +86,12 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     // port so downstream modules (envelopes, sample+hold, etc.) feel a poke
     // when their signal supply is cut, instead of just dropping to silence.
     this.inputWireBreakTriggers = new Map();
-    this.pitchModWheelSignal = { mod: 0, pitch: 0 };
-    this.midiKeyboardGatePulseSamples = 0;
-    this.midiKeyboardGatePulseVelocity = 0;
     this.midiKeyboardSignal = null;
-    this.midiKeyboardHeldKeysLowBitmask = 0;
-    this.midiKeyboardArpMask = new Uint8Array(128);
     this.midiKeyboardPlayMask = new Uint8Array(128);
-    this.midiKeyboardHeldKeysHighBitmask = 0;
     this.midiKeyboardHeldKeysPhase = 0;
+    // Per Keyboard / Grid Keyboard node id: face signal, gold Arp latch.
+    this.keyboardSignalByNode = new Map();
+    this.keyboardArpByNode = new Map();
     this.modulationConnections = new Map();
     this.nodeOutputs = new Map();
     this.nodes = new Map();
@@ -288,9 +285,6 @@ class NodeLiveAudioProcessor extends AudioWorkletProcessor {
     this.bodeStates = new Map();
     this.stftBlurStates = new Map();
     this.softpopOscillatorStates = new Map();
-    this.sinepulseStates = new Map();
-    this.kickEnvelopeStates = new Map();
-    this.sineKickStates = new Map();
     this.nativeButterworth = null;
     this.nativeButterworthReady = false;
     this.nativeLinkwitzRiley = null;

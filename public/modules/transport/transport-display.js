@@ -8,7 +8,9 @@
 // monospace below the digits - standard digital-clock layout.
 //
 // Beat lamp: optional LED on the face (Display Settings "Gate blink").
-// Off by default. When on, follows this metronome's BPM at one blink per beat.
+// Off by default. When on, the lamp copies the engine's published "Gate 0-1"
+// display signal (declared in displaySignals; C++ process_transport writes it
+// to Mono). No JS phase or timing: lit while the native gate is high.
 
 let nodeGraphTransportBpmFontReady = false;
 document.fonts.load('700 40px "DSEG7 Classic"').then(() => {
@@ -85,38 +87,16 @@ function readNodeGraphTransportDisplaySettingsForm(root, current) {
   return normalizeNodeGraphTransportSettings(next);
 }
 
-function nodeGraphTransportBeatLampLevel01(node, tempoBpm, frameDtSec) {
-  const bpm = Math.max(1, Number.isFinite(tempoBpm) && tempoBpm > 0 ? tempoBpm : 120);
-  const periodSec = typeof nodeGraphTransportPeriodSeconds === "function"
-    ? nodeGraphTransportPeriodSeconds(node?.params, bpm)
-    : 0;
-  const frequency = periodSec > 0 ? 1 / periodSec : bpm / 60;
-  if (!(frequency > 0)) {
+// Engine-published gate this face copies (transport displaySignals "Gate 0-1").
+const NODE_GRAPH_TRANSPORT_GATE_SIGNAL = "Gate 0-1";
+
+/** Latest native "Gate 0-1" sample for this metronome (copied, not computed). */
+function nodeGraphTransportGateSignal(nodeId) {
+  if (!nodeId || typeof nodeGraphModuleScopeLatestOutputValue !== "function") {
     return 0;
   }
-  const halfSec = 0.5 / frequency;
-  const dt = Number.isFinite(frameDtSec) && frameDtSec > 0 ? frameDtSec : 1 / 60;
-  // Half a beat shorter than the gap between paints cannot turn off on screen.
-  if (halfSec <= dt) {
-    return 1;
-  }
-  const sampleRate = Math.max(
-    1,
-    nodeGraphFiniteNumber(
-      typeof nodeGraphModuleScopeState !== "undefined"
-        ? nodeGraphModuleScopeState?.sampleRate
-        : 0,
-      nodeGraphFiniteNumber(typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.sampleRate : 0, 44100),
-    ),
-  );
-  const audio = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live?.context : null;
-  const currentTime = Number(audio?.currentTime);
-  const absoluteFrame = Number.isFinite(currentTime) && currentTime >= 0
-    ? Math.floor(currentTime * sampleRate)
-    : 0;
-  const wrapped = ((absoluteFrame / sampleRate) * frequency);
-  const phase = wrapped - Math.floor(wrapped);
-  return phase < 0.5 ? 1 : 0;
+  const value = Number(nodeGraphModuleScopeLatestOutputValue(nodeId, NODE_GRAPH_TRANSPORT_GATE_SIGNAL, 0));
+  return Number.isFinite(value) ? value : 0;
 }
 
 function nodeGraphTransportBpmJackConnected(nodeId) {
@@ -248,12 +228,8 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   const bpm = nodeGraphTransportFaceBpm(node);
   const digits = String(bpm);
   const gateBlinkOn = nodeGraphTransportSettingsForNode(node).gateBlink === true;
-  const lampNowSec = performance.now() * 0.001;
-  const lampPrevSec = canvas._nodeGraphTransportLampSec;
-  canvas._nodeGraphTransportLampSec = lampNowSec;
-  const lampDtSec = Number.isFinite(lampPrevSec) ? Math.max(0, lampNowSec - lampPrevSec) : 1 / 60;
-  const gate01 = gateBlinkOn ? nodeGraphTransportBeatLampLevel01(node, bpm, lampDtSec) : 0;
-  const gateLit = gate01 > 0.001 ? 1 : 0;
+  const gate = gateBlinkOn ? nodeGraphTransportGateSignal(nodeId) : 0;
+  const gateLit = gate !== 0 ? 1 : 0;
   const frozen = typeof nodeGraphModuleScopePhosphorFrozen === "function"
     && nodeGraphModuleScopePhosphorFrozen();
 
@@ -307,7 +283,7 @@ function drawNodeGraphTransportBpmItem(renderer, item, pixelRatio) {
   ctx.fillText("BPM", canvas.width * 0.5, digitAreaHeight + labelHeight * 0.5);
 
   if (gateBlinkOn) {
-    // Beat lamp — this metronome's BPM, one blink per beat.
+    // Beat lamp — copies this metronome's native Gate 0-1.
     const lampR = Math.max(2, Math.min(canvas.width, canvas.height) * 0.07);
     const lampX = canvas.width - lampR * 1.6;
     const lampY = lampR * 1.4;

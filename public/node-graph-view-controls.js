@@ -1834,25 +1834,131 @@ const nodeGraphMidiKeyboardMinKeyCount = 8;
 // Full MIDI set (0–127). Octave slides this window; latched Play/Arp bits
 // are absolute MIDI and stay put when the window moves off them.
 const nodeGraphMidiKeyboardMaxKeyCount = 128;
-const nodeGraphMidiKeyboardHeldKeysLowBitCount = 49;
 const nodeGraphMidiKeyboardBlackPitchClasses = Object.freeze(new Set([1, 3, 6, 8, 10]));
-const nodeGraphMidiKeyboardSampleRate = 44100;
+/** Keys a Keyboard shows when its node has no saved keyCount (new spawn). */
+const nodeGraphMidiKeyboardDefaultKeyCount = 25;
 
-// User-configurable key count (shared/global, same mirroring pattern as
-// midiKeyboardOctave -- every rendered .node-midi-keyboard-module surface
-// shows the same span). Octave slides the visible MIDI window over 0–127.
-function nodeGraphMidiKeyboardKeyCount(value = nodeGraphMvp?.midiKeyboardKeyCount) {
+// Every Keyboard / Grid Keyboard owns all of its state. Saved state lives on
+// its own patch node (node.traceDisplaySettings: mode, octave, keyCount,
+// velMin/velMax, keyLabels, arpKeys, lastSignal, ...); wheels are the node's
+// own params. Playing-only state (current signal, pointer holds, previous
+// gate, VoiceManager blue note, face transmit registers) lives in a runtime
+// record per node id. Nothing here is shared between two keyboards.
+function nodeGraphKeyboardIsType(type) {
+  return type === "keyboard" || type === "gridKeyboard";
+}
+
+function nodeGraphKeyboardPatchNode(nodeId) {
+  const id = String(nodeId || "").trim();
+  const node = id ? nodeGraphMvp.patch?.nodes?.find?.((item) => item.id === id) : null;
+  return node && nodeGraphKeyboardIsType(node.type) ? node : null;
+}
+
+/** This keyboard's saved settings bag (read-only view; {} when none). */
+function nodeGraphKeyboardSettings(nodeId) {
+  const bag = nodeGraphKeyboardPatchNode(nodeId)?.traceDisplaySettings;
+  return bag && typeof bag === "object" ? bag : {};
+}
+
+function nodeGraphKeyboardNodeIds() {
+  return (nodeGraphMvp.patch?.nodes || [])
+    .filter((node) => nodeGraphKeyboardIsType(node.type))
+    .map((node) => node.id);
+}
+
+let nodeGraphKeyboardQuietSaveTimer = 0;
+
+/**
+ * Write fields into this keyboard's saved settings (patch + live + working
+ * copies). Default: an undoable edit. { history: false } (last played note)
+ * only persists the working patch once playing pauses.
+ */
+function writeNodeGraphKeyboardSettings(nodeId, fields, options = {}) {
+  const node = nodeGraphKeyboardPatchNode(nodeId);
+  if (!node || typeof assignNodeGraphTypedDisplaySettingsEverywhere !== "function") return false;
+  assignNodeGraphTypedDisplaySettingsEverywhere(node, "keyboardControllerFace", {
+    ...nodeGraphKeyboardSettings(nodeId),
+    ...fields,
+  });
+  if (options.history !== false) {
+    setNodeGraphPatchDirtyState("edited");
+    scheduleNodeGraphChromeHistoryAndAutosave();
+    return true;
+  }
+  if (nodeGraphKeyboardQuietSaveTimer) window.clearTimeout(nodeGraphKeyboardQuietSaveTimer);
+  nodeGraphKeyboardQuietSaveTimer = window.setTimeout(() => {
+    nodeGraphKeyboardQuietSaveTimer = 0;
+    if (typeof saveNodeGraphWorkingPatchToUserSettings === "function") saveNodeGraphWorkingPatchToUserSettings();
+  }, 1500);
+  return true;
+}
+
+/** Playing-only state of one keyboard (never saved). */
+function nodeGraphKeyboardRuntime(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!(nodeGraphMvp.keyboardRuntimeByNode instanceof Map)) nodeGraphMvp.keyboardRuntimeByNode = new Map();
+  let rt = nodeGraphMvp.keyboardRuntimeByNode.get(id);
+  if (!rt) {
+    rt = {
+      signal: null,
+      savedSignalKey: "",
+      pointerHeldSignal: null,
+      previousGate: 0,
+      pulseSerial: 0,
+      arpLatchPointerId: null,
+      triggerPatchPointerId: null,
+      vmBlueMidi: -1,
+      polyphony: null,
+      playRegs: { c0: 0, c1: 0, c2: 0 },
+      facePlayTransmit: 0,
+    };
+    nodeGraphMvp.keyboardRuntimeByNode.set(id, rt);
+    nodeGraphKeyboardHydrateSignal(id, rt);
+  }
+  return rt;
+}
+
+/** Load the saved last note (patch load / undo) unless this keyboard is playing. */
+function nodeGraphKeyboardHydrateSignal(nodeId, rt) {
+  const saved = nodeGraphKeyboardSettings(nodeId).lastSignal;
+  const key = saved ? JSON.stringify(saved) : "";
+  if (key === rt.savedSignalKey) return;
+  rt.savedSignalKey = key;
+  if (Number(rt.signal?.gate) > 0 || rt.pointerHeldSignal) return;
+  rt.signal = saved
+    ? normalizeNodeGraphMidiKeyboardMemorySignal(saved, { keyCount: nodeGraphKeyboardKeyCountFor(nodeId) })
+    : null;
+}
+
+function nodeGraphMidiKeyboardKeyCount(value) {
   const count = Math.round(Number(value));
   return Number.isFinite(count)
     ? Math.max(nodeGraphMidiKeyboardMinKeyCount, Math.min(nodeGraphMidiKeyboardMaxKeyCount, count))
-    : 88;
+    : nodeGraphMidiKeyboardDefaultKeyCount;
+}
+
+function nodeGraphKeyboardKeyCountFor(nodeId) {
+  return nodeGraphMidiKeyboardKeyCount(nodeGraphKeyboardSettings(nodeId).keyCount);
+}
+
+function nodeGraphKeyboardOctaveFor(nodeId) {
+  return nodeGraphMidiKeyboardOctaveOffset(nodeGraphKeyboardSettings(nodeId).octave);
+}
+
+/** First visible MIDI note of this keyboard's window. */
+function nodeGraphKeyboardViewStartMidiFor(nodeId) {
+  return nodeGraphMidiKeyboardViewStartMidi(nodeGraphKeyboardOctaveFor(nodeId), nodeGraphKeyboardKeyCountFor(nodeId));
+}
+
+/** Every rendered face (module, mirrors, canvas tiles) of one Keyboard / Grid Keyboard. */
+function nodeGraphKeyboardFaces(nodeId) {
+  const id = String(nodeId || "").trim();
+  return [...document.querySelectorAll(".node-midi-keyboard-module, .node-grid-keyboard-module")]
+    .filter((face) => nodeGraphMidiKeyboardNodeIdFromElement(face) === id);
 }
 
 /** First visible MIDI note. Octave 0 starts at C1 (24); clamped to 0…127. */
-function nodeGraphMidiKeyboardViewStartMidi(
-  octave = nodeGraphMidiKeyboardOctaveOffset(),
-  keyCount = nodeGraphMidiKeyboardKeyCount(),
-) {
+function nodeGraphMidiKeyboardViewStartMidi(octave, keyCount) {
   const count = Math.max(1, Math.min(128, Math.round(Number(keyCount)) || 1));
   const raw = nodeGraphMidiKeyboardStartMidi + Math.round(Number(octave) || 0) * 12;
   const maxStart = Math.max(0, 128 - count);
@@ -1866,7 +1972,7 @@ function nodeGraphMidiKeyboardViewStartMidi(
 // keys sit relative to the white key they're attached to (reverse-derived
 // from this module's original hand-placed --key-left percentages, which
 // this replaces for an arbitrary key count).
-function nodeGraphMidiKeyboardGenerateKeys(startMidi = nodeGraphMidiKeyboardViewStartMidi(), keyCount = nodeGraphMidiKeyboardKeyCount()) {
+function nodeGraphMidiKeyboardGenerateKeys(startMidi, keyCount) {
   const whiteKeys = [];
   const blackKeys = [];
   const count = Math.max(0, Math.min(128, Math.round(Number(keyCount)) || 0));
@@ -1890,345 +1996,212 @@ function nodeGraphMidiKeyboardGenerateKeys(startMidi = nodeGraphMidiKeyboardView
   return { whiteKeys, blackKeys, totalWhite };
 }
 
-// Rebuilds every rendered keyboard surface's white/black key DOM from the
-// current key count -- called once at bind time (populating the empty
-// rows createNodeGraphKeyboardControllerBody leaves behind) and again on
-// every key-count change. Full rebuild rather than incremental diffing:
-// key count changes are rare (a user clicking +/-), not a per-frame path.
+// Rebuilds each rendered keyboard surface's white/black key DOM from its own
+// node's window (octave + key count + key labels) -- called at bind time
+// (populating the empty rows createNodeGraphKeyboardControllerBody leaves
+// behind) and on every key-count / octave / label change. A surface whose
+// window is unchanged keeps its DOM.
 function renderNodeGraphMidiKeyboardKeys() {
-  const { whiteKeys, blackKeys, totalWhite } = nodeGraphMidiKeyboardGenerateKeys();
   document.querySelectorAll(".node-midi-keyboard-module .node-midi-keyboard-surface").forEach((surface) => {
     const whiteRow = surface.querySelector(".node-midi-keyboard-white-row");
     const blackRow = surface.querySelector(".node-midi-keyboard-black-row");
     if (!whiteRow || !blackRow) {
       return;
     }
+    const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(surface);
+    const start = nodeGraphKeyboardViewStartMidiFor(nodeId);
+    const count = nodeGraphKeyboardKeyCountFor(nodeId);
+    const labels = nodeGraphKeyboardKeyLabelsFor(nodeId);
+    const keysSig = `${start}:${count}:${labels}`;
+    if (surface.dataset.keysSig === keysSig && whiteRow.childElementCount > 0) {
+      return;
+    }
+    surface.dataset.keysSig = keysSig;
+    const { whiteKeys, blackKeys, totalWhite } = nodeGraphMidiKeyboardGenerateKeys(start, count);
     whiteRow.style.gridTemplateColumns = `repeat(${totalWhite}, minmax(0, 1fr))`;
     whiteRow.replaceChildren(...whiteKeys.map((key) => {
       const span = document.createElement("span");
       span.dataset.midi = String(key.midi);
       span.dataset.keyIndex = String(key.index);
-      span.textContent = nodeGraphMidiKeyboardKeyCapText(key.midi);
+      span.textContent = nodeGraphMidiKeyboardKeyCapText(key.midi, labels);
       return span;
     }));
     blackRow.replaceChildren(...blackKeys.map((key) => {
       const span = document.createElement("span");
       span.dataset.midi = String(key.midi);
       span.dataset.keyIndex = String(key.index);
-      span.textContent = nodeGraphMidiKeyboardKeyCapText(key.midi);
+      span.textContent = nodeGraphMidiKeyboardKeyCapText(key.midi, labels);
       return span;
     }));
   });
   if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
     applyNodeGraphMidiKeyboardLayout();
   }
-  renderNodeGraphMidiKeyboardSignal(null);
+  nodeGraphKeyboardNodeIds().forEach((nodeId) => renderNodeGraphMidiKeyboardSignal(nodeId, null));
   renderNodeGraphMidiKeyboardHeldKeys();
 }
 
-// Ctrl+click GOLD "Arp Keys" bitmask (gold latch cable) —
-// bit i = "the key currently at screen position i is toggled held."
-// Positional, not absolute pitch: stable across octave transpose
-// (transpose only shifts output pitch, never which screen position a
-// key occupies), only shifts meaning if key count itself changes.
+// Ctrl+click GOLD "Arp Keys" latch (gold latch cable), one per keyboard.
+// Saved on the node as traceDisplaySettings.arpKeys = { "<midi>": velocity }
+// (absolute MIDI, so it stays put when the octave window moves).
 //
 // Distinct from Shift+click BLUE mono sustain (pointerHold): that is a
 // convenience latch for monophonic Gate/Frequency, not the mask cable.
-//
-// Bit index can reach 87 (nodeGraphMidiKeyboardMaxKeyCount - 1), but
-// JS's native bitwise operators (<<, |, &, >>>) coerce to 32-bit
-// integers -- silently wrong past bit 31 (e.g. `1 << 40` does not
-// compute 2^40, it wraps to `1 << 8` per the spec's shift-amount-mod-32
-// rule). A double can exactly represent integers up to 2^53 via ordinary
-// arithmetic, just not via the truncating bitwise ops, so bit set/clear/
-// test here use arithmetic instead -- but that 53-bit ceiling is still a
-// real limit: a single JS Number cannot combine a low bit (e.g. index 0)
-// and a high bit (e.g. index 87) in the SAME value without silently
-// losing the low bit (float64 precision near 2^87 is +/-2^35, way
-// bigger than 1). So the 88-key range is stored as two independent
-// numbers -- low (bits 0-48) and high (bits 0-38, representing absolute
-// key index 49-87) -- never combined into one.
-function nodeGraphMidiKeyboardBitmaskHasBit(mask, index) {
-  return Math.floor((nodeGraphFiniteNumber(mask)) / 2 ** index) % 2 === 1;
+function nodeGraphKeyboardNormalizeArpKeys(raw) {
+  const out = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [key, value] of Object.entries(raw)) {
+    const midi = Math.round(Number(key));
+    const velocity = Math.round(Number(value));
+    if (!(midi >= 0 && midi <= 127) || !(velocity > 0)) continue;
+    out[String(midi)] = Math.min(127, velocity);
+  }
+  return out;
 }
 
-function nodeGraphMidiKeyboardBitmaskSetBit(mask, index, on) {
-  const safeMask = nodeGraphFiniteNumber(mask);
-  const has = nodeGraphMidiKeyboardBitmaskHasBit(safeMask, index);
-  if (has === Boolean(on)) {
-    return safeMask;
+const nodeGraphKeyboardArpLatchViewCache = new WeakMap();
+const nodeGraphKeyboardEmptyArpLatch = Object.freeze({ mask: new Uint8Array(128), velocities: new Uint8Array(128) });
+
+/** Read-only { mask, velocities } (128 each) of this keyboard's gold latch. */
+function nodeGraphKeyboardArpLatchView(nodeId) {
+  const arpKeys = nodeGraphKeyboardSettings(nodeId).arpKeys;
+  if (!arpKeys || typeof arpKeys !== "object") return nodeGraphKeyboardEmptyArpLatch;
+  let view = nodeGraphKeyboardArpLatchViewCache.get(arpKeys);
+  if (!view) {
+    view = { mask: new Uint8Array(128), velocities: new Uint8Array(128) };
+    for (const [key, value] of Object.entries(nodeGraphKeyboardNormalizeArpKeys(arpKeys))) {
+      view.mask[Number(key)] = 1;
+      view.velocities[Number(key)] = value;
+    }
+    nodeGraphKeyboardArpLatchViewCache.set(arpKeys, view);
   }
-  return on ? safeMask + 2 ** index : safeMask - 2 ** index;
+  return view;
 }
 
-// Routes an absolute key index (0..nodeGraphMidiKeyboardMaxKeyCount-1) to
-// which of the two storage numbers it lives in, and its bit position
-// within that number.
-function nodeGraphMidiKeyboardHeldKeyBitLocation(index) {
-  return index < nodeGraphMidiKeyboardHeldKeysLowBitCount
-    ? { half: "low", localIndex: index }
-    : { half: "high", localIndex: index - nodeGraphMidiKeyboardHeldKeysLowBitCount };
+/** Editable copy of this keyboard's gold latch. */
+function nodeGraphKeyboardArpLatch(nodeId) {
+  const view = nodeGraphKeyboardArpLatchView(nodeId);
+  return { mask: Uint8Array.from(view.mask), velocities: Uint8Array.from(view.velocities) };
 }
 
-function nodeGraphMidiKeyboardEnsureArpMask() {
-  if (typeof noteMaskEnsure === "function") {
-    nodeGraphMvp.midiKeyboardArpMask = noteMaskEnsure(nodeGraphMvp.midiKeyboardArpMask);
-    return nodeGraphMvp.midiKeyboardArpMask;
+/** Save a new gold latch on this keyboard (undoable), repaint, push to audio. */
+function setNodeGraphKeyboardArpLatch(nodeId, mask, velocities) {
+  const arpKeys = {};
+  for (let midi = 0; midi < 128; midi += 1) {
+    if (!mask[midi]) continue;
+    const velocity = Math.round(Number(velocities?.[midi]));
+    arpKeys[String(midi)] = velocity > 0 ? Math.min(127, velocity) : 100;
   }
-  if (!(nodeGraphMvp.midiKeyboardArpMask instanceof Uint8Array)
-    || nodeGraphMvp.midiKeyboardArpMask.length < 128) {
-    nodeGraphMvp.midiKeyboardArpMask = new Uint8Array(128);
-  }
-  return nodeGraphMvp.midiKeyboardArpMask;
+  if (!writeNodeGraphKeyboardSettings(nodeId, { arpKeys })) return false;
+  renderNodeGraphMidiKeyboardHeldKeys();
+  nodeGraphKeyboardPushArpLatch(nodeId);
+  return true;
 }
 
-function nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask() {
-  const m = nodeGraphMidiKeyboardEnsureArpMask();
-  const start = nodeGraphMidiKeyboardViewStartMidi();
-  let low = 0;
-  let high = 0;
-  for (let i = 0; i < 49; i += 1) {
-    const midi = start + i;
-    if (midi <= 127 && m[midi]) low += 2 ** i;
+function nodeGraphKeyboardPushArpLatch(nodeId) {
+  if (typeof sendNodeGraphLiveKeyboardArpLatch === "function") {
+    sendNodeGraphLiveKeyboardArpLatch(nodeId, nodeGraphKeyboardArpLatchView(nodeId));
   }
-  for (let i = 0; i < 39; i += 1) {
-    const midi = start + 49 + i;
-    if (midi <= 127 && m[midi]) high += 2 ** i;
-  }
-  nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = low;
-  nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = high;
+  syncNodeGraphKeyboardPolyphonyFromHeldNotes(nodeId);
 }
 
-function nodeGraphMidiKeyboardApplyBitmaskFieldsToArpMask(low, high, startMidi) {
-  const m = nodeGraphMidiKeyboardEnsureArpMask();
-  const start = Number.isFinite(Number(startMidi))
-    ? Math.max(0, Math.min(127, Math.round(Number(startMidi))))
-    : nodeGraphMidiKeyboardViewStartMidi();
-  const lo = Number(low) || 0;
-  const hi = Number(high) || 0;
-  for (let i = 0; i < 49; i += 1) {
-    const midi = start + i;
-    if (midi > 127) break;
-    m[midi] = Math.floor(lo / (2 ** i)) % 2 === 1 ? 1 : 0;
-  }
-  for (let i = 0; i < 39; i += 1) {
-    const midi = start + 49 + i;
-    if (midi > 127) break;
-    m[midi] = Math.floor(hi / (2 ** i)) % 2 === 1 ? 1 : 0;
-  }
-  return m;
-}
-
-function nodeGraphMidiKeyboardHeldKeyBitIsSet(index, low, high) {
-  const idx = Math.round(Number(index) || 0);
-  const midi = nodeGraphMidiKeyboardViewStartMidi() + idx;
-  if (typeof noteMaskGet === "function" && (low === undefined || low instanceof Uint8Array)) {
-    const mask = low instanceof Uint8Array ? low : nodeGraphMidiKeyboardEnsureArpMask();
-    return noteMaskGet(mask, midi);
-  }
-  if (typeof low === "number" || typeof high === "number") {
-    const location = nodeGraphMidiKeyboardHeldKeyBitLocation(idx);
-    return nodeGraphMidiKeyboardBitmaskHasBit(
-      location.half === "low" ? low : high,
-      location.localIndex,
-    );
-  }
-  return noteMaskGet(nodeGraphMidiKeyboardEnsureArpMask(), midi);
-}
-
-// Pure -- returns the updated {low, high} pair rather than mutating
-// nodeGraphMvp directly, so it composes with the rotate/transpose helpers
-// below (which build up a whole new pair bit-by-bit).
-function nodeGraphMidiKeyboardHeldKeysWithBit(low, high, index, on) {
-  const location = nodeGraphMidiKeyboardHeldKeyBitLocation(index);
-  return location.half === "low"
-    ? { low: nodeGraphMidiKeyboardBitmaskSetBit(low, location.localIndex, on), high }
-    : { low, high: nodeGraphMidiKeyboardBitmaskSetBit(high, location.localIndex, on) };
-}
-
-// Placeholder for ctrl+shift+click -- rotates the whole mask by one bit
-// position (wrap-around) within the current key count. Deliberately
-// simple/exploratory per explicit direction, not a finished feature;
-// revisit later.
-function nodeGraphMidiKeyboardBitmaskRotate(low, high, keyCount) {
-  if (keyCount <= 1) {
-    return { low, high };
-  }
-  const topBit = nodeGraphMidiKeyboardHeldKeyBitIsSet(keyCount - 1, low, high);
-  let rotated = { low: 0, high: 0 };
-  for (let index = keyCount - 1; index > 0; index -= 1) {
-    rotated = nodeGraphMidiKeyboardHeldKeysWithBit(
-      rotated.low,
-      rotated.high,
-      index,
-      nodeGraphMidiKeyboardHeldKeyBitIsSet(index - 1, low, high),
-    );
-  }
-  nodeGraphMidiKeyboardPermuteHeldKeyVelocities(
-    (i) => (i + 1) % keyCount,
-    keyCount,
-  );
-  const next = nodeGraphMidiKeyboardHeldKeysWithBit(rotated.low, rotated.high, 0, topBit);
-  nodeGraphMidiKeyboardApplyBitmaskFieldsToArpMask(next.low, next.high);
-  nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask();
-  return next;
-}
-
-// Placeholder for shift+alt+click -- distinct from ctrl+shift+click's
-// generic rotate-by-one. Shifts every currently-held bit by a fixed
-// musically-meaningful interval (7 positions, a perfect fifth if keys
-// are semitone-spaced) instead of rotating the whole mask uniformly,
-// so it reshapes a held chord rather than just spinning it. Bits that
-// land past the current key count wrap back around. Deliberately
-// simple/exploratory, same spirit as the rotate placeholder above.
-function nodeGraphMidiKeyboardBitmaskTranspose(low, high, keyCount, interval) {
-  if (keyCount <= 1) {
-    return { low, high };
-  }
-  let transposed = { low: 0, high: 0 };
-  for (let index = 0; index < keyCount; index += 1) {
-    if (nodeGraphMidiKeyboardHeldKeyBitIsSet(index, low, high)) {
-      const target = ((index + interval) % keyCount + keyCount) % keyCount;
-      transposed = nodeGraphMidiKeyboardHeldKeysWithBit(transposed.low, transposed.high, target, true);
+/** Push every keyboard's gold latch + live signal to a (re)started audio thread. */
+function nodeGraphKeyboardSyncLiveAudio() {
+  for (const nodeId of nodeGraphKeyboardNodeIds()) {
+    if (typeof sendNodeGraphLiveKeyboardArpLatch === "function") {
+      sendNodeGraphLiveKeyboardArpLatch(nodeId, nodeGraphKeyboardArpLatchView(nodeId));
+    }
+    if (typeof sendNodeGraphLiveKeyboardModuleSignal === "function") {
+      sendNodeGraphLiveKeyboardModuleSignal(nodeId, nodeGraphKeyboardRuntime(nodeId).signal);
     }
   }
-  nodeGraphMidiKeyboardPermuteHeldKeyVelocities(
-    (i) => ((i + interval) % keyCount + keyCount) % keyCount,
-    keyCount,
-  );
-  nodeGraphMidiKeyboardApplyBitmaskFieldsToArpMask(transposed.low, transposed.high);
-  nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask();
-  return transposed;
 }
 
-function nodeGraphMidiKeyboardEnsureHeldKeyVelocities() {
-  const n = 128;
-  if (!(nodeGraphMvp.midiKeyboardHeldKeyVelocities instanceof Uint8Array)
-    || nodeGraphMvp.midiKeyboardHeldKeyVelocities.length < n) {
-    const next = new Uint8Array(n);
-    if (nodeGraphMvp.midiKeyboardHeldKeyVelocities instanceof Uint8Array) {
-      next.set(nodeGraphMvp.midiKeyboardHeldKeyVelocities.subarray(0, Math.min(n, nodeGraphMvp.midiKeyboardHeldKeyVelocities.length)));
-    }
-    nodeGraphMvp.midiKeyboardHeldKeyVelocities = next;
+// Ctrl+Shift+click (step 1, rotate) and Shift+Alt+click (step 7, a fifth if
+// keys are semitone-spaced): move every gold key `step` positions within this
+// keyboard's visible window, wrapping at the window end. Velocities move
+// with their keys. Keys outside the window stay put.
+function nodeGraphKeyboardShiftArpLatch(nodeId, step) {
+  const keyCount = nodeGraphKeyboardKeyCountFor(nodeId);
+  if (keyCount <= 1) return;
+  const start = nodeGraphKeyboardViewStartMidiFor(nodeId);
+  const end = Math.min(128, start + keyCount);
+  const span = end - start;
+  const latch = nodeGraphKeyboardArpLatch(nodeId);
+  const mask = Uint8Array.from(latch.mask);
+  const velocities = Uint8Array.from(latch.velocities);
+  mask.fill(0, start, end);
+  velocities.fill(0, start, end);
+  for (let midi = start; midi < end; midi += 1) {
+    if (!latch.mask[midi]) continue;
+    const target = start + (((midi - start + step) % span) + span) % span;
+    mask[target] = 1;
+    velocities[target] = latch.velocities[midi];
   }
-  return nodeGraphMvp.midiKeyboardHeldKeyVelocities;
-}
-
-/** Permute gold-latch velocities with the same index map as rotate/transpose. */
-function nodeGraphMidiKeyboardPermuteHeldKeyVelocities(srcToDst, keyCount) {
-  const src = nodeGraphMidiKeyboardEnsureHeldKeyVelocities();
-  const dst = new Uint8Array(128);
-  const start = nodeGraphMidiKeyboardViewStartMidi();
-  const n = Math.max(0, Math.min(128, Math.round(Number(keyCount)) || 0));
-  for (let i = 0; i < n; i += 1) {
-    const midi = start + i;
-    if (midi > 127) break;
-    const v = src[midi] | 0;
-    if (!v) continue;
-    const t = Math.round(Number(srcToDst(i)));
-    const dstMidi = start + t;
-    if (dstMidi >= 0 && dstMidi < 128) dst[dstMidi] = v;
-  }
-  nodeGraphMvp.midiKeyboardHeldKeyVelocities = dst;
+  setNodeGraphKeyboardArpLatch(nodeId, mask, velocities);
 }
 
 /**
- * Drop everything this keyboard is holding: chord ghosts, gold latch, blue
- * gate, VoiceManager notes. Called when the module is deleted.
+ * Drop everything this keyboard is holding: chord ghosts, blue gate,
+ * VoiceManager notes, its audio-thread signal + latch. Called when the
+ * module is deleted (its saved state goes with the node).
  */
 function nodeGraphKeyboardReleaseOwnedKeys(nodeId) {
+  const id = String(nodeId || "").trim();
+  const rt = nodeGraphMvp.keyboardRuntimeByNode?.get?.(id) || null;
+  const sounding = rt?.polyphony instanceof Uint8Array ? Uint8Array.from(rt.polyphony) : new Uint8Array(128);
+  if (rt && rt.vmBlueMidi >= 0) sounding[rt.vmBlueMidi] = 1;
   if (typeof nodeGraphChordMemoryReleaseNode === "function") {
-    nodeGraphChordMemoryReleaseNode(nodeId);
+    nodeGraphChordMemoryReleaseNode(id);
   }
-  const table = nodeGraphMvp?.keyboardPolyphonyVelocities;
-  if (table instanceof Uint8Array && typeof sendNodeGraphLiveVmNoteOff === "function") {
+  const after = nodeGraphMvp.keyboardRuntimeByNode?.get?.(id)?.polyphony;
+  if (typeof sendNodeGraphLiveVmNoteOff === "function") {
     for (let m = 0; m < 128; m += 1) {
-      if ((table[m] | 0) > 0) sendNodeGraphLiveVmNoteOff(m);
+      if ((sounding[m] | 0) > 0 || (after instanceof Uint8Array && (after[m] | 0) > 0)) sendNodeGraphLiveVmNoteOff(m);
     }
   }
-  if (typeof nodeGraphMidiKeyboardClearArpKeys === "function") {
-    nodeGraphMidiKeyboardClearArpKeys();
+  nodeGraphMvp.keyboardRuntimeByNode?.delete?.(id);
+  if (typeof sendNodeGraphLiveKeyboardModuleSignal === "function") {
+    sendNodeGraphLiveKeyboardModuleSignal(id, null);
   }
-  if (typeof clearNodeGraphMidiKeyboardPointerHold === "function") {
-    clearNodeGraphMidiKeyboardPointerHold();
-  }
-  if (typeof nodeGraphMidiKeyboardClearPlayGate === "function") {
-    nodeGraphMidiKeyboardClearPlayGate("keyboard deleted");
-  }
-  if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
+  if (typeof sendNodeGraphLiveKeyboardArpLatch === "function") {
+    sendNodeGraphLiveKeyboardArpLatch(id, null);
   }
 }
 
-/** Clear gold Arp Keys latch (all held bits + velocities) and reconcile VM. */
-function nodeGraphMidiKeyboardClearArpKeys() {
-  const mask = typeof nodeGraphMidiKeyboardEnsureArpMask === "function"
-    ? nodeGraphMidiKeyboardEnsureArpMask()
-    : nodeGraphMvp?.midiKeyboardArpMask;
-  if (mask instanceof Uint8Array) mask.fill(0);
-  if (typeof nodeGraphMidiKeyboardEnsureHeldKeyVelocities === "function") {
-    nodeGraphMidiKeyboardEnsureHeldKeyVelocities().fill(0);
-  }
-  if (typeof nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask === "function") {
-    nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask();
-  }
-  if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
-    renderNodeGraphMidiKeyboardHeldKeys();
-  }
-  if (typeof saveNodeGraphMidiKeyboardMemory === "function") {
-    saveNodeGraphMidiKeyboardMemory();
-  }
-  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
-  }
-  if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
-  }
-  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
-    nodeGraphMvp.midiKeyboardStatus = "arp keys cleared";
-  }
+/** Clear this keyboard's gold Arp Keys latch (all held keys + velocities). */
+function nodeGraphMidiKeyboardClearArpKeys(nodeId) {
+  if (!Object.keys(nodeGraphKeyboardSettings(nodeId).arpKeys || {}).length) return;
+  setNodeGraphKeyboardArpLatch(nodeId, new Uint8Array(128), new Uint8Array(128));
 }
 
-function nodeGraphMidiKeyboardToggleHeldMidi(midi, strikeVelocity01) {
+function nodeGraphMidiKeyboardToggleHeldMidi(nodeId, midi, strikeVelocity01) {
   const m = Math.max(0, Math.min(127, Math.round(Number(midi))));
-  const mask = nodeGraphMidiKeyboardEnsureArpMask();
-  const wasOn = typeof noteMaskGet === "function" ? noteMaskGet(mask, m) : Boolean(mask[m]);
-  if (typeof noteMaskSet === "function") noteMaskSet(mask, m, !wasOn);
-  else mask[m] = wasOn ? 0 : 1;
-  nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask();
-  const vels = nodeGraphMidiKeyboardEnsureHeldKeyVelocities();
+  const { mask, velocities } = nodeGraphKeyboardArpLatch(nodeId);
+  const wasOn = Boolean(mask[m]);
+  mask[m] = wasOn ? 0 : 1;
   if (wasOn) {
-    vels[m] = 0;
+    velocities[m] = 0;
     if (typeof sendNodeGraphLiveVmNoteOff === "function") sendNodeGraphLiveVmNoteOff(m);
   } else {
     const strike = Number.isFinite(Number(strikeVelocity01))
       ? nodeGraphMidiKeyboardClamp01(strikeVelocity01)
       : 1;
-    const mapped = typeof nodeGraphMidiKeyboardMapStrikeVelocity01 === "function"
-      ? nodeGraphMidiKeyboardMapStrikeVelocity01(strike)
-      : strike;
+    const mapped = nodeGraphMidiKeyboardMapStrikeVelocity01(nodeId, strike);
     let midiVel = Math.round(mapped * 127);
     if (!(midiVel > 0)) midiVel = 1;
     if (midiVel > 127) midiVel = 127;
-    vels[m] = midiVel;
+    velocities[m] = midiVel;
     if (typeof sendNodeGraphLiveVmNoteOn === "function") {
       sendNodeGraphLiveVmNoteOn(m, midiVel / 127);
     }
   }
-  renderNodeGraphMidiKeyboardHeldKeys();
-  saveNodeGraphMidiKeyboardMemory();
-  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
-  }
-  if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
-  }
+  setNodeGraphKeyboardArpLatch(nodeId, mask, velocities);
 }
 
-function nodeGraphMidiKeyboardToggleHeldKeyBit(index, strikeVelocity01) {
-  const start = nodeGraphMidiKeyboardViewStartMidi();
+function nodeGraphMidiKeyboardToggleHeldKeyBit(nodeId, index, strikeVelocity01) {
   const idx = Math.round(Number(index) || 0);
-  nodeGraphMidiKeyboardToggleHeldMidi(start + idx, strikeVelocity01);
+  nodeGraphMidiKeyboardToggleHeldMidi(nodeId, nodeGraphKeyboardViewStartMidiFor(nodeId) + idx, strikeVelocity01);
 }
 
 function nodeGraphSequencerFaceMask(kind, transmit) {
@@ -2271,45 +2244,50 @@ function renderNodeGraphVoiceManagerDebug() {
   });
 }
 
-function nodeGraphTriggerPatchClearGhost() {
+function nodeGraphTriggerPatchClearGhost(nodeId) {
   if (typeof document === "undefined") return;
-  document.querySelectorAll(".ghost-patch").forEach((el) => {
-    el.classList.remove("ghost-patch");
-  });
-  if (nodeGraphMvp) nodeGraphMvp.midiKeyboardTriggerPatchPointerId = null;
+  for (const face of nodeGraphKeyboardFaces(nodeId)) {
+    face.querySelectorAll(".ghost-patch").forEach((el) => {
+      el.classList.remove("ghost-patch");
+    });
+  }
+  nodeGraphKeyboardRuntime(nodeId).triggerPatchPointerId = null;
 }
 
 function nodeGraphTriggerPatchGhostKey(el, pointerId) {
-  nodeGraphTriggerPatchClearGhost();
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(el);
+  nodeGraphTriggerPatchClearGhost(nodeId);
   if (el && el.classList) el.classList.add("ghost-patch");
-  if (nodeGraphMvp) nodeGraphMvp.midiKeyboardTriggerPatchPointerId = pointerId;
+  nodeGraphKeyboardRuntime(nodeId).triggerPatchPointerId = pointerId;
 }
 
 function renderNodeGraphMidiKeyboardHeldKeys() {
-  const localMask = nodeGraphMidiKeyboardEnsureArpMask();
-  const momMask = typeof nodeGraphChordMemoryHost === "function"
-    ? nodeGraphChordMemoryHost()?.chordMemoryMomentaryPlayMask
-    : null;
+  // Hardware MIDI Play Keys (MIDI module) ghost on every keyboard face.
   const midiPlay = nodeGraphMvp?.midiKeyboardPlayMask;
-  const triggerPatchByNode = new Map();
+  const byNode = new Map();
+  const stateFor = (nodeId) => {
+    if (!byNode.has(nodeId)) {
+      byNode.set(nodeId, {
+        gold: nodeGraphKeyboardArpLatchView(nodeId).mask,
+        momentary: typeof nodeGraphChordMemoryMomentaryMaskForNode === "function"
+          ? nodeGraphChordMemoryMomentaryMaskForNode(nodeId)
+          : null,
+        triggerPatch: nodeGraphMidiKeyboardModeForNode(nodeId) === "triggerPatch",
+      });
+    }
+    return byNode.get(nodeId);
+  };
   document.querySelectorAll(".node-midi-keyboard-module [data-key-index]").forEach((key) => {
     const midi = Number(key.dataset.midi);
-    const local = typeof noteMaskGet === "function"
-      ? noteMaskGet(localMask, midi)
-      : nodeGraphMidiKeyboardHeldKeyBitIsSet(Number(key.dataset.keyIndex));
+    const state = stateFor(nodeGraphMidiKeyboardNodeIdFromElement(key));
+    const local = midi >= 0 && midi <= 127 && Boolean(state.gold[midi]);
     const playGhost = typeof noteMaskGet === "function"
-      && ((momMask instanceof Uint8Array && noteMaskGet(momMask, midi))
+      && ((state.momentary instanceof Uint8Array && noteMaskGet(state.momentary, midi))
         || (midiPlay instanceof Uint8Array && noteMaskGet(midiPlay, midi)));
-    const arpGhost = typeof noteMaskGet === "function" && noteMaskGet(localMask, midi);
-    const keyNodeId = nodeGraphMidiKeyboardNodeIdFromElement(key);
-    if (!triggerPatchByNode.has(keyNodeId)) {
-      triggerPatchByNode.set(keyNodeId, nodeGraphMidiKeyboardModeForNode(keyNodeId) === "triggerPatch");
-    }
-    const triggerPatch = triggerPatchByNode.get(keyNodeId);
-    const setPatch = triggerPatch && Boolean(nodeGraphMvp.patch?.circuitPatches?.[midi]?.values);
+    const setPatch = state.triggerPatch && Boolean(nodeGraphMvp.patch?.circuitPatches?.[midi]?.values);
     key.classList.toggle("held", local);
     key.classList.toggle("ghost-play", Boolean(playGhost) && !local);
-    key.classList.toggle("ghost-arp", Boolean(arpGhost) && !local);
+    key.classList.remove("ghost-arp");
     key.classList.toggle("patch-set", setPatch);
   });
   if (typeof nodeGraphChordMemoryPaintKeys === "function") {
@@ -2321,124 +2299,61 @@ function renderNodeGraphMidiKeyboardHeldKeys() {
   renderNodeGraphMidiKeyboardBitmaskDisplay();
 }
 
-// One square per key, across the full key range (not a fixed 53 -- the
-// old single-number storage capped the display at its own safe-integer
-// ceiling, but that ceiling doesn't apply the same way to the low/high
-// pair, so the display now just tracks the real key range).
-function nodeGraphMidiKeyboardBitmaskDisplayBitCount() {
-  return nodeGraphMidiKeyboardMaxKeyCount;
-}
-
-// Phase-bit multiplexing for Play Keys / Arp Keys wires: a single wire is one
-// JS Number, safe up to 2^53-1, but the full held-keys state can span 88
-// bits. Rather than a second wire, the SAME wire carries the low half
-// (bits 0-48) every sample by default -- true 0-sample-delay as long as
-// nothing above key 48 is held -- and only starts alternating between
-// the low and high half, one per sample, once the high half is actually
-// in use. Bit 49 (nodeGraphMidiKeyboardHeldKeysLowBitCount) of the
-// TRANSMITTED value is a self-describing phase flag: any receiver can
-// decode a single sample in isolation (no shared state / sample-count
-// assumptions needed) as "value < 2^49 -> this is the low half" or
-// "value >= 2^49 -> subtract 2^49, this is the high half", then latch
-// each half into its own register and combine them for the real 88-bit
-// state. Worst-case update latency for any one bit is 1 sample, and only
-// while the high half is actively in use.
-const nodeGraphMidiKeyboardHeldKeysPhaseValue = 2 ** nodeGraphMidiKeyboardHeldKeysLowBitCount;
-
-function nodeGraphMidiKeyboardHeldKeysTransmitValue(low, high, phase) {
-  if (typeof noteMaskTransmit === "function") {
-    if (low instanceof Uint8Array) {
-      return noteMaskTransmit(low, phase);
-    }
-    const src = nodeGraphMvp?.midiKeyboardArpMask;
-    if (src instanceof Uint8Array && (high === undefined || high === null)) {
-      return noteMaskTransmit(src, phase);
-    }
-    const mask = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
-    const start = nodeGraphMidiKeyboardStartMidi;
-    const lo = nodeGraphFiniteNumber(low);
-    const hi = nodeGraphFiniteNumber(high);
-    for (let i = 0; i < 49; i += 1) {
-      if (Math.floor(lo / (2 ** i)) % 2 === 1) mask[start + i] = 1;
-    }
-    for (let i = 0; i < 39; i += 1) {
-      if (Math.floor(hi / (2 ** i)) % 2 === 1) mask[start + 49 + i] = 1;
-    }
-    return noteMaskTransmit(mask, phase);
-  }
-  const safeHigh = nodeGraphFiniteNumber(high);
-  if (!safeHigh) {
-    return nodeGraphFiniteNumber(low);
-  }
-  return phase
-    ? nodeGraphMidiKeyboardHeldKeysPhaseValue + safeHigh
-    : nodeGraphFiniteNumber(low);
-}
-
-/** Split a transmitted Play/Arp sample into a 128 MIDI mask (latches chunks). */
+/** Split a transmitted Play/Arp sample into a 128 MIDI mask (latches chunks into `regs`). */
 function nodeGraphHeldKeysDemux(value, regs) {
-  if (typeof noteMaskDemuxRegisters === "function") {
-    const slot = regs || nodeGraphMvp._noteMaskRegs || (nodeGraphMvp._noteMaskRegs = { c0: 0, c1: 0, c2: 0 });
-    noteMaskDemuxRegisters(slot, value);
-    return typeof noteMaskFromRegisters === "function" ? noteMaskFromRegisters(slot) : slot;
-  }
-  const v = nodeGraphFiniteNumber(value);
-  if (v >= nodeGraphMidiKeyboardHeldKeysPhaseValue) {
-    return { low: 0, high: v - nodeGraphMidiKeyboardHeldKeysPhaseValue };
-  }
-  return { low: v, high: 0 };
+  noteMaskDemuxRegisters(regs, value);
+  return noteMaskFromRegisters(regs);
 }
 
-// Leading square is the phase flag itself, not a key -- 🔴 when the high
-// half has any bits set (the wire will alternate low/high, one per
-// sample) or 🟢 when it's empty (the wire always carries the low half,
-// true 0-sample-delay). This can't track the actual audio-thread's
-// per-sample phase toggle (that's 44.1kHz, nothing to usefully show a
-// human at that rate, and it lives inside the worklet/offline evaluator,
-// not the main thread) -- it shows the thing that DECIDES whether
-// alternation happens at all, which is what's actually meaningful to see
-// at a glance. Then one square per key, across the full key range.
-function nodeGraphMidiKeyboardBitmaskEmoji(low, high) {
-  let out = (nodeGraphFiniteNumber(high)) !== 0 ? "🔴" : "🟢";
-  for (let index = 0; index < nodeGraphMidiKeyboardBitmaskDisplayBitCount(); index += 1) {
-    out += nodeGraphMidiKeyboardHeldKeyBitIsSet(index, low, high) ? "⬛" : "⬜";
+// Leading square: 🔴 when any gold key sits above window position 48 (the
+// note-mask wire then alternates chunks, one per sample) or 🟢 when not.
+// Then one square per position of this keyboard's window, across the full
+// key range.
+function nodeGraphMidiKeyboardBitmaskEmoji(mask, startMidi) {
+  let high = false;
+  let keys = "";
+  for (let index = 0; index < nodeGraphMidiKeyboardMaxKeyCount; index += 1) {
+    const midi = startMidi + index;
+    const on = midi <= 127 && Boolean(mask[midi]);
+    if (on && index >= 49) high = true;
+    keys += on ? "⬛" : "⬜";
   }
-  return out;
+  return (high ? "🔴" : "🟢") + keys;
 }
 
 function renderNodeGraphMidiKeyboardBitmaskDisplay() {
-  const text = nodeGraphMidiKeyboardBitmaskEmoji(
-    nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
-    nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
-  );
   document.querySelectorAll("[data-midi-keyboard-bitmask-value]").forEach((el) => {
-    el.textContent = text;
+    const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(el);
+    el.textContent = nodeGraphMidiKeyboardBitmaskEmoji(
+      nodeGraphKeyboardArpLatchView(nodeId).mask,
+      nodeGraphKeyboardViewStartMidiFor(nodeId),
+    );
   });
 }
 
 function renderNodeGraphMidiKeyboardKeyCountControl() {
-  const value = nodeGraphMidiKeyboardKeyCount();
+  const countFor = (el) => nodeGraphKeyboardKeyCountFor(nodeGraphMidiKeyboardNodeIdFromElement(el));
   document.querySelectorAll("[data-midi-keyboard-key-count-value]").forEach((el) => {
-    el.textContent = String(value);
+    el.textContent = String(countFor(el));
   });
   document.querySelectorAll("[data-midi-keyboard-key-count-down]").forEach((button) => {
-    button.disabled = value <= nodeGraphMidiKeyboardMinKeyCount;
+    button.disabled = countFor(button) <= nodeGraphMidiKeyboardMinKeyCount;
   });
   document.querySelectorAll("[data-midi-keyboard-key-count-up]").forEach((button) => {
-    button.disabled = value >= nodeGraphMidiKeyboardMaxKeyCount;
+    button.disabled = countFor(button) >= nodeGraphMidiKeyboardMaxKeyCount;
   });
 }
 
-function changeNodeGraphMidiKeyboardKeyCount(delta) {
-  nodeGraphMvp.midiKeyboardKeyCount = nodeGraphMidiKeyboardKeyCount(nodeGraphMidiKeyboardKeyCount() + delta);
+function changeNodeGraphMidiKeyboardKeyCount(nodeId, delta) {
+  const current = nodeGraphKeyboardKeyCountFor(nodeId);
+  const keyCount = nodeGraphMidiKeyboardKeyCount(current + delta);
+  if (keyCount === current || !writeNodeGraphKeyboardSettings(nodeId, { keyCount })) return;
   renderNodeGraphMidiKeyboardKeyCountControl();
   renderNodeGraphMidiKeyboardKeys();
-  saveNodeGraphMidiKeyboardMemory();
 }
 const nodeGraphMidiKeyboardMinOctave = -4;
 const nodeGraphMidiKeyboardMaxOctave = 4;
 const nodeGraphMidiKeyboardNoteNames = Object.freeze(["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]);
-const nodeGraphMidiKeyboardMemoryStorageKey = "soemdsp-sandbox-midi-keyboard-memory-v2";
 
 function nodeGraphMidiListenChannel(value = nodeGraphMvp.midiListenChannel) {
   const n = Math.round(Number(value));
@@ -2461,29 +2376,23 @@ function nodeGraphMidiKeyboardClampVel127(value, fallback = 127) {
   return Math.max(0, Math.min(127, n));
 }
 
-function nodeGraphMidiKeyboardVelMin127(value = nodeGraphMvp?.midiKeyboardVelMin) {
-  return nodeGraphMidiKeyboardClampVel127(
-    value,
-    nodeGraphMvp?.midiKeyboardVelMin ?? 127,
-  );
+function nodeGraphKeyboardVelMinFor(nodeId) {
+  return nodeGraphMidiKeyboardClampVel127(nodeGraphKeyboardSettings(nodeId).velMin, 127);
 }
 
-function nodeGraphMidiKeyboardVelMax127(value = nodeGraphMvp?.midiKeyboardVelMax) {
-  return nodeGraphMidiKeyboardClampVel127(
-    value,
-    nodeGraphMvp?.midiKeyboardVelMax ?? 127,
-  );
+function nodeGraphKeyboardVelMaxFor(nodeId) {
+  return nodeGraphMidiKeyboardClampVel127(nodeGraphKeyboardSettings(nodeId).velMax, 127);
 }
 
 /**
- * Map strike 0…1 through Vel Min/Max (MIDI 0…127 → 0…1 out).
+ * Map strike 0…1 through this keyboard's Vel Min/Max (MIDI 0…127 → 0…1 out).
  * Min=Max=127 (default) disables scaling — always 1.
  * 0 is literal silence at that end of the range.
  */
-function nodeGraphMidiKeyboardMapStrikeVelocity01(strike01) {
+function nodeGraphMidiKeyboardMapStrikeVelocity01(nodeId, strike01) {
   const t = nodeGraphMidiKeyboardClamp01(strike01);
-  let lo = nodeGraphMidiKeyboardVelMin127();
-  let hi = nodeGraphMidiKeyboardVelMax127();
+  let lo = nodeGraphKeyboardVelMinFor(nodeId);
+  let hi = nodeGraphKeyboardVelMaxFor(nodeId);
   if (lo > hi) {
     const swap = lo;
     lo = hi;
@@ -2505,8 +2414,9 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
   const midi = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(signal.midi, 60))));
   const rawMidi = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(signal.rawMidi, midi))));
   const octave = nodeGraphMidiKeyboardOctaveOffset(signal.octave);
-  const keyIndex = Math.max(0, Math.min(nodeGraphMidiKeyboardKeyCount() - 1, nodeGraphFiniteNumber(signal.keyIndex)));
-  const keyQuantized = nodeGraphMidiKeyboardClamp01(signal.keyQuantized ?? (keyIndex / Math.max(1, nodeGraphMidiKeyboardKeyCount() - 1)));
+  const keyCount = nodeGraphMidiKeyboardKeyCount(options.keyCount);
+  const keyIndex = Math.max(0, Math.min(keyCount - 1, nodeGraphFiniteNumber(signal.keyIndex)));
+  const keyQuantized = nodeGraphMidiKeyboardClamp01(signal.keyQuantized ?? (keyIndex / Math.max(1, keyCount - 1)));
   // Absolute Hz from MIDI — same SSOT as nodeGraphMidiKeyboardSignalFromRaw.
   // Never multiply an existing Hz by 2^((midi-69)/12): render/save runs this
   // every pointer event, so that compound made f jump again on key-up.
@@ -2535,11 +2445,6 @@ function normalizeNodeGraphMidiKeyboardMemorySignal(signal, options = {}) {
   };
 }
 
-function nodeGraphMidiKeyboardHeldKeysBitmaskValue(value) {
-  const mask = Math.floor(Number(value));
-  return Number.isFinite(mask) && mask >= 0 ? mask : 0;
-}
-
 
 /** Keys the Keyboard / Grid Keyboard face edits but the patch node used to drop. */
 function normalizeNodeGraphKeyboardControllerFaceSettings(raw) {
@@ -2555,11 +2460,19 @@ function normalizeNodeGraphKeyboardControllerFaceSettings(raw) {
   if (has("mode") && typeof nodeGraphMidiKeyboardMode === "function") {
     out.mode = nodeGraphMidiKeyboardMode(source.mode);
   }
-  if (has("velMin") && typeof nodeGraphMidiKeyboardVelMin127 === "function") {
-    out.velMin = nodeGraphMidiKeyboardVelMin127(source.velMin);
+  if (has("velMin")) {
+    out.velMin = nodeGraphMidiKeyboardClampVel127(source.velMin, 127);
   }
-  if (has("velMax") && typeof nodeGraphMidiKeyboardVelMax127 === "function") {
-    out.velMax = nodeGraphMidiKeyboardVelMax127(source.velMax);
+  if (has("velMax")) {
+    out.velMax = nodeGraphMidiKeyboardClampVel127(source.velMax, 127);
+  }
+  if (has("arpKeys")) {
+    const arpKeys = nodeGraphKeyboardNormalizeArpKeys(source.arpKeys);
+    if (Object.keys(arpKeys).length) out.arpKeys = arpKeys;
+  }
+  if (has("lastSignal")) {
+    const lastSignal = normalizeNodeGraphMidiKeyboardMemorySignal(source.lastSignal, { keyCount: source.keyCount });
+    if (lastSignal) out.lastSignal = lastSignal;
   }
   if (has("hideKeyboardInfo")) {
     out.hideKeyboardInfo = source.hideKeyboardInfo === false ? false : true;
@@ -2573,42 +2486,42 @@ function normalizeNodeGraphKeyboardControllerFaceSettings(raw) {
   return out;
 }
 
-/** Keyboard / Grid Keyboard settings (mode, layout) live on each module node: paint every face from the patch. */
+/**
+ * Every Keyboard / Grid Keyboard owns its state on its own node: paint every
+ * face from the patch and push each keyboard's latch to the audio thread
+ * (patch load, undo/redo, any patch commit). Runtime records of deleted
+ * keyboards are dropped.
+ */
 function applyNodeGraphKeyboardModuleSettingsFromPatch() {
-  renderNodeGraphMidiKeyboardModeControl();
-  if (typeof applyNodeGraphMidiKeyboardLayout === "function") {
-    applyNodeGraphMidiKeyboardLayout();
+  const ids = nodeGraphKeyboardNodeIds();
+  if (nodeGraphMvp.keyboardRuntimeByNode instanceof Map) {
+    for (const id of [...nodeGraphMvp.keyboardRuntimeByNode.keys()]) {
+      if (!ids.includes(id)) nodeGraphMvp.keyboardRuntimeByNode.delete(id);
+    }
   }
+  for (const id of ids) {
+    nodeGraphKeyboardHydrateSignal(id, nodeGraphKeyboardRuntime(id));
+    nodeGraphKeyboardPushArpLatch(id);
+  }
+  renderNodeGraphMidiKeyboardModeControl();
+  renderNodeGraphMidiKeyboardKeys();
+  renderNodeGraphMidiKeyboardKeyCountControl();
+  renderNodeGraphMidiKeyboardOctaveControl();
 }
 
-function nodeGraphMidiKeyboardMemoryPayload() {
-  return {
-    heldKeysLowBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(nodeGraphMvp.midiKeyboardHeldKeysLowBitmask),
-    heldKeysHighBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(nodeGraphMvp.midiKeyboardHeldKeysHighBitmask),
-    heldKeyVelocities: Array.from(nodeGraphMidiKeyboardEnsureHeldKeyVelocities()),
-    arpMask: Array.from(nodeGraphMidiKeyboardEnsureArpMask()),
-    inputId: nodeGraphMvp.midiKeyboardInputId || "",
-    listenChannel: nodeGraphMidiListenChannel(),
-    keyCount: nodeGraphMidiKeyboardKeyCount(),
-    layout: typeof nodeGraphMidiKeyboardLayoutSettings === "function"
-      ? nodeGraphMidiKeyboardLayoutSettings()
-      : (nodeGraphMvp.midiKeyboardLayout || null),
-    modWheel: nodeGraphPerformanceModWheelValue(),
-    octave: nodeGraphMidiKeyboardOctaveOffset(),
-    pitchWheel: nodeGraphPerformancePitchWheelValue(),
-    velMin: nodeGraphMidiKeyboardVelMin127(),
-    velMax: nodeGraphMidiKeyboardVelMax127(),
-    signal: normalizeNodeGraphMidiKeyboardMemorySignal(
-      nodeGraphMvp.keyboardModuleSignal || nodeGraphMvp.midiKeyboardSignal,
-    ),
-  };
-}
+// Hardware MIDI device prefs (which input, which listen channel). App-wide,
+// not keyboard state: only the single MIDI module receives the device, and
+// a keyboard hears hardware notes only through a MIDI Play Keys cable.
+const nodeGraphMidiInputMemoryStorageKey = "soemdsp-sandbox-midi-keyboard-memory-v2";
 
-function saveNodeGraphMidiKeyboardMemory() {
+function saveNodeGraphMidiInputMemory() {
   try {
     window.localStorage.setItem(
-      nodeGraphMidiKeyboardMemoryStorageKey,
-      JSON.stringify(nodeGraphMidiKeyboardMemoryPayload()),
+      nodeGraphMidiInputMemoryStorageKey,
+      JSON.stringify({
+        inputId: nodeGraphMvp.midiKeyboardInputId || "",
+        listenChannel: nodeGraphMidiListenChannel(),
+      }),
     );
     return true;
   } catch {
@@ -2616,170 +2529,28 @@ function saveNodeGraphMidiKeyboardMemory() {
   }
 }
 
-function loadNodeGraphMidiKeyboardMemory() {
-  try {
-    const text = window.localStorage.getItem(nodeGraphMidiKeyboardMemoryStorageKey);
-    if (!text) {
-      return null;
-    }
-    const payload = JSON.parse(text);
-    if (!payload || typeof payload !== "object") {
-      return null;
-    }
-    return {
-      heldKeysLowBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(payload.heldKeysLowBitmask),
-      heldKeysHighBitmask: nodeGraphMidiKeyboardHeldKeysBitmaskValue(payload.heldKeysHighBitmask),
-      heldKeyVelocities: Array.isArray(payload.heldKeyVelocities)
-        ? payload.heldKeyVelocities
-        : null,
-      arpMask: Array.isArray(payload.arpMask) ? payload.arpMask : null,
-      inputId: String(payload.inputId || ""),
-      listenChannel: nodeGraphMidiListenChannel(payload.listenChannel),
-      keyCount: Object.prototype.hasOwnProperty.call(payload, 'keyCount')
-        && Number.isFinite(Number(payload.keyCount))
-        ? nodeGraphMidiKeyboardKeyCount(payload.keyCount)
-        : null,
-      layout: typeof normalizeNodeGraphMidiKeyboardLayout === "function"
-        ? normalizeNodeGraphMidiKeyboardLayout(payload.layout)
-        : payload.layout,
-      modWheel: nodeGraphPerformanceModWheelValue(payload.modWheel),
-      octave: nodeGraphMidiKeyboardOctaveOffset(payload.octave),
-      pitchWheel: nodeGraphPerformancePitchWheelValue(payload.pitchWheel),
-      velMin: nodeGraphMidiKeyboardVelMin127(payload.velMin),
-      velMax: nodeGraphMidiKeyboardVelMax127(payload.velMax),
-      signal: normalizeNodeGraphMidiKeyboardMemorySignal(payload.signal),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function applyNodeGraphMidiKeyboardMemory() {
-  nodeGraphMvp.midiKeyboardMemoryLoaded = true;
-  const memory = loadNodeGraphMidiKeyboardMemory();
-  if (!memory) {
-    // Defaults: Vel Min = Vel Max = 127 → pointer velocity scaling off.
-    nodeGraphMvp.midiKeyboardVelMin = 127;
-    nodeGraphMvp.midiKeyboardVelMax = 127;
-    if (typeof applyNodeGraphKeyboardModuleSettingsFromPatch === 'function') {
-      applyNodeGraphKeyboardModuleSettingsFromPatch();
-    }
-    return false;
-  }
-  nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = memory.heldKeysLowBitmask;
-  nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = memory.heldKeysHighBitmask;
-  if (Array.isArray(memory.arpMask)) {
-    const m = nodeGraphMidiKeyboardEnsureArpMask();
-    m.fill(0);
-    const n = Math.min(128, memory.arpMask.length);
-    for (let i = 0; i < n; i += 1) m[i] = memory.arpMask[i] ? 1 : 0;
-    nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask();
-  } else {
-    nodeGraphMidiKeyboardApplyBitmaskFieldsToArpMask(
-      memory.heldKeysLowBitmask,
-      memory.heldKeysHighBitmask,
-      nodeGraphMidiKeyboardStartMidi,
-    );
-  }
-  if (Array.isArray(memory.heldKeyVelocities)) {
-    const vels = nodeGraphMidiKeyboardEnsureHeldKeyVelocities();
-    vels.fill(0);
-    const n = Math.min(vels.length, memory.heldKeyVelocities.length);
-    for (let i = 0; i < n; i += 1) {
-      const v = Math.round(Number(memory.heldKeyVelocities[i]) || 0);
-      vels[i] = v > 0 ? Math.min(127, v) : 0;
-    }
-  }
-  nodeGraphMvp.midiKeyboardInputId = memory.inputId;
-  nodeGraphMvp.midiListenChannel = memory.listenChannel;
-  if (memory.keyCount != null) {
-    nodeGraphMvp.midiKeyboardKeyCount = memory.keyCount;
-  }
-  if (memory.layout) {
-    nodeGraphMvp.midiKeyboardLayout = memory.layout;
-  }
-  nodeGraphMvp.modWheelSignal = memory.modWheel;
-  nodeGraphMvp.midiKeyboardOctave = memory.octave;
-  nodeGraphMvp.pitchWheelSignal = memory.pitchWheel;
-  nodeGraphMvp.midiKeyboardVelMin = memory.velMin;
-  nodeGraphMvp.midiKeyboardVelMax = memory.velMax;
-  // Restored piano state is local Keyboard — hardware MIDI starts quiet.
-  nodeGraphMvp.keyboardModuleSignal = memory.signal;
-  nodeGraphMvp.midiKeyboardSignal = null;
-  nodeGraphMvp.midiKeyboardPreviousGate = 0;
-  if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
-    renderNodeGraphMidiKeyboardHeldKeys();
-  }
-  // Push latch to worklet (Arp Keys bus) + rebuild Keyboard Polyphony table.
-  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask(
-      nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
-      nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
-    );
-  }
-  if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
-  }
-  if (typeof applyNodeGraphKeyboardModuleSettingsFromPatch === "function") {
-    applyNodeGraphKeyboardModuleSettingsFromPatch();
-  }
-  return true;
-}
-
-/** Apply gold Arp latch from patch.keyboardLatch (preferred over localStorage). */
-function applyNodeGraphKeyboardLatchFromPatch(patch = nodeGraphMvp?.patch) {
-  const latch = patch?.keyboardLatch;
-  if (!latch || typeof latch !== "object") {
-    return false;
-  }
-  const low = nodeGraphMidiKeyboardHeldKeysBitmaskValue(latch.lowBitmask ?? latch.low);
-  const high = nodeGraphMidiKeyboardHeldKeysBitmaskValue(latch.highBitmask ?? latch.high);
-  nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = low;
-  nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = high;
-  if (Array.isArray(latch.arpMask) || latch.arpMask instanceof Uint8Array) {
-    const m = nodeGraphMidiKeyboardEnsureArpMask();
-    m.fill(0);
-    const n = Math.min(128, latch.arpMask.length);
-    for (let i = 0; i < n; i += 1) m[i] = latch.arpMask[i] ? 1 : 0;
-  } else {
-    nodeGraphMidiKeyboardApplyBitmaskFieldsToArpMask(low, high);
-  }
-  if (Array.isArray(latch.velocities) || latch.velocities instanceof Uint8Array) {
-    const vels = nodeGraphMidiKeyboardEnsureHeldKeyVelocities();
-    vels.fill(0);
-    const n = Math.min(vels.length, latch.velocities.length);
-    for (let i = 0; i < n; i += 1) {
-      const v = Math.round(Number(latch.velocities[i]) || 0);
-      vels[i] = v > 0 ? Math.min(127, v) : 0;
-    }
-  }
-  nodeGraphMvp.midiKeyboardMemoryLoaded = true;
-  if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
-    renderNodeGraphMidiKeyboardHeldKeys();
-  }
-  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask(low, high);
-  }
-  if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
-  }
-  const arpOn = nodeGraphMvp.midiKeyboardArpMask instanceof Uint8Array
-    && nodeGraphMvp.midiKeyboardArpMask.some((v) => v);
-  return low > 0 || high > 0 || arpOn;
-}
-
-function ensureNodeGraphMidiKeyboardMemoryLoaded() {
-  if (nodeGraphMvp.midiKeyboardMemoryLoaded) {
+function ensureNodeGraphMidiInputMemoryLoaded() {
+  if (nodeGraphMvp.midiInputMemoryLoaded) {
     return;
   }
-  applyNodeGraphMidiKeyboardMemory();
+  nodeGraphMvp.midiInputMemoryLoaded = true;
+  try {
+    const payload = JSON.parse(window.localStorage.getItem(nodeGraphMidiInputMemoryStorageKey) || "null");
+    if (!payload || typeof payload !== "object") {
+      return;
+    }
+    nodeGraphMvp.midiKeyboardInputId = String(payload.inputId || "");
+    nodeGraphMvp.midiListenChannel = nodeGraphMidiListenChannel(payload.listenChannel);
+  } catch {
+    // Unreadable prefs: keep defaults (no input, all channels).
+  }
 }
 
-function nodeGraphPerformancePitchWheelValue(value = nodeGraphMvp.pitchWheelSignal) {
+function nodeGraphPerformancePitchWheelValue(value) {
   return clampNodeSliderValue(nodeGraphFiniteNumber(value), -1, 1);
 }
 
-function nodeGraphPerformanceModWheelValue(value = nodeGraphMvp.modWheelSignal) {
+function nodeGraphPerformanceModWheelValue(value) {
   return clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
 }
 
@@ -2836,12 +2607,7 @@ function renderNodeGraphPerformanceWheels() {
   document.querySelectorAll("[data-performance-wheel]").forEach((element) => {
     const kind = element.dataset.performanceWheel;
     const nodeId = nodeGraphPerformanceWheelNodeId(element);
-    const value = nodeId
-      ? readNodeGraphPerformanceWheelParam(nodeId, kind)
-      : (kind === "modWheel"
-        ? nodeGraphPerformanceModWheelValue()
-        : nodeGraphPerformancePitchWheelValue());
-    paintNodeGraphPerformanceWheelElement(element, value);
+    paintNodeGraphPerformanceWheelElement(element, readNodeGraphPerformanceWheelParam(nodeId, kind));
   });
 }
 
@@ -2851,11 +2617,6 @@ function setNodeGraphPerformanceWheel(kind, value, status = "", nodeId = "", opt
     : (kind === "pitchWheel" ? nodeGraphPerformancePitchWheelValue(value) : NaN);
   if (!Number.isFinite(clamped)) {
     return;
-  }
-  if (kind === "modWheel") {
-    nodeGraphMvp.modWheelSignal = clamped;
-  } else {
-    nodeGraphMvp.pitchWheelSignal = clamped;
   }
   const targets = nodeId
     ? [{ id: nodeId }]
@@ -2869,12 +2630,8 @@ function setNodeGraphPerformanceWheel(kind, value, status = "", nodeId = "", opt
   if (status) {
     nodeGraphMvp.midiKeyboardStatus = status;
   }
-  saveNodeGraphMidiKeyboardMemory();
   renderNodeGraphPerformanceWheels();
   renderNodeGraphMidiKeyboardInputControls();
-  if (typeof sendNodeGraphLivePitchModWheelSignal === "function") {
-    sendNodeGraphLivePitchModWheelSignal();
-  }
 }
 
 function setNodeGraphPerformanceWheelFromPointer(element, event) {
@@ -2926,32 +2683,30 @@ function nodeGraphMidiKeyboardPitchLabel(midi) {
   return `${note}${Math.floor(rounded / 12) - 2}`;
 }
 
-function nodeGraphMidiKeyboardKeyCapText(midi) {
-  const mode = typeof nodeGraphMidiKeyboardLayoutSettings === "function"
-    ? nodeGraphMidiKeyboardLayoutSettings().keyLabels
-    : "name";
-  if (mode === "off") {
+/** This keyboard's key label mode (name / number / off). */
+function nodeGraphKeyboardKeyLabelsFor(nodeId) {
+  return normalizeNodeGraphMidiKeyboardKeyLabels(nodeGraphKeyboardSettings(nodeId).keyLabels);
+}
+
+function nodeGraphMidiKeyboardKeyCapText(midi, labels) {
+  if (labels === "off") {
     return "";
   }
   const rounded = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(midi))));
-  if (mode === "number") {
+  if (labels === "number") {
     return String(rounded);
   }
   return nodeGraphMidiKeyboardPitchLabel(rounded);
 }
 
-function nodeGraphMidiKeyboardOctaveOffset(value = nodeGraphMvp.midiKeyboardOctave) {
+function nodeGraphMidiKeyboardOctaveOffset(value) {
   return Math.max(
     nodeGraphMidiKeyboardMinOctave,
     Math.min(nodeGraphMidiKeyboardMaxOctave, Math.round(nodeGraphFiniteNumber(value))),
   );
 }
 
-function nodeGraphMidiKeyboardShiftMidi(rawMidi, octave = nodeGraphMidiKeyboardOctaveOffset()) {
-  return Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(rawMidi)) + octave * 12));
-}
-
-function nodeGraphMidiKeyboardOctaveLabel(value = nodeGraphMidiKeyboardOctaveOffset()) {
+function nodeGraphMidiKeyboardOctaveLabel(value) {
   const octave = nodeGraphMidiKeyboardOctaveOffset(value);
   return `${octave >= 0 ? "+" : ""}${octave}`;
 }
@@ -2987,19 +2742,7 @@ function nodeGraphMidiKeyboardModeForElement(element) {
 
 /** Write one module's mode onto its node (saved with the patch, undoable). */
 function setNodeGraphMidiKeyboardModeForNode(nodeId, mode) {
-  const node = nodeId && typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  if (!node || (node.type !== "keyboard" && node.type !== "gridKeyboard")) {
-    return false;
-  }
-  assignNodeGraphTypedDisplaySettingsEverywhere(node, "keyboardControllerFace", {
-    ...(node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
-      ? node.traceDisplaySettings
-      : {}),
-    mode: nodeGraphMidiKeyboardMode(mode),
-  });
-  setNodeGraphPatchDirtyState("edited");
-  scheduleNodeGraphChromeHistoryAndAutosave();
-  return true;
+  return writeNodeGraphKeyboardSettings(nodeId, { mode: nodeGraphMidiKeyboardMode(mode) });
 }
 
 function nodeGraphMidiKeyboardModeLabel(value) {
@@ -3024,9 +2767,12 @@ function nodeGraphMidiKeyboardRawMidiFromSignal(signal) {
 }
 
 function renderNodeGraphMidiKeyboardKeyLabels() {
+  const labelsByNode = new Map();
   document.querySelectorAll(".node-midi-keyboard-module [data-midi]").forEach((key) => {
+    const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(key);
+    if (!labelsByNode.has(nodeId)) labelsByNode.set(nodeId, nodeGraphKeyboardKeyLabelsFor(nodeId));
     const midi = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(key.dataset.midi))));
-    const text = nodeGraphMidiKeyboardKeyCapText(midi);
+    const text = nodeGraphMidiKeyboardKeyCapText(midi, labelsByNode.get(nodeId));
     const aria = `${nodeGraphMidiKeyboardPitchLabel(midi)} / MIDI ${midi}`;
     if (key.textContent !== text) {
       key.textContent = text;
@@ -3037,14 +2783,19 @@ function renderNodeGraphMidiKeyboardKeyLabels() {
   });
 }
 
-function nodeGraphMidiKeyboardSignalFromRaw(rawMidi, options = {}) {
+/**
+ * Signal for MIDI note `rawMidi` on keyboard `nodeId` (its octave window sets
+ * keyIndex / keyQuantized). The MIDI module passes "" (default window).
+ */
+function nodeGraphMidiKeyboardSignalFromRaw(nodeId, rawMidi, options = {}) {
   const midi = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(rawMidi))));
-  const start = nodeGraphMidiKeyboardViewStartMidi();
+  const keyCount = nodeGraphKeyboardKeyCountFor(nodeId);
+  const start = nodeGraphKeyboardViewStartMidiFor(nodeId);
   const rawKeyIndex = Math.max(
     0,
-    Math.min(nodeGraphMidiKeyboardKeyCount() - 1, midi - start),
+    Math.min(keyCount - 1, midi - start),
   );
-  const keyQuantized = nodeGraphMidiKeyboardKeyCount() > 1 ? rawKeyIndex / (nodeGraphMidiKeyboardKeyCount() - 1) : 0;
+  const keyQuantized = keyCount > 1 ? rawKeyIndex / (keyCount - 1) : 0;
   const frequency = 440 * 2 ** ((midi - 69) / 12);
   return {
     source: options.source || "keyboard",
@@ -3056,7 +2807,7 @@ function nodeGraphMidiKeyboardSignalFromRaw(rawMidi, options = {}) {
     keyIndex: rawKeyIndex,
     keyQuantized,
     rawMidi: midi,
-    octave: nodeGraphMidiKeyboardOctaveOffset(),
+    octave: nodeGraphKeyboardOctaveFor(nodeId),
     midi,
     pitchValue: midi,
     midiNormalized: midi / 127,
@@ -3066,8 +2817,8 @@ function nodeGraphMidiKeyboardSignalFromRaw(rawMidi, options = {}) {
   };
 }
 
-function nodeGraphMidiKeyboardFallbackSignal() {
-  return nodeGraphMidiKeyboardSignalFromRaw(60, {
+function nodeGraphMidiKeyboardFallbackSignal(nodeId) {
+  return nodeGraphMidiKeyboardSignalFromRaw(nodeId, 60, {
     source: "fallback",
     gate: 0,
     gatePulse: 0,
@@ -3157,13 +2908,15 @@ function nodeGraphMidiKeyboardPointerXY(event, surface) {
 }
 
 function nodeGraphMidiKeyboardSignalFromPointer(event, surface, options = {}) {
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(surface);
   const { x, y, velocity: strikeVelocity, key } = nodeGraphMidiKeyboardPointerXY(event, surface);
   const targetMidi = key ? Number(key.dataset.midi) : NaN;
+  const keyCount = nodeGraphKeyboardKeyCountFor(nodeId);
   const fallbackKeyIndex = Math.min(
-    nodeGraphMidiKeyboardKeyCount() - 1,
-    Math.max(0, Math.floor(x * nodeGraphMidiKeyboardKeyCount())),
+    keyCount - 1,
+    Math.max(0, Math.floor(x * keyCount)),
   );
-  const rawMidi = Number.isFinite(targetMidi) ? targetMidi : nodeGraphMidiKeyboardViewStartMidi() + fallbackKeyIndex;
+  const rawMidi = Number.isFinite(targetMidi) ? targetMidi : nodeGraphKeyboardViewStartMidiFor(nodeId) + fallbackKeyIndex;
   const gate = event.buttons > 0 || event.type === "pointerdown" ? 1 : 0;
   // Refresh velocity on note-on / key-change; hold last while scrubbing.
   const refreshVelocity = options.refreshVelocity === true
@@ -3171,12 +2924,10 @@ function nodeGraphMidiKeyboardSignalFromPointer(event, surface, options = {}) {
     || options.gatePulse === true;
   const rawStrike = refreshVelocity
     ? strikeVelocity
-    : nodeGraphMidiKeyboardClamp01(nodeGraphMvp.keyboardModuleSignal?._strikeVelocity ?? strikeVelocity);
-  // Map through Vel Min/Max (default 127/127 → always full; 0 = silence).
-  const velocity = typeof nodeGraphMidiKeyboardMapStrikeVelocity01 === "function"
-    ? nodeGraphMidiKeyboardMapStrikeVelocity01(rawStrike)
-    : rawStrike;
-  const signal = nodeGraphMidiKeyboardSignalFromRaw(rawMidi, {
+    : nodeGraphMidiKeyboardClamp01(nodeGraphKeyboardRuntime(nodeId).signal?._strikeVelocity ?? strikeVelocity);
+  // Map through this keyboard's Vel Min/Max (default 127/127 → always full; 0 = silence).
+  const velocity = nodeGraphMidiKeyboardMapStrikeVelocity01(nodeId, rawStrike);
+  const signal = nodeGraphMidiKeyboardSignalFromRaw(nodeId, rawMidi, {
     source: "pointer",
     gate,
     gatePulse: 0,
@@ -3191,14 +2942,15 @@ function nodeGraphMidiKeyboardSignalFromPointer(event, surface, options = {}) {
 /**
  * Scrub X/Y without retuning Frequency / ♯/♭ / Gate / etc.
  * Pitch CV commits only on pointerdown or hardware MIDI note-on.
- * Local face uses keyboardModuleSignal (not hardware midiKeyboardSignal).
+ * Uses this keyboard's own signal (not hardware midiKeyboardSignal).
  */
 function updateNodeGraphMidiKeyboardPointerPosition(event, surface) {
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(surface);
   const { x, y } = nodeGraphMidiKeyboardPointerXY(event, surface);
-  const monoHold = nodeGraphMidiKeyboardHeldPointerSignal();
+  const monoHold = nodeGraphMidiKeyboardHeldPointerSignal(nodeId);
   const base = monoHold
-    || nodeGraphMvp.keyboardModuleSignal
-    || nodeGraphMidiKeyboardFallbackSignal();
+    || nodeGraphKeyboardRuntime(nodeId).signal
+    || nodeGraphMidiKeyboardFallbackSignal(nodeId);
   const next = {
     ...base,
     x,
@@ -3211,14 +2963,14 @@ function updateNodeGraphMidiKeyboardPointerPosition(event, surface) {
   } else if (event.buttons <= 0) {
     next.gate = 0;
   }
-  renderNodeGraphMidiKeyboardSignal(next);
+  renderNodeGraphMidiKeyboardSignal(nodeId, next);
 }
 
 function nodeGraphMidiKeyboardSignalFromMidi(midiValue, velocityValue = 0, gateValue = 0, pulseValue = 0) {
   const rawMidi = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(midiValue))));
   const velocity = Math.max(0, Math.min(127, Math.round(nodeGraphFiniteNumber(velocityValue))));
   const prev = nodeGraphMvp.midiKeyboardSignal;
-  return nodeGraphMidiKeyboardSignalFromRaw(rawMidi, {
+  return nodeGraphMidiKeyboardSignalFromRaw("", rawMidi, {
     source: "midi",
     gate: gateValue ? 1 : 0,
     gatePulse: pulseValue ? 1 : 0,
@@ -3229,23 +2981,14 @@ function nodeGraphMidiKeyboardSignalFromMidi(midiValue, velocityValue = 0, gateV
   });
 }
 
-function sendNodeGraphMidiKeyboardSignalToLive(signal) {
-  if (typeof sendNodeGraphLiveMidiKeyboardSignal === "function") {
-    sendNodeGraphLiveMidiKeyboardSignal(signal || nodeGraphMidiKeyboardFallbackSignal());
-  }
-}
-
-function nodeGraphMidiKeyboardHeldPointerSignal() {
-  const held = nodeGraphMvp.midiKeyboardPointerHeldSignal;
+function nodeGraphMidiKeyboardHeldPointerSignal(nodeId) {
+  const held = nodeGraphKeyboardRuntime(nodeId).pointerHeldSignal;
   return held && typeof held === "object" ? { ...held, gate: 1, source: "pointerHold" } : null;
 }
 
-function clearNodeGraphMidiKeyboardPointerHold(status = "") {
-  nodeGraphMvp.midiKeyboardPointerHeldSignal = null;
-  if (status) {
-    nodeGraphMvp.midiKeyboardStatus = status;
-  }
-  renderNodeGraphMidiKeyboardSignal(null);
+function clearNodeGraphMidiKeyboardPointerHold(nodeId) {
+  nodeGraphKeyboardRuntime(nodeId).pointerHeldSignal = null;
+  renderNodeGraphMidiKeyboardSignal(nodeId, null);
 }
 
 function nodeGraphMidiKeyboardFixedText(text, width) {
@@ -3276,35 +3019,39 @@ function nodeGraphMidiKeyboardFixedDecimal(value, options = {}) {
 }
 
 function toggleNodeGraphMidiKeyboardPointerHold(event, surface) {
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(surface);
+  const rt = nodeGraphKeyboardRuntime(nodeId);
   const signal = nodeGraphMidiKeyboardSignalFromPointer(event, surface);
-  const held = nodeGraphMidiKeyboardHeldPointerSignal();
+  const held = nodeGraphMidiKeyboardHeldPointerSignal(nodeId);
   event.preventDefault();
   if (held && held.midi === signal.midi) {
-    clearNodeGraphMidiKeyboardPointerHold(`${signal.pitch} hold off`);
+    clearNodeGraphMidiKeyboardPointerHold(nodeId);
     return;
   }
-  nodeGraphMvp.midiKeyboardPointerHeldSignal = {
+  rt.pointerHeldSignal = {
     ...signal,
     gate: 1,
     gatePulse: 0,
     source: "pointerHold",
   };
-  nodeGraphMvp.midiKeyboardStatus = `${signal.pitch} held`;
-  renderNodeGraphMidiKeyboardSignal(nodeGraphMvp.midiKeyboardPointerHeldSignal);
+  renderNodeGraphMidiKeyboardSignal(nodeId, rt.pointerHeldSignal);
 }
 
-function clearNodeGraphMidiKeyboardPulseDisplay(serial) {
+function clearNodeGraphMidiKeyboardPulseDisplay(nodeId, serial) {
   window.setTimeout(() => {
-    if (nodeGraphMvp.midiKeyboardPulseSerial !== serial || !nodeGraphMvp.keyboardModuleSignal) {
+    const rt = nodeGraphMvp.keyboardRuntimeByNode?.get?.(nodeId);
+    if (!rt || rt.pulseSerial !== serial || !rt.signal) {
       return;
     }
-    nodeGraphMvp.keyboardModuleSignal.gatePulse = 0;
-    const field = document.querySelector('.node-midi-keyboard-module [data-keyboard-signal="gatePulse"]');
-    if (field) {
-      field.textContent = nodeGraphMidiKeyboardFixedInteger(0, 1, "0");
+    rt.signal.gatePulse = 0;
+    for (const face of nodeGraphKeyboardFaces(nodeId)) {
+      const field = face.querySelector('[data-keyboard-signal="gatePulse"]');
+      if (field) {
+        field.textContent = nodeGraphMidiKeyboardFixedInteger(0, 1, "0");
+      }
     }
     if (typeof sendNodeGraphLiveKeyboardModuleSignal === "function") {
-      sendNodeGraphLiveKeyboardModuleSignal(nodeGraphMvp.keyboardModuleSignal);
+      sendNodeGraphLiveKeyboardModuleSignal(nodeId, rt.signal);
     }
   }, 60);
 }
@@ -3312,13 +3059,13 @@ function clearNodeGraphMidiKeyboardPulseDisplay(serial) {
 /**
  * Octave is already the piano window (and the grid pad MIDI). Rebuild the
  * live signal from that one offset so a saved octave moves pitch / Hz.
- * Do not ShiftMidi on top — pointer and grid already pass sounding MIDI.
+ * Do not add the octave again — pointer and grid already pass sounding MIDI.
  */
-function nodeGraphMidiKeyboardSoundingSignalForOctave(signal) {
+function nodeGraphMidiKeyboardSoundingSignalForOctave(nodeId, signal) {
   if (!signal || typeof signal !== "object") {
     return signal;
   }
-  const octave = nodeGraphMidiKeyboardOctaveOffset();
+  const octave = nodeGraphKeyboardOctaveFor(nodeId);
   let sounding = NaN;
   if (
     Number.isFinite(Number(signal._gridCol))
@@ -3331,11 +3078,12 @@ function nodeGraphMidiKeyboardSoundingSignalForOctave(signal) {
       sounding = nodeGraphGridKeyboardSoundingMidi(layout, octave);
     }
   } else if (Number.isFinite(Number(signal.keyIndex))) {
+    const keyCount = nodeGraphKeyboardKeyCountFor(nodeId);
     const keyIndex = Math.max(
       0,
-      Math.min(nodeGraphMidiKeyboardKeyCount() - 1, Math.round(Number(signal.keyIndex))),
+      Math.min(keyCount - 1, Math.round(Number(signal.keyIndex))),
     );
-    sounding = nodeGraphMidiKeyboardViewStartMidi(octave) + keyIndex;
+    sounding = nodeGraphMidiKeyboardViewStartMidi(octave, keyCount) + keyIndex;
   }
   if (!Number.isFinite(sounding)) {
     return signal;
@@ -3347,7 +3095,7 @@ function nodeGraphMidiKeyboardSoundingSignalForOctave(signal) {
   ) {
     return signal;
   }
-  const next = nodeGraphMidiKeyboardSignalFromRaw(sounding, {
+  const next = nodeGraphMidiKeyboardSignalFromRaw(nodeId, sounding, {
     source: signal.source || "keyboard",
     gate: Number(signal.gate) > 0 ? 1 : 0,
     gatePulse: Number(signal.gatePulse) > 0 ? 1 : 0,
@@ -3361,39 +3109,45 @@ function nodeGraphMidiKeyboardSoundingSignalForOctave(signal) {
   return next;
 }
 
-function renderNodeGraphMidiKeyboardSignal(signal = null) {
-  const previousGate = Number(nodeGraphMvp.midiKeyboardPreviousGate) > 0 ? 1 : 0;
-  const baseSignal = signal || nodeGraphMvp.keyboardModuleSignal;
-  const tunedSignal = nodeGraphMidiKeyboardSoundingSignalForOctave(baseSignal);
+function renderNodeGraphMidiKeyboardSignal(nodeId, signal = null) {
+  const id = String(nodeId || "").trim();
+  if (!nodeGraphKeyboardPatchNode(id)) {
+    return;
+  }
+  const rt = nodeGraphKeyboardRuntime(id);
+  const previousGate = Number(rt.previousGate) > 0 ? 1 : 0;
+  const previousMidi = rt.signal ? nodeGraphMidiKeyboardRawMidiFromSignal(rt.signal) : -1;
+  const baseSignal = signal || rt.signal;
+  const tunedSignal = nodeGraphMidiKeyboardSoundingSignalForOctave(id, baseSignal);
   const nextSignal = tunedSignal
-    ? normalizeNodeGraphMidiKeyboardMemorySignal(tunedSignal, { preserveGate: true, preserveGatePulse: true })
+    ? normalizeNodeGraphMidiKeyboardMemorySignal(tunedSignal, {
+      keyCount: nodeGraphKeyboardKeyCountFor(id),
+      preserveGate: true,
+      preserveGatePulse: true,
+    })
     : null;
   if (nextSignal) {
     const gate = Number(nextSignal.gate) > 0 ? 1 : 0;
     nextSignal.gate = gate;
     nextSignal.gatePulse = Number(nextSignal.gatePulse) > 0 || (gate > 0 && previousGate <= 0) ? 1 : 0;
-    nodeGraphMvp.midiKeyboardPreviousGate = gate;
+    rt.previousGate = gate;
     if (nextSignal.gatePulse > 0) {
-      nodeGraphMvp.midiKeyboardPulseSerial = (nodeGraphFiniteNumber(nodeGraphMvp.midiKeyboardPulseSerial)) + 1;
+      rt.pulseSerial += 1;
     }
   } else {
-    nodeGraphMvp.midiKeyboardPreviousGate = 0;
+    rt.previousGate = 0;
   }
-  // Pointer / local face drives Keyboard module — not hardware MIDI.
-  const prevBlueGate = Number(nodeGraphMvp._vmBlueGate) > 0 ? 1 : 0;
-  const prevBlueMidi = Number.isFinite(Number(nodeGraphMvp._vmBlueMidi))
-    ? Math.round(Number(nodeGraphMvp._vmBlueMidi))
-    : -1;
-  nodeGraphMvp.keyboardModuleSignal = nextSignal ? { ...nextSignal } : null;
+  // Pointer / local face drives this keyboard only — not hardware MIDI.
+  const prevBlueMidi = rt.vmBlueMidi;
+  rt.signal = nextSignal ? { ...nextSignal } : null;
   const gate = nextSignal && Number(nextSignal.gate) > 0 ? 1 : 0;
   const midi = nextSignal && Number.isFinite(Number(nextSignal.midi))
     ? Math.max(0, Math.min(127, Math.round(Number(nextSignal.midi))))
     : -1;
   // VoiceManager events for blue play (not table rebuild).
   if (gate > 0 && midi >= 0) {
-    if (prevBlueGate <= 0 || prevBlueMidi !== midi) {
-      if (prevBlueGate > 0 && prevBlueMidi >= 0 && prevBlueMidi !== midi
-        && typeof sendNodeGraphLiveVmNoteOff === "function") {
+    if (prevBlueMidi !== midi) {
+      if (prevBlueMidi >= 0 && typeof sendNodeGraphLiveVmNoteOff === "function") {
         sendNodeGraphLiveVmNoteOff(prevBlueMidi);
       }
       const vel01 = Number(nextSignal?.velocity);
@@ -3401,14 +3155,20 @@ function renderNodeGraphMidiKeyboardSignal(signal = null) {
         sendNodeGraphLiveVmNoteOn(midi, Number.isFinite(vel01) ? vel01 : 1);
       }
     }
-  } else if (prevBlueGate > 0 && prevBlueMidi >= 0) {
+  } else if (prevBlueMidi >= 0) {
     if (typeof sendNodeGraphLiveVmNoteOff === "function") {
       sendNodeGraphLiveVmNoteOff(prevBlueMidi);
     }
   }
-  nodeGraphMvp._vmBlueGate = gate;
-  nodeGraphMvp._vmBlueMidi = gate > 0 ? midi : -1;
-  saveNodeGraphMidiKeyboardMemory();
+  rt.vmBlueMidi = gate > 0 ? midi : -1;
+  // A struck note is this keyboard's last signal, saved with the patch (no undo step).
+  if (gate > 0 && (previousGate <= 0 || midi !== previousMidi)) {
+    const lastSignal = normalizeNodeGraphMidiKeyboardMemorySignal(nextSignal, { keyCount: nodeGraphKeyboardKeyCountFor(id) });
+    if (writeNodeGraphKeyboardSettings(id, { lastSignal }, { history: false })) {
+      const saved = nodeGraphKeyboardSettings(id).lastSignal;
+      rt.savedSignalKey = saved ? JSON.stringify(saved) : "";
+    }
+  }
   const values = {
     gate: nodeGraphMidiKeyboardFixedInteger(nextSignal?.gate ?? 0, 1, "0"),
     gatePulse: nodeGraphMidiKeyboardFixedInteger(nextSignal?.gatePulse ?? 0, 1, "0"),
@@ -3417,7 +3177,7 @@ function renderNodeGraphMidiKeyboardSignal(signal = null) {
       ? nodeGraphMidiKeyboardFixedDecimal(nextSignal.keyQuantized, { decimalPlaces: 3, maxDigits: 4, width: 5 })
       : nodeGraphMidiKeyboardFixedText("-", 5),
     midi: nextSignal ? nodeGraphMidiKeyboardFixedInteger(nextSignal.midi, 3) : nodeGraphMidiKeyboardFixedText("-", 3),
-    octave: nodeGraphMidiKeyboardOctaveLabel(),
+    octave: nodeGraphMidiKeyboardOctaveLabel(nodeGraphKeyboardOctaveFor(id)),
     double: nextSignal
       ? nodeGraphMidiKeyboardFixedInteger(nextSignal.midi, 3)
       : nodeGraphMidiKeyboardFixedText("-", 3),
@@ -3444,33 +3204,35 @@ function renderNodeGraphMidiKeyboardSignal(signal = null) {
       )
       : nodeGraphMidiKeyboardFixedText("-", 5),
   };
-  document.querySelectorAll(".node-midi-keyboard-module [data-keyboard-signal], .node-grid-keyboard-module [data-keyboard-signal]").forEach((field) => {
-    const key = field.dataset.keyboardSignal;
-    field.textContent = values[key] ?? "-";
-  });
-  renderNodeGraphMidiKeyboardActiveKeys(nextSignal);
+  for (const face of nodeGraphKeyboardFaces(id)) {
+    face.querySelectorAll("[data-keyboard-signal]").forEach((field) => {
+      const key = field.dataset.keyboardSignal;
+      field.textContent = values[key] ?? "-";
+    });
+  }
+  renderNodeGraphMidiKeyboardActiveKeys(id);
   if (typeof renderNodeGraphGridKeyboardPads === "function") {
     renderNodeGraphGridKeyboardPads();
   }
   if (typeof sendNodeGraphLiveKeyboardModuleSignal === "function") {
-    sendNodeGraphLiveKeyboardModuleSignal(nodeGraphMvp.keyboardModuleSignal);
+    sendNodeGraphLiveKeyboardModuleSignal(id, rt.signal);
   }
   if (nextSignal?.gatePulse > 0) {
-    clearNodeGraphMidiKeyboardPulseDisplay(nodeGraphMvp.midiKeyboardPulseSerial);
+    clearNodeGraphMidiKeyboardPulseDisplay(id, rt.pulseSerial);
   }
 }
 
 function renderNodeGraphMidiKeyboardOctaveControl() {
-  nodeGraphMvp.midiKeyboardOctave = nodeGraphMidiKeyboardOctaveOffset();
+  const octaveFor = (el) => nodeGraphKeyboardOctaveFor(nodeGraphMidiKeyboardNodeIdFromElement(el));
   renderNodeGraphMidiKeyboardKeyLabels();
   document.querySelectorAll("[data-midi-keyboard-octave-value]").forEach((value) => {
-    value.textContent = nodeGraphMidiKeyboardOctaveLabel(nodeGraphMvp.midiKeyboardOctave);
+    value.textContent = nodeGraphMidiKeyboardOctaveLabel(octaveFor(value));
   });
   document.querySelectorAll("[data-midi-keyboard-octave-down]").forEach((down) => {
-    down.disabled = nodeGraphMvp.midiKeyboardOctave <= nodeGraphMidiKeyboardMinOctave;
+    down.disabled = octaveFor(down) <= nodeGraphMidiKeyboardMinOctave;
   });
   document.querySelectorAll("[data-midi-keyboard-octave-up]").forEach((up) => {
-    up.disabled = nodeGraphMvp.midiKeyboardOctave >= nodeGraphMidiKeyboardMaxOctave;
+    up.disabled = octaveFor(up) >= nodeGraphMidiKeyboardMaxOctave;
   });
   renderNodeGraphMidiKeyboardVelRangeControls();
 }
@@ -3485,27 +3247,14 @@ function renderNodeGraphMidiKeyboardModeControl() {
 }
 
 function renderNodeGraphMidiKeyboardVelRangeControls() {
-  if (!Number.isFinite(Number(nodeGraphMvp.midiKeyboardVelMin))) {
-    nodeGraphMvp.midiKeyboardVelMin = 127;
-  }
-  if (!Number.isFinite(Number(nodeGraphMvp.midiKeyboardVelMax))) {
-    nodeGraphMvp.midiKeyboardVelMax = 127;
-  }
-  const lo = nodeGraphMidiKeyboardVelMin127();
-  const hi = nodeGraphMidiKeyboardVelMax127();
-  nodeGraphMvp.midiKeyboardVelMin = lo;
-  nodeGraphMvp.midiKeyboardVelMax = hi;
-  document.querySelectorAll("[data-midi-keyboard-vel-min]").forEach((input) => {
+  document.querySelectorAll("[data-midi-keyboard-vel-min], [data-midi-keyboard-vel-max]").forEach((input) => {
     if (document.activeElement === input) {
       return;
     }
-    input.value = String(lo);
-  });
-  document.querySelectorAll("[data-midi-keyboard-vel-max]").forEach((input) => {
-    if (document.activeElement === input) {
-      return;
-    }
-    input.value = String(hi);
+    const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(input);
+    input.value = String(input.dataset.midiKeyboardVelMin != null
+      ? nodeGraphKeyboardVelMinFor(nodeId)
+      : nodeGraphKeyboardVelMaxFor(nodeId));
   });
 }
 
@@ -3514,50 +3263,33 @@ function handleNodeGraphMidiKeyboardVelRangeChange(event) {
   if (!(input instanceof HTMLInputElement)) {
     return;
   }
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(input);
   const raw = nodeGraphMidiKeyboardClampVel127(input.value, 127);
-  if (input.dataset.midiKeyboardVelMin != null) {
-    nodeGraphMvp.midiKeyboardVelMin = raw;
-  } else if (input.dataset.midiKeyboardVelMax != null) {
-    nodeGraphMvp.midiKeyboardVelMax = raw;
+  const isMin = input.dataset.midiKeyboardVelMin != null;
+  const current = isMin ? nodeGraphKeyboardVelMinFor(nodeId) : nodeGraphKeyboardVelMaxFor(nodeId);
+  if (raw !== current) {
+    writeNodeGraphKeyboardSettings(nodeId, isMin ? { velMin: raw } : { velMax: raw });
   }
   renderNodeGraphMidiKeyboardVelRangeControls();
-  saveNodeGraphMidiKeyboardMemory();
 }
 
 function handleNodeGraphMidiKeyboardModeChange(event) {
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(event.currentTarget);
   const mode = nodeGraphMidiKeyboardMode(event.currentTarget.value);
-  setNodeGraphMidiKeyboardModeForNode(nodeGraphMidiKeyboardNodeIdFromElement(event.currentTarget), mode);
-  nodeGraphMvp.midiKeyboardStatus = `${nodeGraphMidiKeyboardModeLabel(mode)} mode`;
+  setNodeGraphMidiKeyboardModeForNode(nodeId, mode);
   if (mode !== "hold") {
-    nodeGraphMvp.midiKeyboardPointerHeldSignal = null;
+    nodeGraphKeyboardRuntime(nodeId).pointerHeldSignal = null;
   }
   if (mode !== "chordMemory" && typeof nodeGraphChordMemoryClearLatchedPreviews === "function") {
-    nodeGraphChordMemoryClearLatchedPreviews();
+    nodeGraphChordMemoryClearLatchedPreviews(nodeId);
   }
   if (typeof nodeGraphChordMemoryPaintKeys === "function") {
     nodeGraphChordMemoryPaintKeys();
   }
-  if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
-    renderNodeGraphMidiKeyboardHeldKeys();
-  }
+  renderNodeGraphMidiKeyboardHeldKeys();
   renderNodeGraphMidiKeyboardModeControl();
-  renderNodeGraphMidiKeyboardSignal(mode === "hold" ? nodeGraphMidiKeyboardHeldPointerSignal() : null);
+  renderNodeGraphMidiKeyboardSignal(nodeId, mode === "hold" ? nodeGraphMidiKeyboardHeldPointerSignal(nodeId) : null);
   renderNodeGraphMidiKeyboardInputControls();
-}
-
-function retuneNodeGraphMidiKeyboardSignal(signal) {
-  if (!signal) {
-    return null;
-  }
-  return {
-    ...nodeGraphMidiKeyboardSignalFromRaw(nodeGraphMidiKeyboardRawMidiFromSignal(signal), {
-      source: signal.source || "keyboard",
-      gate: Number(signal.gate) > 0 ? 1 : 0,
-      gatePulse: Number(signal.gatePulse) > 0 ? 1 : 0,
-      x: signal.x,
-      y: signal.y,
-    }),
-  };
 }
 
 // Click-drag scrubbing for the keyboard's stepper readouts (octave transpose
@@ -3636,23 +3368,26 @@ function bindNodeGraphMidiKeyboardScrubControl(element, applyDelta) {
 
 function bindNodeGraphMidiKeyboardScrubControls() {
   document.querySelectorAll("[data-midi-keyboard-octave-value]").forEach((element) => {
-    bindNodeGraphMidiKeyboardScrubControl(element, changeNodeGraphMidiKeyboardOctave);
+    bindNodeGraphMidiKeyboardScrubControl(element, (delta) => {
+      changeNodeGraphMidiKeyboardOctave(nodeGraphMidiKeyboardNodeIdFromElement(element), delta);
+    });
   });
   document.querySelectorAll("[data-midi-keyboard-key-count-value]").forEach((element) => {
-    bindNodeGraphMidiKeyboardScrubControl(element, changeNodeGraphMidiKeyboardKeyCount);
+    bindNodeGraphMidiKeyboardScrubControl(element, (delta) => {
+      changeNodeGraphMidiKeyboardKeyCount(nodeGraphMidiKeyboardNodeIdFromElement(element), delta);
+    });
   });
   document.querySelectorAll("[data-midi-listen-channel-value]").forEach((element) => {
     bindNodeGraphMidiKeyboardScrubControl(element, changeNodeGraphMidiListenChannel);
   });
 }
 
-function changeNodeGraphMidiKeyboardOctave(delta) {
-  nodeGraphMvp.midiKeyboardOctave = nodeGraphMidiKeyboardOctaveOffset(nodeGraphMvp.midiKeyboardOctave + delta);
-  nodeGraphMvp.midiKeyboardStatus = `octave ${nodeGraphMidiKeyboardOctaveLabel(nodeGraphMvp.midiKeyboardOctave)}`;
+function changeNodeGraphMidiKeyboardOctave(nodeId, delta) {
+  const current = nodeGraphKeyboardOctaveFor(nodeId);
+  const octave = nodeGraphMidiKeyboardOctaveOffset(current + delta);
+  if (octave === current || !writeNodeGraphKeyboardSettings(nodeId, { octave })) return;
   renderNodeGraphMidiKeyboardKeys();
   renderNodeGraphMidiKeyboardOctaveControl();
-  renderNodeGraphMidiKeyboardSignal(nodeGraphMvp.keyboardModuleSignal);
-  saveNodeGraphMidiKeyboardMemory();
   renderNodeGraphMidiKeyboardInputControls();
 }
 
@@ -3663,18 +3398,16 @@ function changeNodeGraphMidiKeyboardOctave(delta) {
  * Once an Arp latch gesture starts, the whole capture stays Arp-only even if
  * Ctrl is released mid-drag (avoids slide-play lighting blue keys).
  */
-function nodeGraphMidiKeyboardClearPlayGate(status) {
-  const current = nodeGraphMvp.keyboardModuleSignal || nodeGraphMidiKeyboardFallbackSignal();
+function nodeGraphMidiKeyboardClearPlayGate(nodeId) {
+  const current = nodeGraphKeyboardRuntime(nodeId).signal || nodeGraphMidiKeyboardFallbackSignal(nodeId);
   if (!(Number(current.gate) > 0) && !(Number(current.gatePulse) > 0)) {
-    if (status) nodeGraphMvp.midiKeyboardStatus = status;
     return;
   }
-  renderNodeGraphMidiKeyboardSignal({
+  renderNodeGraphMidiKeyboardSignal(nodeId, {
     ...current,
     gate: 0,
     gatePulse: 0,
   });
-  if (status) nodeGraphMvp.midiKeyboardStatus = status;
 }
 
 function nodeGraphMidiKeyboardApplyArpLatchAtPointer(event, surface) {
@@ -3688,26 +3421,12 @@ function nodeGraphMidiKeyboardApplyArpLatchAtPointer(event, surface) {
   if (!Number.isFinite(index)) {
     return false;
   }
-  const keyCount = nodeGraphMidiKeyboardKeyCount();
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(surface);
   if (event.shiftKey) {
-    const rotated = nodeGraphMidiKeyboardBitmaskRotate(
-      nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
-      nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
-      keyCount,
-    );
-    nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = rotated.low;
-    nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = rotated.high;
-    renderNodeGraphMidiKeyboardHeldKeys();
-    saveNodeGraphMidiKeyboardMemory();
-    if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-      sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
-    }
-    if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-      syncNodeGraphKeyboardPolyphonyFromHeldNotes();
-    }
+    nodeGraphKeyboardShiftArpLatch(nodeId, 1);
   } else {
     const strike = nodeGraphMidiKeyboardPointerXY(event, surface).velocity;
-    nodeGraphMidiKeyboardToggleHeldKeyBit(index, strike);
+    nodeGraphMidiKeyboardToggleHeldKeyBit(nodeId, index, strike);
   }
   return true;
 }
@@ -3719,6 +3438,8 @@ function updateNodeGraphMidiKeyboardSignal(event) {
   }
   const mode = nodeGraphMidiKeyboardModeForElement(surface);
   const pointerId = event.pointerId;
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(surface);
+  const rt = nodeGraphKeyboardRuntime(nodeId);
 
   const altDown = Boolean(event.altKey || event.getModifierState?.("Alt"));
 
@@ -3726,16 +3447,13 @@ function updateNodeGraphMidiKeyboardSignal(event) {
   if (typeof nodeGraphChordMemoryHandlePointer === "function") {
     const keyEl = event.target?.closest?.("[data-midi]");
     const midi = keyEl && surface.contains(keyEl) ? Number(keyEl.dataset.midi) : NaN;
-    const nodeId = typeof nodeGraphChordMemoryNodeIdFromSurface === "function"
-      ? nodeGraphChordMemoryNodeIdFromSurface(surface)
-      : "";
     if (nodeGraphChordMemoryHandlePointer(event, surface, midi, {
       nodeId,
       onArpToggle: (_slotMidi, ev) => {
         const target = ev.target?.closest?.("[data-key-index]");
         if (!target || !surface.contains(target)) return;
         const strike = nodeGraphMidiKeyboardPointerXY(ev, surface).velocity;
-        nodeGraphMidiKeyboardToggleHeldKeyBit(Number(target.dataset.keyIndex), strike);
+        nodeGraphMidiKeyboardToggleHeldKeyBit(nodeId, Number(target.dataset.keyIndex), strike);
       },
     })) {
       return;
@@ -3743,11 +3461,9 @@ function updateNodeGraphMidiKeyboardSignal(event) {
   }
 
   if (event.type === "pointerdown" && event.ctrlKey && altDown) {
-    if (typeof nodeGraphMidiKeyboardClearArpKeys === "function") {
-      nodeGraphMidiKeyboardClearArpKeys();
-    }
-    nodeGraphMidiKeyboardClearPlayGate("arp clear");
-    clearNodeGraphMidiKeyboardPointerHold();
+    nodeGraphMidiKeyboardClearArpKeys(nodeId);
+    nodeGraphMidiKeyboardClearPlayGate(nodeId);
+    clearNodeGraphMidiKeyboardPointerHold(nodeId);
     event.preventDefault();
     event.stopPropagation();
     return;
@@ -3755,9 +3471,9 @@ function updateNodeGraphMidiKeyboardSignal(event) {
 
   // ——— Arp latch gesture (gold only) ———
   if (event.type === "pointerdown" && event.ctrlKey) {
-    nodeGraphMvp.midiKeyboardArpLatchPointerId = pointerId;
-    nodeGraphMidiKeyboardClearPlayGate("arp latch");
-    clearNodeGraphMidiKeyboardPointerHold();
+    rt.arpLatchPointerId = pointerId;
+    nodeGraphMidiKeyboardClearPlayGate(nodeId);
+    clearNodeGraphMidiKeyboardPointerHold(nodeId);
     nodeGraphMidiKeyboardApplyArpLatchAtPointer(event, surface);
     try {
       surface.setPointerCapture?.(pointerId);
@@ -3765,7 +3481,7 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     event.preventDefault();
     return;
   }
-  if (nodeGraphMvp.midiKeyboardArpLatchPointerId === pointerId) {
+  if (rt.arpLatchPointerId === pointerId) {
     // Ctrl+gold is click-to-toggle only — no slide/drag painting across keys.
     if (event.type === "pointermove") {
       event.preventDefault();
@@ -3775,7 +3491,7 @@ function updateNodeGraphMidiKeyboardSignal(event) {
       try {
         surface.releasePointerCapture?.(pointerId);
       } catch (_e) { /* ignore */ }
-      nodeGraphMvp.midiKeyboardArpLatchPointerId = null;
+      rt.arpLatchPointerId = null;
       event.preventDefault();
       return;
     }
@@ -3799,11 +3515,11 @@ function updateNodeGraphMidiKeyboardSignal(event) {
         try { surface.setPointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
       }
     } else if (
-      nodeGraphMvp.midiKeyboardTriggerPatchPointerId === pointerId
+      rt.triggerPatchPointerId === pointerId
       && (event.type === "pointerup" || event.type === "pointercancel" || event.type === "lostpointercapture")
     ) {
       try { surface.releasePointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
-      nodeGraphTriggerPatchClearGhost();
+      nodeGraphTriggerPatchClearGhost(nodeId);
     }
     event.preventDefault();
     return;
@@ -3814,10 +3530,10 @@ function updateNodeGraphMidiKeyboardSignal(event) {
   if (event.type === "pointerdown" && !event.ctrlKey && !event.shiftKey && !event.altKey) {
     const target = event.target?.closest?.("[data-key-index]");
     if (target && surface.contains(target)) {
-      const heldPointer = nodeGraphMidiKeyboardHeldPointerSignal();
+      const heldPointer = nodeGraphMidiKeyboardHeldPointerSignal(nodeId);
       const targetMidi = Number(target.dataset.midi);
       if (heldPointer && heldPointer.midi === targetMidi) {
-        clearNodeGraphMidiKeyboardPointerHold(`${heldPointer.pitch} hold off`);
+        clearNodeGraphMidiKeyboardPointerHold(nodeId);
         event.preventDefault();
         return;
       }
@@ -3828,30 +3544,14 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     const target = event.target?.closest?.("[data-key-index]");
     if (target && surface.contains(target)) {
       const strike = nodeGraphMidiKeyboardPointerXY(event, surface).velocity;
-      nodeGraphMidiKeyboardToggleHeldKeyBit(Number(target.dataset.keyIndex), strike);
+      nodeGraphMidiKeyboardToggleHeldKeyBit(nodeId, Number(target.dataset.keyIndex), strike);
     }
     event.preventDefault();
     return;
   }
   // Shift+Alt: transpose gold latch.
   if (event.type === "pointerdown" && event.shiftKey && event.altKey && !event.ctrlKey) {
-    const keyCount = nodeGraphMidiKeyboardKeyCount();
-    const transposed = nodeGraphMidiKeyboardBitmaskTranspose(
-      nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
-      nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
-      keyCount,
-      7,
-    );
-    nodeGraphMvp.midiKeyboardHeldKeysLowBitmask = transposed.low;
-    nodeGraphMvp.midiKeyboardHeldKeysHighBitmask = transposed.high;
-    renderNodeGraphMidiKeyboardHeldKeys();
-    saveNodeGraphMidiKeyboardMemory();
-    if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-      sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
-    }
-    if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-      syncNodeGraphKeyboardPolyphonyFromHeldNotes();
-    }
+    nodeGraphKeyboardShiftArpLatch(nodeId, 7);
     event.preventDefault();
     return;
   }
@@ -3863,14 +3563,14 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     } catch (_e) { /* ignore */ }
     return;
   }
-  const held = nodeGraphMidiKeyboardHeldPointerSignal();
+  const held = nodeGraphMidiKeyboardHeldPointerSignal(nodeId);
   if (event.type === "pointermove") {
     // Never play-slide while an arp latch gesture owns the pointer.
-    if (nodeGraphMvp.midiKeyboardArpLatchPointerId != null) {
+    if (rt.arpLatchPointerId != null) {
       return;
     }
     if (mode === "slide" && event.buttons > 0 && !held && !event.ctrlKey) {
-      const prevMidi = nodeGraphMidiKeyboardRawMidiFromSignal(nodeGraphMvp.keyboardModuleSignal);
+      const prevMidi = nodeGraphMidiKeyboardRawMidiFromSignal(rt.signal);
       const probe = nodeGraphMidiKeyboardSignalFromPointer(event, surface);
       const nextMidi = nodeGraphMidiKeyboardRawMidiFromSignal(probe);
       const keyChanged = Number.isFinite(prevMidi) && prevMidi !== nextMidi;
@@ -3879,7 +3579,7 @@ function updateNodeGraphMidiKeyboardSignal(event) {
       });
       next.gate = 1;
       next.gatePulse = 0;
-      renderNodeGraphMidiKeyboardSignal(next);
+      renderNodeGraphMidiKeyboardSignal(nodeId, next);
       return;
     }
     updateNodeGraphMidiKeyboardPointerPosition(event, surface);
@@ -3891,12 +3591,12 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     } catch (_e) { /* ignore */ }
     if (held) {
       const { x, y } = nodeGraphMidiKeyboardPointerXY(event, surface);
-      renderNodeGraphMidiKeyboardSignal({ ...held, x, y, gate: 1, gatePulse: 0 });
+      renderNodeGraphMidiKeyboardSignal(nodeId, { ...held, x, y, gate: 1, gatePulse: 0 });
       return;
     }
     const { x, y } = nodeGraphMidiKeyboardPointerXY(event, surface);
-    const current = nodeGraphMvp.keyboardModuleSignal || nodeGraphMidiKeyboardFallbackSignal();
-    renderNodeGraphMidiKeyboardSignal({
+    const current = rt.signal || nodeGraphMidiKeyboardFallbackSignal(nodeId);
+    renderNodeGraphMidiKeyboardSignal(nodeId, {
       ...current,
       x,
       y,
@@ -3909,30 +3609,30 @@ function updateNodeGraphMidiKeyboardSignal(event) {
     try {
       surface.setPointerCapture?.(event.pointerId);
     } catch (_e) { /* ignore */ }
-    renderNodeGraphMidiKeyboardSignal(nodeGraphMidiKeyboardSignalFromPointer(event, surface));
+    renderNodeGraphMidiKeyboardSignal(nodeId, nodeGraphMidiKeyboardSignalFromPointer(event, surface));
     return;
   }
-  renderNodeGraphMidiKeyboardSignal(nodeGraphMidiKeyboardSignalFromPointer(event, surface));
+  renderNodeGraphMidiKeyboardSignal(nodeId, nodeGraphMidiKeyboardSignalFromPointer(event, surface));
 }
 
-function handleNodeGraphMidiKeyboardPointerLeave() {
-  const held = nodeGraphMidiKeyboardHeldPointerSignal();
+function handleNodeGraphMidiKeyboardPointerLeave(event) {
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(event.currentTarget);
+  const held = nodeGraphMidiKeyboardHeldPointerSignal(nodeId);
   if (held) {
-    renderNodeGraphMidiKeyboardSignal(held);
+    renderNodeGraphMidiKeyboardSignal(nodeId, held);
     return;
   }
-  // Local piano SSOT is keyboardModuleSignal (not hardware midiKeyboardSignal).
-  const current = nodeGraphMvp.keyboardModuleSignal;
-  if (current) {
-    renderNodeGraphMidiKeyboardSignal({ ...current, gate: 0, gatePulse: 0 });
+  // This keyboard's own signal (not hardware midiKeyboardSignal).
+  const rt = nodeGraphKeyboardRuntime(nodeId);
+  if (rt.signal) {
+    renderNodeGraphMidiKeyboardSignal(nodeId, { ...rt.signal, gate: 0, gatePulse: 0 });
     return;
   }
-  if (Number(nodeGraphMvp._vmBlueGate) > 0 && Number(nodeGraphMvp._vmBlueMidi) >= 0) {
+  if (rt.vmBlueMidi >= 0) {
     if (typeof sendNodeGraphLiveVmNoteOff === "function") {
-      sendNodeGraphLiveVmNoteOff(nodeGraphMvp._vmBlueMidi);
+      sendNodeGraphLiveVmNoteOff(rt.vmBlueMidi);
     }
-    nodeGraphMvp._vmBlueGate = 0;
-    nodeGraphMvp._vmBlueMidi = -1;
+    rt.vmBlueMidi = -1;
   }
 }
 
@@ -3968,7 +3668,7 @@ function renderNodeGraphMidiListenChannelControl() {
 
 function changeNodeGraphMidiListenChannel(delta) {
   nodeGraphMvp.midiListenChannel = nodeGraphMidiListenChannel(nodeGraphMidiListenChannel() + delta);
-  saveNodeGraphMidiKeyboardMemory();
+  saveNodeGraphMidiInputMemory();
   renderNodeGraphMidiListenChannelControl();
 }
 
@@ -4006,7 +3706,7 @@ function disableNodeGraphMidiKeyboardInput() {
   renderNodeGraphMidiKeyboardInputControls();
   renderNodeGraphMidiToggleButton();
   // Drop poly .active lights that were driven by hardware held notes.
-  renderNodeGraphMidiKeyboardActiveKeys(nodeGraphMvp.midiKeyboardSignal);
+  renderNodeGraphMidiKeyboardActiveKeys();
 }
 
 async function toggleNodeGraphMidiInput() {
@@ -4089,7 +3789,7 @@ async function enableNodeGraphMidiKeyboardInput() {
 
 function handleNodeGraphMidiKeyboardInputChange(event) {
   nodeGraphMvp.midiKeyboardInputId = event.currentTarget.value || "";
-  saveNodeGraphMidiKeyboardMemory();
+  saveNodeGraphMidiInputMemory();
   renderNodeGraphMidiKeyboardInputControls();
   if (nodeGraphMvp.midiKeyboardInputId && !nodeGraphMvp.midiInputEnabled) {
     toggleNodeGraphMidiInput();
@@ -4097,30 +3797,34 @@ function handleNodeGraphMidiKeyboardInputChange(event) {
 }
 
 /**
- * Light sounding / Play Keys in BLUE (.active).
- * Local pointer / latch only — hardware MIDI does not paint the Keyboard face
- * (wire MIDI→Keyboard Play Keys for device blue highlights).
- * GOLD (.held) = local Ctrl Arp Keys mask OR wired Arp Keys.
+ * Light sounding / Play Keys in BLUE (.active), per keyboard: its own signal
+ * (or blue mono hold) plus its own Play Keys out (wired Play Keys, chords).
+ * Hardware MIDI does not paint a Keyboard face directly (wire MIDI→Keyboard
+ * Play Keys for device blue highlights). No nodeId = every keyboard.
  */
-function renderNodeGraphMidiKeyboardActiveKeys(nextSignal = nodeGraphMvp.keyboardModuleSignal) {
-  const monoHold = nodeGraphMidiKeyboardHeldPointerSignal();
-  const activeSignal = (nextSignal && Number(nextSignal.gate) > 0)
-    ? nextSignal
-    : (monoHold || null);
-  const signalMidi = activeSignal
-    ? nodeGraphMidiKeyboardRawMidiFromSignal(activeSignal)
-    : NaN;
-  const playMask = typeof nodeGraphHeldKeysDemux === "function"
-    ? nodeGraphHeldKeysDemux(nodeGraphMvp.keyboardFacePlayTransmit || 0)
-    : null;
-  document.querySelectorAll(".node-midi-keyboard-module [data-midi]").forEach((key) => {
-    const midi = Number(key.dataset.midi);
-    const fromSignal = Number.isFinite(signalMidi) && midi === signalMidi;
-    const fromPlay = playMask instanceof Uint8Array && typeof noteMaskGet === "function"
-      ? noteMaskGet(playMask, midi)
-      : false;
-    key.classList.toggle("active", fromSignal || fromPlay);
-  });
+function renderNodeGraphMidiKeyboardActiveKeys(nodeId = null) {
+  const ids = nodeId == null ? nodeGraphKeyboardNodeIds() : [String(nodeId)];
+  for (const id of ids) {
+    const rt = nodeGraphKeyboardRuntime(id);
+    const activeSignal = (rt.signal && Number(rt.signal.gate) > 0)
+      ? rt.signal
+      : nodeGraphMidiKeyboardHeldPointerSignal(id);
+    const signalMidi = activeSignal
+      ? nodeGraphMidiKeyboardRawMidiFromSignal(activeSignal)
+      : NaN;
+    const playMask = nodeGraphHeldKeysDemux(rt.facePlayTransmit, rt.playRegs);
+    for (const face of nodeGraphKeyboardFaces(id)) {
+      if (!face.classList.contains("node-midi-keyboard-module")) continue;
+      face.querySelectorAll("[data-midi]").forEach((key) => {
+        const midi = Number(key.dataset.midi);
+        const fromSignal = Number.isFinite(signalMidi) && midi === signalMidi;
+        const fromPlay = playMask instanceof Uint8Array && typeof noteMaskGet === "function"
+          ? noteMaskGet(playMask, midi)
+          : false;
+        key.classList.toggle("active", fromSignal || fromPlay);
+      });
+    }
+  }
 }
 
 /** Rebuild MIDI Play Keys bitmask from live note map and push to worklet. */
@@ -4166,80 +3870,43 @@ function syncNodeGraphMidiPolyphonyFromHeldNotes() {
 }
 
 /**
- * Keyboard Polyphony = one 128 Midi+Velocity table.
- * Gold latch + blue play both live here. Rule: if already sustaining, leave it.
+ * One keyboard's Polyphony = one 128 Midi+Velocity table: its gold latch,
+ * chord tones, momentary chord and blue play. Rule: if already sustaining,
+ * leave it. Used to release its VoiceManager notes when it is deleted.
  */
-function syncNodeGraphKeyboardPolyphonyFromHeldNotes() {
-  const table = typeof polyphonyCreateTable === "function"
-    ? polyphonyCreateTable()
-    : new Uint8Array(128);
-  const base = typeof nodeGraphMidiKeyboardStartMidi === "number"
-    ? nodeGraphMidiKeyboardStartMidi
-    : 24;
-  if (typeof polyphonyTableAddNoteMask === "function") {
-    polyphonyTableAddNoteMask(
-      table,
-      nodeGraphMidiKeyboardEnsureArpMask(),
-      0,
-      nodeGraphMvp.midiKeyboardHeldKeyVelocities,
-      100,
-    );
-  } else if (typeof polyphonyTableAddGoldLatchBits === "function") {
-    polyphonyTableAddGoldLatchBits(
-      table,
-      nodeGraphMvp.midiKeyboardHeldKeysLowBitmask,
-      nodeGraphMvp.midiKeyboardHeldKeysHighBitmask,
-      base,
-      100,
-      nodeGraphMvp.midiKeyboardHeldKeyVelocities,
-      0,
-    );
-  }
-  const chordHost = typeof nodeGraphChordMemoryHost === "function"
-    ? nodeGraphChordMemoryHost()
-    : nodeGraphMvp;
-  const chordPlay = chordHost?.chordMemoryPlayMask;
-  let chordVel = Math.round(Number(chordHost?.chordMemoryPlayVelocity));
-  if (!(chordVel > 0)) chordVel = 100;
-  if (chordVel > 127) chordVel = 127;
-  if (typeof polyphonyTableAddNoteMask === "function" && chordPlay instanceof Uint8Array) {
+function syncNodeGraphKeyboardPolyphonyFromHeldNotes(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!nodeGraphKeyboardPatchNode(id)) return;
+  const table = polyphonyCreateTable();
+  const gold = nodeGraphKeyboardArpLatchView(id);
+  polyphonyTableAddNoteMask(table, gold.mask, 0, gold.velocities, 100);
+  const chordVel = typeof nodeGraphChordMemoryPlayVelocityForNode === "function"
+    ? nodeGraphChordMemoryPlayVelocityForNode(id)
+    : 100;
+  const chordPlay = typeof nodeGraphChordMemoryLiveMaskForNode === "function"
+    ? nodeGraphChordMemoryLiveMaskForNode(id)
+    : null;
+  if (chordPlay instanceof Uint8Array) {
     polyphonyTableAddNoteMask(table, chordPlay, 0, null, chordVel);
   }
-  const momentaryPlay = chordHost?.chordMemoryMomentaryPlayMask;
-  if (typeof polyphonyTableAddNoteMask === "function" && momentaryPlay instanceof Uint8Array) {
+  const momentaryPlay = typeof nodeGraphChordMemoryMomentaryMaskForNode === "function"
+    ? nodeGraphChordMemoryMomentaryMaskForNode(id)
+    : null;
+  if (momentaryPlay instanceof Uint8Array) {
     polyphonyTableAddNoteMask(table, momentaryPlay, 0, null, chordVel);
   }
   // Blue play: only opens if not already sustaining (gold may already hold it).
-  const signal = nodeGraphMvp.keyboardModuleSignal;
+  const rt = nodeGraphKeyboardRuntime(id);
+  const signal = rt.signal;
   if (signal && Number(signal.gate) > 0 && Number.isFinite(Number(signal.midi))) {
     const midi = Math.max(0, Math.min(127, Math.round(Number(signal.midi))));
     const vel01 = Number(signal.velocity);
     let velocity = Math.round((Number.isFinite(vel01) ? vel01 : 1) * 127);
     if (!(velocity > 0)) velocity = 100;
     if (velocity > 127) velocity = 127;
-    if (typeof polyphonyTableNoteOn === "function") {
-      polyphonyTableNoteOn(table, midi, velocity, false);
-    } else if (!table[midi]) {
-      table[midi] = velocity;
-    }
+    polyphonyTableNoteOn(table, midi, velocity, false);
   }
-  nodeGraphMvp.keyboardPolyphonyVelocities = table;
-  if (!(nodeGraphMvp.keyboardModuleHeldNotes instanceof Map)) {
-    nodeGraphMvp.keyboardModuleHeldNotes = new Map();
-  }
-  const map = nodeGraphMvp.keyboardModuleHeldNotes;
-  map.clear();
-  for (let m = 0; m < 128; m += 1) {
-    if (table[m]) map.set(m, table[m]);
-  }
-  if (typeof sendNodeGraphLivePolyphonyVelocities === "function") {
-    sendNodeGraphLivePolyphonyVelocities("keyboard", table);
-  }
-}
-
-/** Blue pointer changed — rebuild Keyboard Polyphony (gold + blue). */
-function syncNodeGraphKeyboardHeldNotesFromSignal(_signal) {
-  syncNodeGraphKeyboardPolyphonyFromHeldNotes();
+  rt.polyphony = table;
 }
 
 function handleNodeGraphMidiKeyboardMessage(event) {
@@ -4360,14 +4027,14 @@ function bindNodeGraphKeyboardControllerModuleEvents() {
       return;
     }
     button.dataset.midiKeyboardOctaveBound = "true";
-    button.addEventListener("click", () => changeNodeGraphMidiKeyboardOctave(-1));
+    button.addEventListener("click", () => changeNodeGraphMidiKeyboardOctave(nodeGraphMidiKeyboardNodeIdFromElement(button), -1));
   });
   document.querySelectorAll("[data-midi-keyboard-octave-up]").forEach((button) => {
     if (button.dataset.midiKeyboardOctaveBound === "true") {
       return;
     }
     button.dataset.midiKeyboardOctaveBound = "true";
-    button.addEventListener("click", () => changeNodeGraphMidiKeyboardOctave(1));
+    button.addEventListener("click", () => changeNodeGraphMidiKeyboardOctave(nodeGraphMidiKeyboardNodeIdFromElement(button), 1));
   });
   document.querySelectorAll("[data-midi-keyboard-vel-min], [data-midi-keyboard-vel-max]").forEach((input) => {
     if (input.dataset.midiKeyboardVelBound === "true") {
@@ -4382,36 +4049,34 @@ function bindNodeGraphKeyboardControllerModuleEvents() {
       return;
     }
     button.dataset.midiKeyboardKeyCountBound = "true";
-    button.addEventListener("click", () => changeNodeGraphMidiKeyboardKeyCount(-1));
+    button.addEventListener("click", () => changeNodeGraphMidiKeyboardKeyCount(nodeGraphMidiKeyboardNodeIdFromElement(button), -1));
   });
   document.querySelectorAll("[data-midi-keyboard-key-count-up]").forEach((button) => {
     if (button.dataset.midiKeyboardKeyCountBound === "true") {
       return;
     }
     button.dataset.midiKeyboardKeyCountBound = "true";
-    button.addEventListener("click", () => changeNodeGraphMidiKeyboardKeyCount(1));
+    button.addEventListener("click", () => changeNodeGraphMidiKeyboardKeyCount(nodeGraphMidiKeyboardNodeIdFromElement(button), 1));
   });
   // Populates any newly-mounted surface's empty white/black rows (see
-  // createNodeGraphKeyboardControllerBody) and re-renders every surface
-  // to the current key count -- cheap enough to always run here rather
-  // than tracking "is this a first mount" separately.
+  // createNodeGraphKeyboardControllerBody) and renders every surface from
+  // its own node's window -- cheap enough to always run here rather than
+  // tracking "is this a first mount" separately.
   bindNodeGraphMidiKeyboardScrubControls();
   if (typeof bindNodeGraphGridKeyboardEvents === "function") {
     bindNodeGraphGridKeyboardEvents();
   }
   renderNodeGraphMidiKeyboardKeys();
   renderNodeGraphMidiKeyboardKeyCountControl();
-  renderNodeGraphMidiKeyboardSignal(null);
   renderNodeGraphMidiKeyboardOctaveControl();
   renderNodeGraphPerformanceWheels();
   renderNodeGraphMidiKeyboardInputControls();
 }
 
 function renderNodeGraphKeyboardControllerModules() {
-  ensureNodeGraphMidiKeyboardMemoryLoaded();
+  ensureNodeGraphMidiInputMemoryLoaded();
   bindNodeGraphKeyboardControllerModuleEvents();
-  // localStorage and the 88-key fallback run while the face mounts.
-  // Each keyboard node's traceDisplaySettings (mode, layout) is what the patch saved — apply last.
+  // Each keyboard's own state lives on its node (traceDisplaySettings) — apply last.
   applyNodeGraphKeyboardModuleSettingsFromPatch();
 }
 

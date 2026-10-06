@@ -2622,23 +2622,49 @@ NodeLiveAudioProcessor.prototype.mixNativeShellPortCv = function mixNativeShellP
 };
 
 /**
- * Keyboard / Grid Keyboard Gate and Trigger inputs are summed at the
- * destination inlet (mix_live_port, one sample at a time), not inside the
- * keyboard. The key's own Gate/Trigger is a separate sample block on the
- * same inlet: Src → Keyboard.Trigger, Keyboard.Trigger → Dst
- * also becomes Src → Dst.
+ * Host controllers are not native DSP.
+ * quantum — one value for the whole audio block (Bias). Mouse-only outs
+ *   (knob, toggle, momentary Bias/Gate/Trigger). No audio-rate inlet.
+ * inletMix — mouse signal is a sample block, and audio-rate inputs on the
+ *   same port are spliced onto each destination inlet (mix_live_port).
+ *   level: held for every sample in the block while the control is on.
+ *   edge: first sample high on the down edge, then zeros.
  */
-NodeLiveAudioProcessor.CONTROLLER_DIGITAL_THRU_TYPES = Object.freeze({
-  keyboard: Object.freeze(["Gate", "Trigger"]),
-  gridKeyboard: Object.freeze(["Gate", "Trigger"]),
+NodeLiveAudioProcessor.HOST_INLET_MIX = Object.freeze({
+  keyboard: Object.freeze({
+    level: Object.freeze(["Gate"]),
+    edge: Object.freeze(["Trigger"]),
+  }),
+  gridKeyboard: Object.freeze({
+    level: Object.freeze(["Gate"]),
+    edge: Object.freeze(["Trigger"]),
+  }),
 });
+
+NodeLiveAudioProcessor.hostInletMixSpec = function hostInletMixSpec(type) {
+  return NodeLiveAudioProcessor.HOST_INLET_MIX[String(type || "")] || null;
+};
+
+NodeLiveAudioProcessor.hostInletMixPorts = function hostInletMixPorts(type) {
+  const spec = NodeLiveAudioProcessor.hostInletMixSpec(type);
+  if (!spec) return null;
+  return spec.level.concat(spec.edge);
+};
+
+NodeLiveAudioProcessor.hostInletMixKind = function hostInletMixKind(type, port) {
+  const spec = NodeLiveAudioProcessor.hostInletMixSpec(type);
+  if (!spec) return "";
+  const name = String(port || "");
+  if (spec.edge.indexOf(name) >= 0) return "edge";
+  if (spec.level.indexOf(name) >= 0) return "level";
+  return "";
+};
 
 NodeLiveAudioProcessor.prototype.expandControllerDigitalThruConnections = function expandControllerDigitalThruConnections(
   connections,
 ) {
   const list = Array.isArray(connections) ? connections.slice() : [];
   const nodes = this.nodes;
-  const thruTypes = NodeLiveAudioProcessor.CONTROLLER_DIGITAL_THRU_TYPES;
   if (!nodes || typeof nodes.get !== "function" || !list.length) {
     return list;
   }
@@ -2663,11 +2689,11 @@ NodeLiveAudioProcessor.prototype.expandControllerDigitalThruConnections = functi
     if (!src || !dst || !sp || !dp) continue;
     const srcType = String(nodes.get(src)?.type || "");
     const dstType = String(nodes.get(dst)?.type || "");
-    const dstPorts = thruTypes[dstType];
+    const dstPorts = NodeLiveAudioProcessor.hostInletMixPorts(dstType);
     if (dstPorts && dstPorts.indexOf(dp) >= 0) {
       ensure(dst, dp).ins.push({ sourceNode: src, sourcePort: sp });
     }
-    const srcPorts = thruTypes[srcType];
+    const srcPorts = NodeLiveAudioProcessor.hostInletMixPorts(srcType);
     if (srcPorts && srcPorts.indexOf(sp) >= 0) {
       ensure(src, sp).outs.push({ destinationNode: dst, destinationPort: dp });
     }
@@ -2722,13 +2748,12 @@ NodeLiveAudioProcessor.prototype.expandControllerDigitalThruConnections = functi
  * legs that expandControllerDigitalThruConnections already wired natively.
  */
 NodeLiveAudioProcessor.prototype.refreshControllerDigitalThruOuts = function refreshControllerDigitalThruOuts() {
-  const thruTypes = NodeLiveAudioProcessor.CONTROLLER_DIGITAL_THRU_TYPES;
   if (!this.nodes || typeof this.nodes.entries !== "function") return;
   const clamp11 = (x) => (x > 1 ? 1 : x < -1 ? -1 : x);
 
   for (const [id, node] of this.nodes) {
     const type = String(node?.type || "");
-    const ports = thruTypes[type];
+    const ports = NodeLiveAudioProcessor.hostInletMixPorts(type);
     if (!ports) continue;
     const nid = String(id);
     const prev = this.nodeOutputs?.get?.(nid);
@@ -2856,11 +2881,9 @@ NodeLiveAudioProcessor.prototype.applyNativeHostCvFeederSmoothing = function app
 };
 
 /**
- * Host feeder node type for one host CV port. Sample-block ports (Toggle /
- * Momentary Trigger, efficientModSourceIsSampleBlock) use the host-filled
- * AudioInput node (type 132: process_block never zeros or writes its buf), so
- * a one-sample pulse reaches cables (mix_node_inputs) and ParamModEdges
- * (stamp_live_param_mods) per sample. Every other port: snapped Bias offset.
+ * Host feeder for one controller port.
+ * inletMix ports (HOST_INLET_MIX) use a host-filled AudioInput block.
+ * Every other controller port is quantum: one snapped Bias value for the block.
  */
 NodeLiveAudioProcessor.prototype.nativeHostCvFeederKind = function nativeHostCvFeederKind(
   srcId,
@@ -2880,25 +2903,27 @@ NodeLiveAudioProcessor.prototype.nativeHostCvFeederKind = function nativeHostCvF
 
 NodeLiveAudioProcessor.prototype.efficientModSourceIsSampleBlock = function efficientModSourceIsSampleBlock(srcId, srcPort) {
   const type = String(this.nodes?.get?.(String(srcId))?.type || "");
-  const port = String(srcPort || "");
-  return (type === "keyboard" || type === "gridKeyboard")
-    && (port === "Gate" || port === "Trigger");
+  return NodeLiveAudioProcessor.hostInletMixKind(type, srcPort) !== "";
 };
 
 NodeLiveAudioProcessor.prototype.readEfficientModSourceBlock = function readEfficientModSourceBlock(srcId, srcPort, view) {
   if (!this.efficientModSourceIsSampleBlock(srcId, srcPort) || !view?.length) return false;
-  const port = String(srcPort || "");
-  const signal = this.keyboardModuleSignal;
+  const type = String(this.nodes?.get?.(String(srcId))?.type || "");
+  const kind = NodeLiveAudioProcessor.hostInletMixKind(type, srcPort);
+  const signal = this.keyboardSignalByNode?.get?.(String(srcId));
   const vel = Math.max(0, Math.min(1, Number(signal?.velocity) || 0));
   const gateOn = Number(signal?.gate) > 0;
   const frames = view.length;
-  if (port === "Gate") {
+  if (kind === "level") {
     const level = gateOn ? vel : 0;
     for (let i = 0; i < frames; i += 1) view[i] = level;
   } else {
-    // Key-down is a one-sample poke into each destination inlet, same as a
-    // jack click. This block stays zero so it cannot hold the peak.
     for (let i = 0; i < frames; i += 1) view[i] = 0;
+    const pulse = this._keyboardDownPulseByNode?.get?.(String(srcId));
+    if (this._keyboardPulseCommit && pulse > 0) {
+      view[0] = vel > 0 ? vel : 1;
+      this._keyboardDownPulseByNode.set(String(srcId), 0);
+    }
   }
   return true;
 };
@@ -2991,7 +3016,7 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
       // Toggle / Momentary Trigger: per-sample block (1 at [0] on the edge quantum).
       if (feed?.sampleBlock) {
         const srcType = String(this.nodes?.get?.(String(feed.sourceNode || ""))?.type || "");
-        if (srcType === "keyboard" || srcType === "gridKeyboard") {
+        if (NodeLiveAudioProcessor.hostInletMixSpec(srcType)) {
           feed._keyboardBlockLate = true;
           continue;
         }
@@ -2999,10 +3024,6 @@ NodeLiveAudioProcessor.prototype.syncNativeHostCvFeeders = function syncNativeHo
         continue;
       }
       const sp = String(feed.sourcePort || "");
-      const srcType = String(this.nodes?.get?.(String(feed.sourceNode || ""))?.type || "");
-      if ((srcType === "keyboard" || srcType === "gridKeyboard") && sp === "Trigger") {
-        v = 0;
-      } else
       // Knob Bias/Out and other host CV: prefer shared reader (Bias↔Out aliases).
       if (typeof this.readEfficientModSourceSample === "function") {
         const raw = Number(this.readEfficientModSourceSample(feed.sourceNode, sp));
@@ -3757,7 +3778,7 @@ NodeLiveAudioProcessor.prototype.syncNativeMetaPolyphonyVoiceGates = function sy
         return;
       }
       if (port === "Arp Keys") {
-        addMask(out?.arpMask, this.midiKeyboardHeldKeyVelocities, 100);
+        addMask(out?.arpMask, this.keyboardArpByNode?.get?.(String(sourceNodeId))?.velocities, 100);
         return;
       }
       if (port === "Chord Memory") {
@@ -4399,6 +4420,8 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       push("drive", P.NATIVE_GRAPH_PARAM_GAIN_DB, cont("drive", 0.5));
       push("bias", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("bias", 0));
       push("load", P.NATIVE_GRAPH_PARAM_WIDTH, cont("load", 0.5));
+      // waveform = Gain Compensation choiceId (0 smallSignal / 1 largeSignal); main thread resolves choiceKeys.
+      push("gainCompensation", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("gainCompensation", 0));
       push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
@@ -4751,7 +4774,7 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       continue;
     }
     if (type === "ellipsoidOsc") {
-      // center=AA; shape=B; width=C scale; offset=A. Free-fn host phase.
+      // center=AA (0 Off / 1 Limit / 2 Dither); shape=B; width=C scale; offset=A. Free-fn host phase.
       push("antialias", P.NATIVE_GRAPH_PARAM_CENTER, disc("antialias", 1));
       push("frequency", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("frequency", 100));
       push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));

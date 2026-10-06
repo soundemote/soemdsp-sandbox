@@ -1,6 +1,7 @@
-// Shared MIDI keyboard layout (dock + module). White/black key sizes in
-// pixels / percent. Piano width = whiteCount × whiteKeyWidth, centered,
-// and scaled down if it would overflow the host (never clips).
+// Keyboard / Grid Keyboard face layout, per module (node.traceDisplaySettings
+// over the defaults). White/black key sizes in pixels / percent. Piano width
+// = whiteCount × whiteKeyWidth, centered, and scaled down if it would
+// overflow the host (never clips).
 
 const nodeGraphMidiKeyboardKeyLabelModes = Object.freeze(["off", "name", "number"]);
 
@@ -35,41 +36,17 @@ function normalizeNodeGraphMidiKeyboardLayout(raw = {}) {
   };
 }
 
-function nodeGraphMidiKeyboardLayoutSettings() {
-  return normalizeNodeGraphMidiKeyboardLayout(
-    typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp.midiKeyboardLayout : null,
-  );
-}
-
 function nodeGraphMidiKeyboardLayoutForSurface(surface) {
-  const nodeEl = surface?.closest?.("[data-node]");
-  const nodeId = String(nodeEl?.dataset?.node || "").trim();
-  const inModuleFace = Boolean(surface?.closest?.(
-    ".dsp-node.keyboard-layout, .node-layout-canvas-tile, .node-screen-solo-stage, .node-metamodule-canvas-stage",
-  ));
-  if (inModuleFace && nodeId && typeof nodeGraphPatchNode === "function") {
-    const node = nodeGraphPatchNode(nodeId);
-    if (node && (node.type === "keyboard" || node.type === "gridKeyboard")) {
-      return normalizeNodeGraphMidiKeyboardLayout({
-        ...nodeGraphMidiKeyboardLayoutDefaults,
-        ...(node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
-          ? node.traceDisplaySettings
-          : {}),
-      });
-    }
-  }
-  return nodeGraphMidiKeyboardLayoutSettings();
-}
-
-function setNodeGraphMidiKeyboardLayout(next, options = {}) {
-  if (typeof nodeGraphMvp === "undefined" || !nodeGraphMvp) {
-    return;
-  }
-  nodeGraphMvp.midiKeyboardLayout = normalizeNodeGraphMidiKeyboardLayout(next);
-  applyNodeGraphMidiKeyboardLayout();
-  if (options.persist !== false && typeof saveNodeGraphMidiKeyboardMemory === "function") {
-    saveNodeGraphMidiKeyboardMemory();
-  }
+  const nodeId = String(surface?.closest?.("[data-node]")?.dataset?.node || "").trim();
+  const node = nodeId && typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
+  const bag = node && (node.type === "keyboard" || node.type === "gridKeyboard")
+    && node.traceDisplaySettings && typeof node.traceDisplaySettings === "object"
+    ? node.traceDisplaySettings
+    : {};
+  return normalizeNodeGraphMidiKeyboardLayout({
+    ...nodeGraphMidiKeyboardLayoutDefaults,
+    ...bag,
+  });
 }
 
 function nodeGraphMidiKeyboardLayoutHostWidth(surface) {
@@ -135,13 +112,13 @@ function nodeGraphPositionMidiKeyboardBlackKeys(surface, blackByIndex, totalWhit
 
 let nodeGraphMidiKeyboardLayoutApplying = false;
 
-function applyNodeGraphMidiKeyboardLayout(settings = null) {
+function applyNodeGraphMidiKeyboardLayout() {
   if (nodeGraphMidiKeyboardLayoutApplying) {
     return;
   }
   nodeGraphMidiKeyboardLayoutApplying = true;
   try {
-    applyNodeGraphMidiKeyboardLayoutBody(settings);
+    applyNodeGraphMidiKeyboardLayoutBody();
   } finally {
     nodeGraphMidiKeyboardLayoutApplying = false;
   }
@@ -159,19 +136,17 @@ function nodeGraphMidiKeyboardBlackKeyHeightPx(surfaceHeight, blackHeightPercent
   return Math.max(6, Math.min(desired, h - lip));
 }
 
-function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
-  const layout = settings || nodeGraphMidiKeyboardLayoutSettings();
-  if (typeof nodeGraphMvp !== "undefined" && nodeGraphMvp && settings) {
-    nodeGraphMvp.midiKeyboardLayout = layout;
-  }
-  const generated = typeof nodeGraphMidiKeyboardGenerateKeys === "function"
-    ? nodeGraphMidiKeyboardGenerateKeys()
-    : { blackKeys: [], totalWhite: 0 };
-  const totalWhite = generated.totalWhite || 0;
-  const blackByIndex = new Map((generated.blackKeys || []).map((key) => [key.index, key]));
+function applyNodeGraphMidiKeyboardLayoutBody() {
   let needsSecondPass = false;
   let layoutChanged = false;
   document.querySelectorAll(".node-midi-keyboard-module .node-midi-keyboard-surface").forEach((surface) => {
+    // Key geometry from this keyboard's own window (octave + key count).
+    const nodeId = String(surface.closest("[data-node]")?.dataset?.node || "").trim();
+    const generated = typeof nodeGraphMidiKeyboardGenerateKeys === "function"
+      ? nodeGraphMidiKeyboardGenerateKeys(nodeGraphKeyboardViewStartMidiFor(nodeId), nodeGraphKeyboardKeyCountFor(nodeId))
+      : { blackKeys: [], totalWhite: 0 };
+    const totalWhite = generated.totalWhite || 0;
+    const blackByIndex = new Map((generated.blackKeys || []).map((key) => [key.index, key]));
     const s = nodeGraphMidiKeyboardLayoutForSurface(surface);
     const available = nodeGraphMidiKeyboardLayoutHostWidth(surface);
     const desired = totalWhite * s.whiteKeyWidth;
@@ -285,7 +260,7 @@ function applyNodeGraphMidiKeyboardLayoutBody(settings = null) {
     }
   });
   document.querySelectorAll(".node-grid-keyboard-module").forEach((module) => {
-    module.classList.toggle("show-keyboard-info", layout.hideKeyboardInfo === false);
+    module.classList.toggle("show-keyboard-info", nodeGraphMidiKeyboardLayoutForSurface(module).hideKeyboardInfo === false);
   });
   if (layoutChanged) {
     installNodeGraphMidiKeyboardLayoutResizeObserver();

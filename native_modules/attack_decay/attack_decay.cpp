@@ -3,7 +3,9 @@
 // soemdsp-native-target: attackDecay
 // soemdsp-native-kind: envelope
 //
-// Port of public/modules/attackDecay/attack-decay-math.js (exact).
+// Port of public/modules/attackDecay/attack-decay-math.js.
+// App Gate contract (gate_on / gate_hit). Peak = Gate height latched on the hit
+// (1 until the first hit, so ungated Cycle keeps running).
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -20,6 +22,7 @@ enum Phase { PHASE_IDLE = 0, PHASE_ATTACK = 1, PHASE_DECAY = 2 };
 struct State {
   double raw;
   double lastGate;
+  double velocity; // Gate height latched on hit = attack peak
   int phase;
   bool active;
 };
@@ -41,6 +44,7 @@ extern "C" int soemdsp_attack_decay_create() {
       State& s = gPool[i];
       s.raw = 0.0;
       s.lastGate = 0.0;
+      s.velocity = 1.0;
       s.phase = PHASE_IDLE;
       s.active = true;
       return i + 1;
@@ -83,17 +87,18 @@ extern "C" double soemdsp_attack_decay_sample(
   if (cyc < 0) cyc = 0;
   if (cyc > 2) cyc = 2;
 
-  const bool gateOn = safe(gate) > 0.5;
-  const double gateVal = gateOn ? 1.0 : 0.0;
-  const double prevGate = s.lastGate;
-  const bool rising = rising_edge(gateVal, &s.lastGate, 0.5);
-  const bool falling = prevGate > 0.5 && gateVal <= 0.5;
+  const double g = safe(gate);
+  const bool wasOn = gate_on(s.lastGate);
+  const bool rising = gate_hit(g, &s.lastGate);
+  const bool gateOn = gate_on(g);
+  const bool falling = wasOn && !gateOn;
+  if (rising) s.velocity = g;
 
   const bool pureFollower = (mode == 0 && cyc == 0);
   double target = 0.0;
 
   if (pureFollower) {
-    target = gateOn ? 1.0 : 0.0;
+    target = gateOn ? s.velocity : 0.0;
   } else {
     if (cyc == 2) {
       if (s.phase == PHASE_IDLE) s.phase = PHASE_ATTACK;
@@ -109,14 +114,15 @@ extern "C" double soemdsp_attack_decay_sample(
       if (!gateOn && s.phase == PHASE_IDLE) {
         // stay idle
       } else if (gateOn && s.phase == PHASE_IDLE) {
+        s.velocity = g;
         s.phase = PHASE_ATTACK;
       }
     }
 
     if (s.phase == PHASE_ATTACK) {
-      target = 1.0;
-      if (s.raw >= kPeak || safeAttack <= 0.0) {
-        if (safeAttack <= 0.0) s.raw = 1.0;
+      target = s.velocity;
+      if (s.raw >= kPeak * s.velocity || safeAttack <= 0.0) {
+        if (safeAttack <= 0.0) s.raw = s.velocity;
         s.phase = PHASE_DECAY;
         target = 0.0;
       }
@@ -126,11 +132,11 @@ extern "C" double soemdsp_attack_decay_sample(
         if (safeDecay <= 0.0) s.raw = 0.0;
         if (cyc == 2) {
           s.phase = PHASE_ATTACK;
-          target = 1.0;
+          target = s.velocity;
         } else if (cyc == 1) {
           if (mode == 1 || gateOn) {
             s.phase = PHASE_ATTACK;
-            target = 1.0;
+            target = s.velocity;
           } else {
             s.phase = PHASE_IDLE;
             s.raw = 0.0;
@@ -152,9 +158,10 @@ extern "C" double soemdsp_attack_decay_sample(
   s.raw += (target - s.raw) * coef;
   if (!(s.raw * 0.0 == 0.0)) s.raw = 0.0;
   if (s.raw < 1.0e-9) s.raw = 0.0;
-  if (s.raw > 1.0 - 1.0e-12 && target >= 1.0) s.raw = 1.0;
+  if (target > 0.0 && s.raw > target - 1.0e-12 && s.raw < target + 1.0e-12) s.raw = target;
 
-  const double clamped = s.raw < 0.0 ? 0.0 : (s.raw > 1.0 ? 1.0 : s.raw);
+  // Floor only: pow_pos (Curve) needs a non-negative base.
+  const double clamped = s.raw < 0.0 ? 0.0 : s.raw;
   const double shaped = safeCurve == 1.0 ? clamped : pow_pos(clamped, safeCurve);
   const double y = shaped * level;
   return (y * 0.0 == 0.0) ? y : 0.0;

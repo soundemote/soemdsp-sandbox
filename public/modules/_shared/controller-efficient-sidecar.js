@@ -554,10 +554,9 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
   };
   const buildKeyboardPlayMask = (nid, cv, signal) => {
     const playMask = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
-    const host = typeof nodeGraphChordMemoryHost === "function"
-      ? nodeGraphChordMemoryHost()
+    const mom = typeof nodeGraphChordMemoryMomentaryMaskForNode === "function"
+      ? nodeGraphChordMemoryMomentaryMaskForNode(nid)
       : null;
-    const mom = host?.chordMemoryMomentaryPlayMask;
     const momOn = mom instanceof Uint8Array && maskBusy(mom);
     if (momOn) {
       orMask(playMask, mom);
@@ -608,17 +607,19 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     nodeGraphChordMemoryApplyInletMask(nid, chordMask, this.nodes);
   };
 
-  const pulseActive = this.midiKeyboardGatePulseSamples > 0;
-  const goldMask = this.midiKeyboardArpMask instanceof Uint8Array
-    ? this.midiKeyboardArpMask
-    : (typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128));
+  const emptyMask = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
+  // This keyboard's gold Arp Keys latch (posted per node from main).
+  const goldMaskFor = (nid) => {
+    const mask = this.keyboardArpByNode?.get?.(nid)?.mask;
+    return mask instanceof Uint8Array ? mask : emptyMask;
+  };
   const midiPlayMask = this.midiKeyboardPlayMask instanceof Uint8Array
     ? this.midiKeyboardPlayMask
     : (typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128));
   const midiPlayLocal = maskBusy(midiPlayMask);
 
   if (!this._keyboardCvHold) this._keyboardCvHold = new Map();
-  const buildCv = (signal, usePulse, holdKey) => {
+  const buildCv = (signal, holdKey) => {
     const prev = this._keyboardCvHold.get(holdKey) || {};
     const sourceMidi = Number(signal.midi);
     const midi = Math.max(0, Math.min(127, Math.round(
@@ -640,7 +641,7 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     // Gate/Trigger carry strike velocity while active (envelopes read Gate level as velocity).
     const gateOn = num(signal.gate, 0) > 0;
     const gateAmp = gateOn ? velocity01 : 0;
-    const pulseOn = (usePulse && pulseActive) || num(signal.gatePulse, 0) > 0;
+    const pulseOn = num(signal.gatePulse, 0) > 0;
     const triggerAmp = pulseOn ? velocity01 : 0;
     const sourceFreq = Number(signal.frequency);
     const frequency = Math.max(0,
@@ -816,14 +817,15 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     const isKeyboard = nodeType === "keyboard" || nodeType === "gridKeyboard";
     const isGrid = nodeType === "gridKeyboard";
     const signal = isKeyboard
-      ? (this.keyboardModuleSignal || {})
+      ? (this.keyboardSignalByNode?.get?.(nid) || {})
       : (this.midiKeyboardSignal || {});
-    const cv = buildCv(signal, !isKeyboard || pulseActive, isKeyboard ? "keyboard" : "midi");
+    const cv = buildCv(signal, nid);
     if (isKeyboard) {
       const gateOut = cv.gateAmp;
       const triggerOut = cv.triggerAmp;
       applyChordMemoryIn(nid);
       const playMask = buildKeyboardPlayMask(nid, cv, signal);
+      const goldMask = goldMaskFor(nid);
       const arpInMask = typeof this.mixNoteMask128 === "function"
         ? this.mixNoteMask128(nid, "Arp Keys")
         : goldMask;
@@ -883,14 +885,13 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
     if (String(node?.type || "") !== "keyboard" && String(node?.type || "") !== "gridKeyboard") continue;
     const nid = String(id);
     const prev = this.nodeOutputs.get(nid) || {};
-    const signal = this.keyboardModuleSignal || {};
-    // Keep pulseActive so Trigger is not wiped when gatePulse was already
-    // consumed into midiKeyboardGatePulseSamples by normalize.
-    const cv = buildCv(signal, pulseActive, "keyboard");
+    const signal = this.keyboardSignalByNode?.get?.(nid) || {};
+    const cv = buildCv(signal, nid);
     const gateOut = cv.gateAmp;
     const triggerOut = cv.triggerAmp;
     applyChordMemoryIn(nid);
     const playMask2 = buildKeyboardPlayMask(nid, cv, signal);
+    const goldMask = goldMaskFor(nid);
     const arpInMask2 = typeof this.mixNoteMask128 === "function"
       ? this.mixNoteMask128(nid, "Arp Keys")
       : goldMask;
@@ -925,10 +926,6 @@ NodeLiveAudioProcessor.prototype.processControllerEfficientSidecar = function pr
       outs2.f = cv.frequency;
     }
     this.nodeOutputs.set(nid, outs2);
-  }
-
-  if (pulseActive) {
-    this.midiKeyboardGatePulseSamples = Math.max(0, (this.midiKeyboardGatePulseSamples || 0) - 1);
   }
 
   // Knob / slider / buttons / wheels: raw Bias target. Native Control ramps.

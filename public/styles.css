@@ -15800,6 +15800,8 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
 
 :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
   > .node-io-column:not(.labels-hidden) .node-io-label {
+  /* Layout only. Typography comes from the base .node-io-label rule (single
+     owner; smoke_test IO label typography contract). */
   display: block;
   flex: 0 1 auto;
   min-width: 0.85ch !important;
@@ -15807,13 +15809,7 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   overflow: visible;
   white-space: nowrap;
   text-overflow: clip;
-  font-size: clamp(0.72rem, 0.9vw, 0.92rem);
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  color: color-mix(in srgb, var(--text) 78%, var(--accent));
   pointer-events: none;
-  opacity: 0.95;
 }
 
 :is(.node-solid-module-shell, .node-module-chrome-layout-b-shell).layout-b-port-labels
@@ -17336,16 +17332,11 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
 
 .node-io-label-rgba {
   display: inline-flex;
-  letter-spacing: 0;
 }
 
 .node-io-label-rgba-ch {
   font: inherit;
   line-height: inherit;
-}
-
-.node-io-label-rgba-a {
-  color: #000000;
 }
 
 /* Used vs unused I/O jack paint. UIDEV sliders write the two brightness vars. */
@@ -17551,6 +17542,18 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
 }
 
 .node-io-label {
+  /* SINGLE OWNER of jack (I/O) label typography. Every module and layout
+     uses this one look. Fallbacks = the .node-io-row text look. No module or
+     layout rule may set font/color/letter-spacing/line-height on
+     .node-io-label (or its children) or set any --node-io-label-* knob.
+     State tints (hover / connection-selected) use `color: inherit` from the
+     row. Enforced by smoke_test require_io_label_typography_contract. */
+  font-family: var(--node-io-label-font-family, "Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace);
+  font-size: var(--node-io-label-font-size, 0.84rem);
+  font-weight: var(--node-io-label-font-weight, 400);
+  line-height: var(--node-io-label-line-height, 1);
+  letter-spacing: var(--node-io-label-letter-spacing, normal);
+  color: var(--node-io-label-color, var(--muted));
   position: relative;
   z-index: 0;
   display: block;
@@ -17577,6 +17580,14 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body > .node-t
 .node-io-row.patch-point-hover {
   cursor: var(--node-dot-cursor);
   color: color-mix(in srgb, var(--text) 88%, var(--accent));
+}
+
+/* State only (not module/layout identity): the label follows the row's
+   hover / connection-selected tint. Allow-listed by exact selector in
+   smoke_test require_io_label_typography_contract. */
+.node-io-row.patch-point-hover .node-io-label,
+.node-io-row.port-connection-selected .node-io-label {
+  color: inherit;
 }
 
 .node-execution-order-badge {

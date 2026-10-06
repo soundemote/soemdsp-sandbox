@@ -496,53 +496,29 @@ NodeLiveAudioProcessor.prototype.setMidiKeyboardSignal = function setMidiKeyboar
     });
 };
 
-NodeLiveAudioProcessor.prototype.pokeKeyboardTriggerDestinations = function pokeKeyboardTriggerDestinations(amp) {
-  const native = this.nativeGraph;
-  if (!native?.soemdsp_graph_poke_input || !this.nativeGraphHandle) return;
-  const list = this._planConnections;
-  if (!Array.isArray(list)) return;
-  const level = Number.isFinite(Number(amp)) && Number(amp) > 0 ? Number(amp) : 1;
-  for (let i = 0; i < list.length; i += 1) {
-    const c = list[i];
-    const srcType = String(this.nodes?.get?.(String(c?.sourceNode || ""))?.type || "");
-    if (srcType !== "keyboard" && srcType !== "gridKeyboard") continue;
-    if (String(c?.sourcePort || "") !== "Trigger") continue;
-    const dst = String(c?.destinationNode || "");
-    const dp = String(c?.destinationPort || "");
-    if (!dst || !dp) continue;
-    const dstType = String(this.nodes?.get?.(dst)?.type || "");
-    const portId = typeof this.mapNativeGraphDstPortId === "function"
-      ? this.mapNativeGraphDstPortId(dp, dstType)
-      : null;
-    if (portId == null) continue;
-    try {
-      native.soemdsp_graph_poke_input(
-        this.nativeGraphHandle,
-        this.fnv1aHash32(dst),
-        portId | 0,
-        level,
-      );
-    } catch (_e) { /* next cable */ }
-  }
-};
-
-NodeLiveAudioProcessor.prototype.armKeyboardDownPulse = function armKeyboardDownPulse(previous, next) {
+NodeLiveAudioProcessor.prototype.armKeyboardDownPulse = function armKeyboardDownPulse(nodeId, previous, next) {
   const wasDown = Number(previous?.gate) > 0;
   const isDown = Number(next?.gate) > 0;
-  if (!wasDown && isDown) {
-    const vel = Number(next?.velocity);
-    this.pokeKeyboardTriggerDestinations(Number.isFinite(vel) && vel > 0 ? vel : 1);
-  }
+  if (wasDown || !isDown) return;
+  if (!this._keyboardDownPulseByNode) this._keyboardDownPulseByNode = new Map();
+  this._keyboardDownPulseByNode.set(String(nodeId || ""), 1);
 };
 
-NodeLiveAudioProcessor.prototype.setKeyboardModuleSignal = function setKeyboardModuleSignal(signal) {
-  // Local Keyboard face / dock pointer (Keyboard module only).
-  const previous = this.keyboardModuleSignal;
-  this.keyboardModuleSignal = this._normalizeKeyboardSignalPayload(signal, {
+NodeLiveAudioProcessor.prototype.setKeyboardModuleSignal = function setKeyboardModuleSignal(nodeId, signal) {
+  // One Keyboard / Grid Keyboard face pointer signal. null = that keyboard is gone.
+  const id = String(nodeId || "");
+  if (!id) return;
+  if (!signal || typeof signal !== "object") {
+    this.keyboardSignalByNode.delete(id);
+    return;
+  }
+  const previous = this.keyboardSignalByNode.get(id);
+  const next = this._normalizeKeyboardSignalPayload(signal, {
     pulse: false,
     previous,
   });
-  this.armKeyboardDownPulse(previous, this.keyboardModuleSignal);
+  this.keyboardSignalByNode.set(id, next);
+  this.armKeyboardDownPulse(id, previous, next);
 };
 
 NodeLiveAudioProcessor.prototype.setMidiKeyboardPlayKeysBitmask = function setMidiKeyboardPlayKeysBitmask(mask) {
@@ -551,28 +527,31 @@ NodeLiveAudioProcessor.prototype.setMidiKeyboardPlayKeysBitmask = function setMi
     : (mask instanceof Uint8Array ? mask : new Uint8Array(128));
 };
 
-NodeLiveAudioProcessor.prototype.setChordMemoryLatch = function setChordMemoryLatch(slotsByNode, playMaskByNode, momentaryMask) {
+NodeLiveAudioProcessor.prototype.setChordMemoryLatch = function setChordMemoryLatch(slotsByNode, playMaskByNode, momentaryByNode) {
   if (typeof nodeGraphChordMemoryApplyLiveLatch === "function") {
-    nodeGraphChordMemoryApplyLiveLatch(slotsByNode, playMaskByNode, momentaryMask);
+    nodeGraphChordMemoryApplyLiveLatch(slotsByNode, playMaskByNode, momentaryByNode);
   }
 };
 
-NodeLiveAudioProcessor.prototype.setMidiKeyboardHeldKeysBitmask = function setMidiKeyboardHeldKeysBitmask(mask, velocities, octave) {
-    const oct = Math.round(Number(octave));
-    this.midiKeyboardOctave = Number.isFinite(oct) ? oct : 0;
-    this.midiKeyboardArpMask = typeof noteMaskEnsure === "function"
-      ? noteMaskEnsure(mask)
-      : (mask instanceof Uint8Array ? new Uint8Array(mask) : new Uint8Array(128));
-    if (velocities instanceof Uint8Array) {
-      const copy = new Uint8Array(128);
-      copy.set(velocities.subarray(0, 128));
-      this.midiKeyboardHeldKeyVelocities = copy;
-    }
+/** One keyboard's gold Arp Keys latch (mask + per-key velocities). null mask = that keyboard is gone. */
+NodeLiveAudioProcessor.prototype.setKeyboardArpLatch = function setKeyboardArpLatch(nodeId, mask, velocities) {
+  const id = String(nodeId || "");
+  if (!id) return;
+  if (!(mask instanceof Uint8Array)) {
+    this.keyboardArpByNode.delete(id);
+    return;
+  }
+  const vels = new Uint8Array(128);
+  if (velocities instanceof Uint8Array) vels.set(velocities.subarray(0, 128));
+  this.keyboardArpByNode.set(id, {
+    mask: typeof noteMaskEnsure === "function" ? noteMaskEnsure(mask) : new Uint8Array(mask),
+    velocities: vels,
+  });
 };
 
-/** Polyphony Midi Note + Velocity table (128 bytes). source: midi | keyboard */
+/** MIDI module Polyphony Midi Note + Velocity table (128 bytes). */
 NodeLiveAudioProcessor.prototype.setPolyphonyVelocities = function setPolyphonyVelocities(source, velocities) {
-  const key = String(source || "");
+  if (String(source || "") !== "midi") return;
   const n = typeof POLYPHONY_NOTE_COUNT === "number" ? POLYPHONY_NOTE_COUNT : 128;
   const table = velocities instanceof Uint8Array
     ? new Uint8Array(velocities)
@@ -580,12 +559,10 @@ NodeLiveAudioProcessor.prototype.setPolyphonyVelocities = function setPolyphonyV
   if (table.length < n) {
     const full = new Uint8Array(n);
     full.set(table);
-    if (key === "keyboard") this.keyboardPolyphonyVelocities = full;
-    else this.midiPolyphonyVelocities = full;
+    this.midiPolyphonyVelocities = full;
     return;
   }
-  if (key === "keyboard") this.keyboardPolyphonyVelocities = table.subarray(0, n);
-  else this.midiPolyphonyVelocities = table.subarray(0, n);
+  this.midiPolyphonyVelocities = table.subarray(0, n);
 };
 
 /** Ensure combined-wasm VoiceManager handle exists. */
@@ -629,15 +606,6 @@ NodeLiveAudioProcessor.prototype.vmAllNotesOff = function vmAllNotesOff() {
   const h = this._voiceManagerHandle | 0;
   if (!(h > 0) || !native?.soemdsp_voice_manager_all_notes_off) return;
   native.soemdsp_voice_manager_all_notes_off(h);
-};
-
-NodeLiveAudioProcessor.prototype.setPitchModWheelSignal = function setPitchModWheelSignal(signal) {
-    const source = signal && typeof signal === "object" ? signal : {};
-    const pitch = Number(source.pitch);
-    this.pitchModWheelSignal = {
-      mod: this.clampValue(nodeGraphFiniteNumber(source.mod), 0, 1),
-      pitch: Number.isFinite(pitch) ? pitch : 0,
-    };
 };
 
 NodeLiveAudioProcessor.prototype.normalizeExternalButtonEventName = function normalizeExternalButtonEventName(name) {

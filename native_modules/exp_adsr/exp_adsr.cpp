@@ -6,6 +6,7 @@
 //
 // UpdateOnTrigger On: latch knobs on Gate rise.
 // Off: knobs/mods apply live, including mid-stage time/target retarget.
+// Peak = Gate height latched on rise (velocity); sustain level = velocity*Sustain.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -51,6 +52,7 @@ struct ExpAdsrState {
   double stageEnd;
   double stageDuration;
   double lastGate;
+  double velocity; // Gate height latched on rise = attack peak
   int stage;
   bool releasePending;
   bool hasShot;
@@ -128,15 +130,16 @@ static void capture_shot(
 static void trigger_attack(ExpAdsrState& s, const Shot& p, double rate) {
   const double period = 1.0 / maxd(1.0, rate);
   const double from = s.out;
+  const double peak = s.velocity;
   s.releasePending = false;
   if (p.delay < period) {
     if (p.attack <= period) {
       s.stage = STAGE_DECAY;
-      begin_stage(s, 1.0, p.sustain, p.decay);
-      s.out = 1.0;
+      begin_stage(s, peak, peak * p.sustain, p.decay);
+      s.out = peak;
     } else {
       s.stage = STAGE_ATTACK;
-      begin_stage(s, from, 1.0, p.attack);
+      begin_stage(s, from, peak, p.attack);
     }
     return;
   }
@@ -157,7 +160,7 @@ static void enter_sustain_or_release(
     s.stage = STAGE_RELEASE;
     begin_stage(s, outBeforeComplete, 0.0, p.release);
   } else {
-    s.out = p.sustain;
+    s.out = s.velocity * p.sustain;
     s.stage = STAGE_SUSTAIN;
   }
 }
@@ -191,6 +194,7 @@ extern "C" int soemdsp_exp_adsr_create() {
       s.stageEnd = 0.0;
       s.stageDuration = 0.0;
       s.lastGate = 0.0;
+      s.velocity = 0.0;
       s.stage = STAGE_OFF;
       s.releasePending = false;
       s.hasShot = false;
@@ -232,6 +236,8 @@ extern "C" double soemdsp_exp_adsr_sample(
   const double prevGate = s.lastGate;
   const bool rising = rising_edge(safeGate, &s.lastGate, 0.0);
   const bool falling = prevGate > 0.0 && safeGate <= 0.0;
+  // Velocity = raw Gate height at the rise (peak target, not an output multiplier).
+  if (rising) s.velocity = safeGate;
 
   // On: freeze knobs until next Gate rise. Off: always live (+ mid-stage retarget).
   if (!latch || rising || !s.hasShot) {
@@ -272,16 +278,16 @@ extern "C" double soemdsp_exp_adsr_sample(
     if (s.stage == STAGE_DELAY) {
       retarget_stage(s, s.out, p.delay, period);
     } else if (s.stage == STAGE_ATTACK) {
-      retarget_stage(s, 1.0, p.attack, period);
+      retarget_stage(s, s.velocity, p.attack, period);
     } else if (s.stage == STAGE_DECAY) {
       const bool gateLow = !(safeGate > 0.0);
-      if ((s.releasePending || gateLow) && p.sustain > s.out) {
+      if ((s.releasePending || gateLow) && s.velocity * p.sustain > s.out) {
         s.releasePending = false;
         s.stage = STAGE_RELEASE;
         begin_stage(s, s.out, 0.0, p.release);
       } else {
         // Never retarget Decay end above current out (blocks mid-decay rises).
-        retarget_stage(s, mind(p.sustain, s.out), p.decay, period);
+        retarget_stage(s, mind(s.velocity * p.sustain, s.out), p.decay, period);
       }
     } else if (s.stage == STAGE_RELEASE) {
       retarget_stage(s, 0.0, p.release, period);
@@ -303,11 +309,11 @@ extern "C" double soemdsp_exp_adsr_sample(
       if (s.stageElapsed >= s.stageDuration) {
         if (p.attack <= period) {
           s.stage = STAGE_DECAY;
-          begin_stage(s, 1.0, p.sustain, p.decay);
-          s.out = 1.0;
+          begin_stage(s, s.velocity, s.velocity * p.sustain, p.decay);
+          s.out = s.velocity;
         } else {
           s.stage = STAGE_ATTACK;
-          begin_stage(s, s.out, 1.0, p.attack);
+          begin_stage(s, s.out, s.velocity, p.attack);
         }
       }
       break;
@@ -321,8 +327,8 @@ extern "C" double soemdsp_exp_adsr_sample(
       }
       if (advance_shaped(s, p.attackShape, period)) {
         s.stage = STAGE_DECAY;
-        begin_stage(s, 1.0, p.sustain, p.decay);
-        s.out = 1.0;
+        begin_stage(s, s.velocity, s.velocity * p.sustain, p.decay);
+        s.out = s.velocity;
       }
       break;
     case STAGE_DECAY: {
@@ -344,7 +350,7 @@ extern "C" double soemdsp_exp_adsr_sample(
       break;
     }
     case STAGE_SUSTAIN:
-      s.out = p.sustain;
+      s.out = s.velocity * p.sustain;
       if (looping) trigger_attack(s, p, rate);
       break;
     case STAGE_RELEASE:

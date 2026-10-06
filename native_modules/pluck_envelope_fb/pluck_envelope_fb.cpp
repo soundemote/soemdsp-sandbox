@@ -205,9 +205,11 @@ extern "C" double soemdsp_pluck_envelope_fb_sample(
   const double effRelease = fold_unit_mod(rel, releaseMod, kReleaseMin, kReleaseMax);
 
   // Inner AR always live so release feedback is never frozen by UpdateOnTrigger.
+  // Binary gate: Curve AR peaks at Gate height, and Pluck applies its own
+  // velocity below, so the inner AR must peak at 1.
   const double env = soemdsp_curve_attack_release_sample(
     s.ar,
-    gate,
+    gate_on(safeGate) ? 1.0 : 0.0,
     atk,
     atkShape,
     effRelease,

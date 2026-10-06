@@ -1,6 +1,6 @@
 // RoundShape face — cheap vector orbit (filter-curve family).
 // Stroke samples the same math as the signal. Cursor is a vector circle
-// on that stroke. KickEnvelope reuses this plate with a decaying spiral.
+// on that stroke.
 
 function createNodeGraphRoundShapeDisplay(nodeId, type = "ellipsoid") {
   const id = nodeId && typeof nodeId === "object"
@@ -193,16 +193,9 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   if (!node || !canvas) {
     return;
   }
-  const isKick = node.type === "kickEnvelope" || node.type === "sineKick";
   const isEllipsoidOsc = node.type === "ellipsoidOsc";
-  let shape = Number(nodeGraphRoundShapeLiveParam(node, isKick ? "sharpness" : "morph", 0));
-  if (isKick && !(shape > 0)) {
-    const legacy = Number(nodeGraphRoundShapeLiveParam(node, "roundness", 0));
-    if (legacy > 0) shape = legacy;
-  }
+  let shape = Number(nodeGraphRoundShapeLiveParam(node, "morph", 0));
   shape = Math.max(0, Math.min(1, Number.isFinite(shape) ? shape : 0));
-  const low = Number(nodeGraphRoundShapeLiveParam(node, "low", 0));
-  const high = Number(nodeGraphRoundShapeLiveParam(node, "high", 1));
   const look = nodeGraphRoundShapeFaceLook(node);
   const strokeColor = look.strokePaint || look.strokeColor;
   const plateBg = look.backgroundPaint || look.background;
@@ -221,10 +214,8 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
     ? faceMetrics.cssH
     : nodeGraphFiniteNumber(section.clientHeight || section.offsetHeight);
   const signature = [
-    isKick ? "kick" : (isEllipsoidOsc ? "ellipsoidOsc" : "orbit"),
+    isEllipsoidOsc ? "ellipsoidOsc" : "orbit",
     shape.toFixed(4),
-    low.toFixed(4),
-    high.toFixed(4),
     isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "offset", 0).toFixed(4) : "",
     isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "shape", 0).toFixed(4) : "",
     isEllipsoidOsc ? nodeGraphRoundShapeLiveParam(node, "scale", 1).toFixed(4) : "",
@@ -319,42 +310,14 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   const samples = 256;
   const strokeInset = strokeW * 0.5 + 1 / Math.max(pixelRatio, 1);
   const pad = Math.max(6, Math.min(drawW, drawH) * 0.08) + strokeInset;
-  const innerW = Math.max(4, drawW - pad * 2);
-  const innerH = Math.max(4, drawH - pad * 2);
   const cx = drawW * 0.5;
   const cy = drawH * 0.5;
   const half = Math.max(4, Math.min(drawW, drawH) * 0.5 - pad);
   const viewScale = half;
-  // Kick envelope: always a square plate (largest inscribed), so the
-  // bottom-left quarter stays circular when the module is resized.
-  const kickSide = Math.max(4, Math.min(innerW, innerH));
-  const kickOx = pad + (innerW - kickSide) * 0.5;
-  const kickOy = pad + (innerH - kickSide) * 0.5;
-
-  const kickToFace = (qx, qy) => ({
-    x: kickOx + (Number(qx) + 1) * kickSide,
-    y: kickOy + (-Number(qy)) * kickSide,
-  });
 
   if (orbitDirty) {
     context.beginPath();
-    if (isKick) {
-      const quarter = typeof nodeGraphKickEnvelopeQuarterPoint === "function"
-        ? nodeGraphKickEnvelopeQuarterPoint
-        : (u) => {
-          const th = Math.PI + u * Math.PI * 0.5;
-          return { x: Math.cos(th), y: Math.sin(th) };
-        };
-      for (let i = 0; i <= samples; i += 1) {
-        const pt = quarter(i / samples, shape);
-        const p = kickToFace(pt.x, pt.y);
-        if (i === 0) {
-          context.moveTo(p.x, p.y);
-        } else {
-          context.lineTo(p.x, p.y);
-        }
-      }
-    } else if (isEllipsoidOsc) {
+    if (isEllipsoidOsc) {
       const eps = 0.5 / samples;
       for (let i = 0; i < samples; i += 1) {
         let phase = i / samples + eps;
@@ -426,41 +389,7 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
   // Cursor: worklet live uses scope Bi X / Bi Y (no main-thread phases Map).
   let px = null;
   let py = null;
-  const liveOut = typeof nodeGraphMvp !== "undefined"
-    ? nodeGraphMvp?.live?.runtime?.nodeOutputs?.get?.(nodeId)
-    : null;
-  if (isKick) {
-    const liveA = liveOut && Number.isFinite(Number(liveOut.A))
-      ? Number(liveOut.A)
-      : (typeof nodeGraphModuleScopeLatestOutputValue === "function"
-        ? nodeGraphModuleScopeLatestOutputValue(nodeId, "A", Number.NaN)
-        : Number.NaN);
-    const liveU = liveOut && Number.isFinite(Number(liveOut.U))
-      ? Number(liveOut.U)
-      : Number.NaN;
-    if (Number.isFinite(liveU) && typeof nodeGraphKickEnvelopeQuarterPoint === "function") {
-      const pt = nodeGraphKickEnvelopeQuarterPoint(liveU, shape);
-      const p = kickToFace(pt.x, pt.y);
-      px = p.x;
-      py = p.y;
-    } else if (Number.isFinite(liveA) && typeof nodeGraphKickEnvelopePointForA === "function") {
-      const pt = nodeGraphKickEnvelopePointForA(liveA, low, high, shape);
-      const p = kickToFace(pt.x, pt.y);
-      px = p.x;
-      py = p.y;
-    } else if (liveOut && Number.isFinite(Number(liveOut.X)) && Number.isFinite(Number(liveOut.Y))) {
-      const p = kickToFace(liveOut.X, liveOut.Y);
-      px = p.x;
-      py = p.y;
-    } else {
-      const rest = typeof nodeGraphKickEnvelopeQuarterPoint === "function"
-        ? nodeGraphKickEnvelopeQuarterPoint(1, shape)
-        : { x: 0, y: -1 };
-      const p = kickToFace(rest.x, rest.y);
-      px = p.x;
-      py = p.y;
-    }
-  } else if (isEllipsoidOsc) {
+  if (isEllipsoidOsc) {
     let phase = nodeGraphRoundShapeReadScopePort(nodeId, "__Phase");
     if (!Number.isFinite(phase) && typeof nodeGraphMvp !== "undefined") {
       const stored = nodeGraphMvp?.live?.runtime?.phases?.get?.(nodeId);
@@ -502,18 +431,9 @@ function drawNodeGraphRoundShapeDisplayInner(section) {
     }
   }
   if (!Number.isFinite(px) || !Number.isFinite(py)) {
-    if (isKick) {
-      const rest = typeof nodeGraphKickEnvelopeQuarterPoint === "function"
-        ? nodeGraphKickEnvelopeQuarterPoint(1, shape)
-        : { x: 0, y: -1 };
-      const p = kickToFace(rest.x, rest.y);
-      px = p.x;
-      py = p.y;
-    } else {
-      const start = nodeGraphRoundShapeEllipsoidPoint(0, shape);
-      px = cx + start.x * viewScale;
-      py = cy - start.y * viewScale;
-    }
+    const start = nodeGraphRoundShapeEllipsoidPoint(0, shape);
+    px = cx + start.x * viewScale;
+    py = cy - start.y * viewScale;
   }
   if (Number.isFinite(px) && Number.isFinite(py)) {
     context.beginPath();

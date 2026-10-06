@@ -486,7 +486,7 @@ function nodeGraphGateTriggerPortSpokenName(type, port) {
   return "";
 }
 
-/** True when the module's signal IO is exactly In and Out (no L/R/extra jacks). */
+/** True when the module's signal IO is exactly In and Out/Thru (no L/R/extra jacks). */
 function nodeGraphModuleIsInOutThruPair(type) {
   const def = typeof nodeGraphModuleDefinitions !== "undefined"
     ? nodeGraphModuleDefinitions[type]
@@ -499,10 +499,11 @@ function nodeGraphModuleIsInOutThruPair(type) {
   }
   const ins = Array.isArray(def.inputs) ? def.inputs : [];
   const outs = Array.isArray(def.outputs) ? def.outputs : [];
-  return ins.length === 1 && ins[0] === "In" && outs.length === 1 && outs[0] === "Out";
+  return ins.length === 1 && ins[0] === "In"
+    && outs.length === 1 && (outs[0] === "Out" || outs[0] === "Thru");
 }
 
-/** → / ← when the only jacks are In and Out and the label is still the word In/Out. */
+/** → / ← when the only jacks are In and Out/Thru and the label is still the word In/Out/Thru. */
 function nodeGraphThruPairPortDisplayLabel(type, port, rawLabel) {
   if (!nodeGraphModuleIsInOutThruPair(type)) {
     return "";
@@ -512,7 +513,7 @@ function nodeGraphThruPairPortDisplayLabel(type, port, rawLabel) {
   if (key === "In" && (raw === "In" || raw === key)) {
     return NODE_GRAPH_IN_GLYPH;
   }
-  if (key === "Out" && (raw === "Out" || raw === key)) {
+  if ((key === "Out" || key === "Thru") && (raw === "Out" || raw === key)) {
     return NODE_GRAPH_OUT_GLYPH;
   }
   return "";

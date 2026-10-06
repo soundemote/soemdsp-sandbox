@@ -233,7 +233,7 @@ function nodeGraphEllipsoidSineToSquare(
 
 function nodeGraphEllipsoidSineToSquareVector(phaseCycles, params = {}) {
   const level = nodeGraphFiniteNumber(params.amplitude, nodeGraphFiniteNumber(params.level));
-  // Face / KickEnvelope pass `shape`; DSP / RoundShape live path pass `morph`.
+  // RoundShape face passes `shape`; DSP / RoundShape live path pass `morph`.
   const morphOrShape = Object.prototype.hasOwnProperty.call(params, "morph")
     ? params.morph
     : params.shape;

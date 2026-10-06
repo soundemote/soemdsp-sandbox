@@ -482,7 +482,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const bodeStates = new Map();
   const stftBlurStates = new Map();
   const softpopOscillatorStates = new Map();
-  const sinepulseStates = new Map();
   const yellowjacketFilterStates = new Map();
   const superloveFilterStates = new Map();
   const chaoticPhaseLockingFilterStates = new Map();
@@ -716,14 +715,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
         typeof createNodeGraphSoftpopOscillatorState === "function"
           ? createNodeGraphSoftpopOscillatorState()
           : { left: {}, right: {}, lastReset: false, generation: 0, lastSeed: NaN },
-      );
-    }
-    if (node.type === "sinepulse") {
-      sinepulseStates.set(
-        node.id,
-        typeof createNodeGraphSinepulseState === "function"
-          ? createNodeGraphSinepulseState()
-          : { tooth: 0, phase: 0, lastReset: 0 },
       );
     }
     if (node.type === "yellowjacketFilter") {
@@ -983,7 +974,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     bodeStates,
     stftBlurStates,
     softpopOscillatorStates,
-    sinepulseStates,
     yellowjacketFilterStates,
     superloveFilterStates,
     chaoticPhaseLockingFilterStates,
@@ -1053,10 +1043,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     // port so downstream modules (envelopes, sample+hold, etc.) feel a poke
     // when their signal supply is cut, instead of just dropping to silence.
     inputWireBreakTriggers: new Map(),
-    pitchModWheelSignal: {
-      mod: Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphMvp?.modWheelSignal))),
-      pitch: nodeGraphFiniteNumber(nodeGraphMvp?.pitchWheelSignal),
-    },
     midiKeyboardSignal: null,
     nodeOutputs: new Map((plan.nodes || []).map((node) => [node.id, 0])),
     nodes,
@@ -1192,7 +1178,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.activeFilterStates) {
     runtime.activeFilterStates = new Map();
   }
-  for (const sci of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaseDisperse", "bode", "stftBlur", "softpopOscillator", "sinepulse"]) {
+  for (const sci of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaseDisperse", "bode", "stftBlur", "softpopOscillator"]) {
     const key = `${sci}States`;
     if (!runtime[key]) runtime[key] = new Map();
   }
@@ -1612,15 +1598,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
         typeof createNodeGraphSoftpopOscillatorState === "function"
           ? createNodeGraphSoftpopOscillatorState()
           : { left: {}, right: {}, lastReset: false, generation: 0, lastSeed: NaN },
-      );
-    }
-    if (!runtime.sinepulseStates) runtime.sinepulseStates = new Map();
-    if (node.type === "sinepulse" && !runtime.sinepulseStates.has(node.id)) {
-      runtime.sinepulseStates.set(
-        node.id,
-        typeof createNodeGraphSinepulseState === "function"
-          ? createNodeGraphSinepulseState()
-          : { tooth: 0, phase: 0, lastReset: 0 },
       );
     }
     if (node.type === "yellowjacketFilter" && !runtime.yellowjacketFilterStates.has(node.id)) {
@@ -2158,7 +2135,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       }
     }
   }
-  for (const sciType of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaseDisperse", "bode", "stftBlur", "softpopOscillator", "sinepulse"]) {
+  for (const sciType of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaseDisperse", "bode", "stftBlur", "softpopOscillator"]) {
     const map = runtime[`${sciType}States`];
     if (!map) continue;
     for (const id of [...map.keys()]) {

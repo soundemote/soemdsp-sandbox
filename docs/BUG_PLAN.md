@@ -142,8 +142,10 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-089 | see | open | Intermittent module slider positions all show at 0 (render race) |
 | B-090 | hear | open | Keypad: turning latch off does not end an active latch |
 | B-091 | see | open | Perform page: Escape leads to a black page (app hotkeys not disabled) |
-| B-092 | see | open | Metronome: face indicator still does not blink with the gate |
+| B-092 | see | fixed (local, uncommitted) | Metronome: face indicator still does not blink with the gate |
 | B-093 | hear | fixed | Gravity Walker: Seed ignored until Reset / Steps wrap |
+| B-094 | hear | fixed (local, uncommitted) | Curve AR, Curve ADSR, Linear ADSR, Linear AR ignore gate velocity |
+| B-095 | hear | open | Slew: S curve looks like a double S instead of one smooth S |
 ---
 
 ## Inbox (unnumbered user reports)
@@ -1066,7 +1068,7 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
 
 ### B-092 — Metronome: face indicator still does not blink with the gate
-- Status: open
+- Status: fixed (local, uncommitted) 2026-10-06; Argi to verify.
 - Severity: see
 - Source: user 2026-10-05 (ArchIV)
 - Doc: `docs/B-092_METRONOME_BLINK_NOT_SYNCED_TO_GATE.md`
@@ -1074,7 +1076,7 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - What: User: "the metronome still doesn't blink with the gate". The Metronome face indicator does not blink in sync with its gate output. "Still" implies a prior report/attempt, but no earlier metronome blink entry was found in `docs/`.
 - Repro: Add a Metronome, run it, watch the face indicator vs. the gate output.
 - Expected: Indicator blinks on each gate pulse, in sync with the gate.
-- Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
+- Fix shape: Done locally. The face lamp copies the native "Gate 0-1" display signal (`nodeGraphModuleScopeLatestOutputValue`). The JS `currentTime` phase is removed. See the doc.
 
 ### B-093 — Gravity Walker: Seed ignored until Reset / Steps wrap (RNG seeded from engine counter)
 - Status: fixed in code in `87b1b517` (2026-10-05, "Seeding rework"); not yet verified by Argi.
@@ -1088,6 +1090,29 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
   - **Pattern Offset is a pool rotation, not a sequence offset.** It rotates which pool step is heard (`wrapped_play_index`: `(degree + patternOffset) mod poolCount`, ~221–229, clamped 0–127). The walk cursor and the random stream do not move.
   - **"Start Step" is an idea only, not approved.** Proposal: start N steps into the seeded sequence. Do not implement without Argi's ok.
 - Fix shape: done in code. Argi to verify by ear.
+
+### B-094 — Curve AR, Curve ADSR, Linear ADSR, Linear AR ignore gate velocity
+- Status: fixed (local, uncommitted) 2026-10-06; Argi to verify.
+- Severity: hear
+- Source: user 2026-10-06 (ArchIV)
+- Doc: `docs/B-094_CURVE_AR_IGNORES_GATE_VELOCITY.md`
+- Files: Curve AR module (not pinned).
+- What: Curve AR does not respond to velocity on the Gate input. In this app the gate level carries velocity (e.g. keyboard Gate = velocity while held), but the envelope output ignores it.
+- Repro: Patch keyboard Gate into Curve AR Gate; play soft vs. hard notes; envelope output level is the same.
+- Expected: Envelope output follows gate velocity.
+- Notes: Other similar gate-driven envelope modules may have the same bug; audit pending.
+- Fix shape: Done locally (C++). Latched Gate velocity is the peak and velocity × Sustain the sustain level in Curve AR, Curve ADSR, Linear ADSR, Linear AR and Attack Decay. Linear AR and Attack Decay use gate_on/gate_hit. Pluck's inner Curve AR gets a binary gate, so its output is unchanged. Test: `scripts/test_envelope_gate_velocity.mjs`. See the doc.
+
+### B-095 — Slew: S curve looks like a double S instead of one smooth S
+- Status: open
+- Severity: hear
+- Source: user 2026-10-06 (ArchIV)
+- Doc: `docs/B-095_SLEW_S_CURVE_DOUBLE_S.md`
+- Files: Slew module S curve shape (not pinned).
+- What: When slewing between values with the S curve, the transition looks like a double S rather than a single smooth S.
+- Repro: Add a Slew, select the S curve, step the input between two values, watch the output.
+- Expected: One smooth S from start to target.
+- Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
 
 ---
 
@@ -1357,8 +1382,20 @@ Add `require_no_js_dsp()` to `scripts/smoke_test.py` (or `scripts/check_no_js_ds
 - **D7. Optional policy wording:** APP_POLICY already covers this (§0 / §0b / §2 / §5). If Argi wants it spelled out, add to §5: "A JS copy of a module kernel may not exist in the repo even if nothing calls it; CI fails on it." Not applied.
 
 
+### C-002 — Remove the old kick / snare cards (Sinepulse, Sine Kick, Kick Envelope, `electroSnare`, `electroKick`)
+- Status: **done 2026-10-06** (Argi: "start"). Local, uncommitted. Nothing committed or pushed.
+- Date: 2026-10-06
+- Severity: none audible (every type was already silent: no C++, no opcode, no patch used them)
+- Source: Argi 2026-10-06. Gut Sinepulse, Sine Kick, Kick Envelope, the `electroSnare` placeholder (replaced by Electro Snare, `docs/SNARE_PLAN.md`) and any other under-construction kick or snare module.
+- Done: definitions, labels, store cards, UC lists, construction tooltips, bypass, scope defaults, the dead `sinepulse` / `kickEnvelope` / `sineKick` state maps (live plan runtime + worklet), the RoundShape (Ellipsoid) face kick branch, `public/modules/kickEnvelope/kick-envelope-math.js` (+ script tags, smoke row), `scripts/test_kick_envelope.js`, the preset UC entries. `electroSnare` was a pure placeholder (no DSP); Electro Snare adds the key back. No aliases, no migration (persisted UC lists drop unknown types on load). Layout-band test now checks RoundShape instead of Kick Envelope. Full file list: **`docs/KICK_PLAN.md` → Removal**.
+- Kept: `electroHat`, `drummer`, `percussion` (parked UC placeholders, no DSP, reported in KICK_PLAN), the `sine_kick_attempt*` example patches (no removed type), the C-001 history rows above, `search-width.txt` (stale scratch file; deleting it is Argi's call).
+- Checks: `python scripts/smoke_test.py` passes; `scripts/test_module_layout_bands.js` ok; `scripts/check_graph_engine_contracts.py` OK; `node --check` on every edited JS file.
+- Settles C-001 D5 for `kickEnvelope`, `sineKick`, `sinepulse` (retired).
+
 ## Fixed
 
+- **B-094** — Curve AR, Curve ADSR, Linear ADSR, Linear AR (and Attack Decay) peak at the latched Gate velocity; sustain = velocity × Sustain (env-vel-20261006). Local, uncommitted.
+- **B-092** — Metronome face lamp copies the native Gate 0-1 display signal; JS phase removed (env-vel-20261006). Local, uncommitted.
 - **B-093** — Gravity Walker Seed applies from the first sample and re-seeds on change (engine counter removed) in `87b1b517`; Argi to verify.
 - **B-084** — scope1dTrace Display Settings gradientStops feed TraceWoscope energy LUT; 2D Trace stays solid (b084-1dtrace-grad-1).
 - **B-085** - Multi-select Display Settings applies only the edited setting (baseline diff; Show in canvas pins the selection). b085-multiselect-1. Not committed.

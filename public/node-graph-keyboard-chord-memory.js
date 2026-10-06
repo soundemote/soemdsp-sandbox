@@ -14,16 +14,17 @@ function nodeGraphChordMemoryHost() {
       chordMemoryLatchedSlots: new Map(),
       chordMemoryPlayMaskByNode: new Map(),
       chordMemoryOutLatchByNode: new Map(),
-      chordMemoryPlayMask: null,
-      chordMemoryPlayVelocity: 100,
-      chordMemoryPlayPointerId: null,
-      chordMemoryPlayPointerSlot: null,
-      chordMemoryPlayPointerNodeId: null,
-      chordMemoryEditNodeId: null,
-      chordMemoryEditSlot: null,
+      chordMemoryMomentaryByNode: new Map(),
     };
   }
   return globalThis.__soemChordMemoryHost;
+}
+
+/** Per-keyboard Map on the host (created on first use). Every entry is keyed by keyboard node id. */
+function nodeGraphChordMemoryHostMap(key) {
+  const host = nodeGraphChordMemoryHost();
+  if (!(host[key] instanceof Map)) host[key] = new Map();
+  return host[key];
 }
 
 function nodeGraphChordMemoryNormalizeSlots(raw) {
@@ -85,66 +86,36 @@ function nodeGraphChordMemoryNotesForSlot(nodeId, midi, nodesMap = null) {
   return Array.isArray(notes) ? notes.slice() : [];
 }
 
-/** Capture current gold Arp Keys (128 mask) into slot. Empty gold → clear slot. */
-function nodeGraphChordMemorySaveFromArpMask(nodeId, midi) {
-  const slot = Math.round(Number(midi));
-  if (slot < 0 || slot > 127) return false;
-  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
-  if (!node) return false;
-  const mem = nodeGraphChordMemoryEnsureNode(node);
-  const mask = typeof nodeGraphMidiKeyboardEnsureArpMask === "function"
-    ? nodeGraphMidiKeyboardEnsureArpMask()
-    : (nodeGraphMvp?.midiKeyboardArpMask || null);
-  const notes = [];
-  if (mask instanceof Uint8Array) {
-    for (let i = 0; i < 128; i += 1) {
-      if (mask[i]) notes.push(i);
-    }
-  }
-  if (!notes.length) {
-    delete mem.slots[String(slot)];
-  } else {
-    mem.slots[String(slot)] = notes;
-  }
-  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
-    nodeGraphMvp.patchDirtyState = "dirty";
-  }
-  return true;
+/** This keyboard's chord edit target slot, or null. */
+function nodeGraphChordMemoryEditSlotFor(nodeId) {
+  const slot = nodeGraphChordMemoryHostMap("chordMemoryEditSlotByNode").get(String(nodeId || "").trim());
+  return Number.isFinite(slot) ? slot : null;
 }
 
 function nodeGraphChordMemoryEditIs(nodeId, midi) {
-  const host = nodeGraphChordMemoryHost();
-  return String(host.chordMemoryEditNodeId || "") === String(nodeId || "").trim()
-    && Number(host.chordMemoryEditSlot) === Math.round(Number(midi));
+  const slot = nodeGraphChordMemoryEditSlotFor(nodeId);
+  return slot != null && slot === Math.round(Number(midi));
 }
 
-function nodeGraphChordMemoryEditClear() {
-  const host = nodeGraphChordMemoryHost();
-  host.chordMemoryEditNodeId = null;
-  host.chordMemoryEditSlot = null;
+function nodeGraphChordMemoryEditClear(nodeId) {
+  nodeGraphChordMemoryHostMap("chordMemoryEditSlotByNode").delete(String(nodeId || "").trim());
 }
 
-/** Ctrl+click previews: unlatch every slot so leaving Chord Memory does not leave notes stuck. */
-function nodeGraphChordMemoryClearLatchedPreviews() {
-  const map = nodeGraphChordMemoryEnsureLatchedMap();
-  for (const [nodeId, set] of [...map.entries()]) {
-    const slots = set instanceof Set ? [...set] : [];
-    for (const slot of slots) {
-      if (set instanceof Set) set.delete(slot);
-      nodeGraphChordMemoryActivateSlot(nodeId, slot, false);
-    }
-    map.delete(nodeId);
+/** Ctrl+click previews: unlatch this keyboard's slots so leaving Chord Memory does not leave notes stuck. */
+function nodeGraphChordMemoryClearLatchedPreviews(nodeId) {
+  const id = String(nodeId || "").trim();
+  const latched = nodeGraphChordMemoryLatchedSetFor(id);
+  for (const slot of [...latched]) {
+    latched.delete(slot);
+    nodeGraphChordMemoryActivateSlot(id, slot, false);
   }
-  nodeGraphChordMemoryEditClear();
-  if (typeof nodeGraphChordMemoryPaintKeys === "function") {
-    nodeGraphChordMemoryPaintKeys();
-  }
+  nodeGraphChordMemoryEnsureLatchedMap().delete(id);
+  nodeGraphChordMemoryEditClear(id);
+  nodeGraphChordMemoryPaintKeys();
 }
 
 function nodeGraphChordMemoryEditSet(nodeId, midi) {
-  const host = nodeGraphChordMemoryHost();
-  host.chordMemoryEditNodeId = String(nodeId || "").trim();
-  host.chordMemoryEditSlot = Math.round(Number(midi));
+  nodeGraphChordMemoryHostMap("chordMemoryEditSlotByNode").set(String(nodeId || "").trim(), Math.round(Number(midi)));
 }
 
 /** Ctrl+click a blank key in Chord Memory mode: edit an empty chord. Gold is untouched. */
@@ -159,20 +130,19 @@ function nodeGraphChordMemoryBeginBlankEdit(nodeId, midi) {
   nodeGraphChordMemoryEditSet(nodeId, slot);
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
     nodeGraphMvp.patchDirtyState = "dirty";
-    nodeGraphMvp.midiKeyboardStatus = `editing blank chord @ ${slot}`;
   }
   nodeGraphChordMemoryPaintKeys();
   if (typeof renderNodeGraphMidiKeyboardSignal === "function") {
-    renderNodeGraphMidiKeyboardSignal(nodeGraphMvp?.keyboardModuleSignal || null);
+    renderNodeGraphMidiKeyboardSignal(nodeId, null);
   }
   return true;
 }
 
 /** Red/edit notes currently being edited, else live sounding chord tones. Never gold. */
 function nodeGraphChordMemoryCurrentEditNotes(nodeId) {
-  const host = nodeGraphChordMemoryHost();
-  if (nodeGraphChordMemoryEditIs(nodeId, host.chordMemoryEditSlot)) {
-    return nodeGraphChordMemoryNotesForSlot(nodeId, host.chordMemoryEditSlot);
+  const editSlot = nodeGraphChordMemoryEditSlotFor(nodeId);
+  if (editSlot != null) {
+    return nodeGraphChordMemoryNotesForSlot(nodeId, editSlot);
   }
   return nodeGraphChordMemorySoundingOfMask(nodeGraphChordMemoryLiveMaskForNode(nodeId));
 }
@@ -198,9 +168,6 @@ function nodeGraphChordMemorySaveCurrentEdit(nodeId, midi, velocity127) {
   else mem.slots[String(slot)] = notes;
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
     nodeGraphMvp.patchDirtyState = "dirty";
-    nodeGraphMvp.midiKeyboardStatus = notes.length
-      ? `chord saved @ ${slot}`
-      : `editing blank chord @ ${slot}`;
   }
   nodeGraphChordMemoryUnlatchOthers(nodeId, slot);
   const latched = nodeGraphChordMemoryLatchedSetFor(nodeId);
@@ -216,7 +183,7 @@ function nodeGraphChordMemorySaveCurrentEdit(nodeId, midi, velocity127) {
     nodeGraphChordMemoryPaintKeys();
   }
   if (typeof renderNodeGraphMidiKeyboardSignal === "function") {
-    renderNodeGraphMidiKeyboardSignal(nodeGraphMvp?.keyboardModuleSignal || null);
+    renderNodeGraphMidiKeyboardSignal(nodeId, null);
   }
   return true;
 }
@@ -234,52 +201,32 @@ function nodeGraphChordMemoryClearSlot(nodeId, midi) {
   if (nodeGraphChordMemoryActiveSetFor(nodeId).has(slot)) {
     nodeGraphChordMemoryActivateSlot(nodeId, slot, false);
   }
-  if (nodeGraphChordMemoryEditIs(nodeId, slot)) nodeGraphChordMemoryEditClear();
+  if (nodeGraphChordMemoryEditIs(nodeId, slot)) nodeGraphChordMemoryEditClear(nodeId);
   if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
     nodeGraphMvp.patchDirtyState = "dirty";
-    nodeGraphMvp.midiKeyboardStatus = `chord cleared @ ${slot}`;
   }
   nodeGraphChordMemoryPaintKeys();
   if (typeof renderNodeGraphMidiKeyboardSignal === "function") {
-    renderNodeGraphMidiKeyboardSignal(nodeGraphMvp?.keyboardModuleSignal || null);
+    renderNodeGraphMidiKeyboardSignal(nodeId, null);
   }
   return true;
 }
 
-/** Replace gold Arp Keys with chord at slot. */
+/** Replace this keyboard's gold Arp Keys with the chord at slot (velocity 100). */
 function nodeGraphChordMemoryRecallToArp(nodeId, midi) {
   const notes = nodeGraphChordMemoryNotesForSlot(nodeId, midi);
   if (!notes.length) return false;
-  const mask = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
+  const mask = new Uint8Array(128);
+  const velocities = new Uint8Array(128);
   for (const n of notes) {
-    if (typeof noteMaskSet === "function") noteMaskSet(mask, n, true);
-    else if (n >= 0 && n < 128) mask[n] = 1;
-  }
-  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
-    nodeGraphMvp.midiKeyboardArpMask = mask;
-  }
-  if (typeof nodeGraphMidiKeyboardEnsureHeldKeyVelocities === "function") {
-    const vels = nodeGraphMidiKeyboardEnsureHeldKeyVelocities();
-    vels.fill(0);
-    for (const n of notes) {
-      const i = Math.round(Number(n));
-      if (i >= 0 && i < vels.length) vels[i] = 100;
+    const i = Math.round(Number(n));
+    if (i >= 0 && i < 128) {
+      mask[i] = 1;
+      velocities[i] = 100;
     }
   }
-  if (typeof nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask === "function") {
-    nodeGraphMidiKeyboardSyncBitmaskFieldsFromArpMask();
-  }
-  if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
-    renderNodeGraphMidiKeyboardHeldKeys();
-  }
-  if (typeof saveNodeGraphMidiKeyboardMemory === "function") {
-    saveNodeGraphMidiKeyboardMemory();
-  }
-  if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-    sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
-  }
-  if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
+  if (typeof setNodeGraphKeyboardArpLatch === "function") {
+    setNodeGraphKeyboardArpLatch(nodeId, mask, velocities);
   }
   return true;
 }
@@ -294,7 +241,7 @@ function nodeGraphChordMemoryEnsureActiveMap() {
 
 function nodeGraphChordMemoryActiveSetFor(nodeId) {
   const map = nodeGraphChordMemoryEnsureActiveMap();
-  const id = String(nodeId || "").trim() || "__global__";
+  const id = String(nodeId || "").trim();
   if (!(map.get(id) instanceof Set)) map.set(id, new Set());
   return map.get(id);
 }
@@ -309,7 +256,7 @@ function nodeGraphChordMemoryEnsureLatchedMap() {
 
 function nodeGraphChordMemoryLatchedSetFor(nodeId) {
   const map = nodeGraphChordMemoryEnsureLatchedMap();
-  const id = String(nodeId || "").trim() || "__global__";
+  const id = String(nodeId || "").trim();
   if (!(map.get(id) instanceof Set)) map.set(id, new Set());
   return map.get(id);
 }
@@ -333,25 +280,26 @@ function nodeGraphChordMemorySyncLiveAudio() {
       if (mask instanceof Uint8Array) playMaskByNode[String(id)] = new Uint8Array(mask);
     }
   }
-  const mom = host.chordMemoryMomentaryPlayMask instanceof Uint8Array
-    ? new Uint8Array(host.chordMemoryMomentaryPlayMask)
-    : null;
-  sendNodeGraphLiveChordMemoryLatch(slotsByNode, playMaskByNode, mom);
+  const momentaryByNode = {};
+  for (const [id, entry] of nodeGraphChordMemoryHostMap("chordMemoryMomentaryByNode")) {
+    if (entry?.mask instanceof Uint8Array) momentaryByNode[String(id)] = new Uint8Array(entry.mask);
+  }
+  sendNodeGraphLiveChordMemoryLatch(slotsByNode, playMaskByNode, momentaryByNode);
 }
 
-/** Worklet: apply latched slots + live play mask posted from main. */
-function nodeGraphChordMemoryApplyLiveLatch(slotsByNode, playMaskByNode, momentaryMask) {
+/** Worklet: apply latched slots + live play masks + momentary chords (per keyboard) posted from main. */
+function nodeGraphChordMemoryApplyLiveLatch(slotsByNode, playMaskByNode, momentaryByNode) {
   const host = nodeGraphChordMemoryHost();
   const slotsSrc = slotsByNode && typeof slotsByNode === "object" ? slotsByNode : {};
   const maskSrc = playMaskByNode && typeof playMaskByNode === "object" ? playMaskByNode : {};
-  if (momentaryMask instanceof Uint8Array) {
-    host.chordMemoryMomentaryPlayMask = Uint8Array.from(momentaryMask);
-    host.chordMemoryMomentary = nodeGraphChordMemoryMaskHasNotes(host.chordMemoryMomentaryPlayMask);
-  } else if (momentaryMask === null) {
-    host.chordMemoryMomentary = false;
-    host.chordMemoryMomentaryPlayMask = typeof noteMaskCreate === "function"
-      ? noteMaskCreate()
-      : new Uint8Array(128);
+  const momentary = nodeGraphChordMemoryHostMap("chordMemoryMomentaryByNode");
+  momentary.clear();
+  if (momentaryByNode && typeof momentaryByNode === "object") {
+    for (const [id, mask] of Object.entries(momentaryByNode)) {
+      if (mask instanceof Uint8Array && nodeGraphChordMemoryMaskHasNotes(mask)) {
+        momentary.set(id, { mask: Uint8Array.from(mask), pointerId: null, slot: null });
+      }
+    }
   }
   const ids = new Set([...Object.keys(slotsSrc), ...Object.keys(maskSrc)]);
   for (const id of ids) {
@@ -371,16 +319,6 @@ function nodeGraphChordMemoryApplyLiveLatch(slotsByNode, playMaskByNode, momenta
     }
     host.chordMemoryPlayMaskByNode.set(id, mask);
   }
-  const all = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
-  if (host.chordMemoryPlayMaskByNode instanceof Map) {
-    for (const m of host.chordMemoryPlayMaskByNode.values()) {
-      if (!(m instanceof Uint8Array)) continue;
-      for (let i = 0; i < 128; i += 1) {
-        if (m[i]) all[i] = 1;
-      }
-    }
-  }
-  host.chordMemoryPlayMask = all;
 }
 
 /** At most one latched chord per keyboard — that slot is also the edit target. */
@@ -403,10 +341,7 @@ function nodeGraphChordMemoryToggleLatch(nodeId, midi, velocity127) {
   if (latched.has(slot)) {
     latched.delete(slot);
     nodeGraphChordMemoryActivateSlot(nodeId, slot, false);
-    nodeGraphChordMemoryEditClear();
-    if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
-      nodeGraphMvp.midiKeyboardStatus = `chord off @ ${slot}`;
-    }
+    nodeGraphChordMemoryEditClear(nodeId);
     if (typeof nodeGraphChordMemoryPaintKeys === "function") {
       nodeGraphChordMemoryPaintKeys();
     }
@@ -417,9 +352,6 @@ function nodeGraphChordMemoryToggleLatch(nodeId, midi, velocity127) {
   latched.add(slot);
   nodeGraphChordMemoryActivateSlot(nodeId, slot, true, velocity127);
   nodeGraphChordMemoryEditSet(nodeId, slot);
-  if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
-    nodeGraphMvp.midiKeyboardStatus = `chord on @ ${slot}`;
-  }
   if (typeof nodeGraphChordMemoryPaintKeys === "function") {
     nodeGraphChordMemoryPaintKeys();
   }
@@ -430,9 +362,8 @@ function nodeGraphChordMemoryToggleLatch(nodeId, midi, velocity127) {
 function nodeGraphChordMemoryToggleEditNote(nodeId, midi, velocity127) {
   const m = Math.round(Number(midi));
   if (m < 0 || m > 127) return false;
-  const host = nodeGraphChordMemoryHost();
-  if (!nodeGraphChordMemoryEditIs(nodeId, host.chordMemoryEditSlot)) return false;
-  const slot = Math.round(Number(host.chordMemoryEditSlot));
+  const slot = nodeGraphChordMemoryEditSlotFor(nodeId);
+  if (slot == null) return false;
   const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   if (!node) return false;
   const mem = nodeGraphChordMemoryEnsureNode(node);
@@ -467,54 +398,58 @@ function nodeGraphChordMemoryToggleEditNote(nodeId, midi, velocity127) {
 function nodeGraphChordMemoryNoteIsEdit(nodeId, midi) {
   const m = Math.round(Number(midi));
   if (m < 0 || m > 127) return false;
-  const host = nodeGraphChordMemoryHost();
-  if (!nodeGraphChordMemoryEditIs(nodeId, host.chordMemoryEditSlot)) return false;
-  const notes = nodeGraphChordMemoryNotesForSlot(nodeId, host.chordMemoryEditSlot);
-  return notes.includes(m);
+  const slot = nodeGraphChordMemoryEditSlotFor(nodeId);
+  if (slot == null) return false;
+  return nodeGraphChordMemoryNotesForSlot(nodeId, slot).includes(m);
 }
 
-function nodeGraphChordMemoryMomentaryPlayTransmit(phase) {
-  const host = nodeGraphChordMemoryHost();
-  const mask = host.chordMemoryMomentaryPlayMask;
-  if (typeof noteMaskTransmit === "function" && mask instanceof Uint8Array) {
+/** This keyboard's momentary (mouse-held) chord mask, or null. */
+function nodeGraphChordMemoryMomentaryMaskForNode(nodeId) {
+  const entry = nodeGraphChordMemoryHostMap("chordMemoryMomentaryByNode").get(String(nodeId || "").trim());
+  return entry?.mask instanceof Uint8Array ? entry.mask : null;
+}
+
+function nodeGraphChordMemoryMomentaryPlayTransmit(nodeId, phase) {
+  const mask = nodeGraphChordMemoryMomentaryMaskForNode(nodeId);
+  if (typeof noteMaskTransmit === "function" && mask) {
     return noteMaskTransmit(mask, phase);
   }
   return 0;
 }
 
 function nodeGraphChordMemoryStartMomentaryPlay(nodeId, midi, pointerId, velocity127) {
-  const notes = nodeGraphChordMemoryNotesForSlot(nodeId, midi);
+  const id = String(nodeId || "").trim();
+  const notes = nodeGraphChordMemoryNotesForSlot(id, midi);
   if (!notes.length) return false;
-  const host = nodeGraphChordMemoryHost();
   const mask = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
   for (const n of notes) {
     if (typeof noteMaskSet === "function") noteMaskSet(mask, n, true);
     else if (n >= 0 && n < 128) mask[n] = 1;
   }
-  host.chordMemoryMomentary = true;
-  host.chordMemoryPlayPointerId = pointerId;
-  host.chordMemoryPlayPointerSlot = Math.round(Number(midi));
-  host.chordMemoryPlayPointerNodeId = nodeId;
-  host.chordMemoryMomentaryPlayMask = mask;
-  if (typeof nodeGraphMvp === "object" && nodeGraphMvp?.keyboardModuleSignal) {
-    nodeGraphMvp.keyboardModuleSignal = {
-      ...nodeGraphMvp.keyboardModuleSignal,
-      gate: 0,
-      gatePulse: 0,
-    };
-    if (typeof sendNodeGraphLiveKeyboardModuleSignal === "function") {
-      sendNodeGraphLiveKeyboardModuleSignal(nodeGraphMvp.keyboardModuleSignal);
+  nodeGraphChordMemoryHostMap("chordMemoryMomentaryByNode").set(id, {
+    mask,
+    pointerId,
+    slot: Math.round(Number(midi)),
+  });
+  // The chord replaces this keyboard's blue key: drop its gate.
+  if (typeof nodeGraphKeyboardRuntime === "function") {
+    const rt = nodeGraphKeyboardRuntime(id);
+    if (rt.signal) {
+      rt.signal = { ...rt.signal, gate: 0, gatePulse: 0 };
+      if (typeof sendNodeGraphLiveKeyboardModuleSignal === "function") {
+        sendNodeGraphLiveKeyboardModuleSignal(id, rt.signal);
+      }
     }
   }
   if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
+    syncNodeGraphKeyboardPolyphonyFromHeldNotes(id);
   }
   nodeGraphChordMemorySyncLiveAudio();
   if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
     renderNodeGraphMidiKeyboardHeldKeys();
   }
   if (typeof renderNodeGraphMidiKeyboardActiveKeys === "function") {
-    renderNodeGraphMidiKeyboardActiveKeys();
+    renderNodeGraphMidiKeyboardActiveKeys(id);
   }
   return true;
 }
@@ -534,15 +469,7 @@ function nodeGraphChordMemoryRebuildPlayMask(nodeId) {
   if (!(host.chordMemoryPlayMaskByNode instanceof Map)) {
     host.chordMemoryPlayMaskByNode = new Map();
   }
-  host.chordMemoryPlayMaskByNode.set(String(nodeId || "").trim() || "__global__", mask);
-  const all = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
-  for (const m of host.chordMemoryPlayMaskByNode.values()) {
-    if (!(m instanceof Uint8Array)) continue;
-    for (let i = 0; i < 128; i += 1) {
-      if (m[i]) all[i] = 1;
-    }
-  }
-  host.chordMemoryPlayMask = all;
+  host.chordMemoryPlayMaskByNode.set(String(nodeId || "").trim(), mask);
   nodeGraphChordMemorySyncLiveAudio();
   return mask;
 }
@@ -556,14 +483,14 @@ function nodeGraphChordMemorySoundingOfMask(mask) {
   return out;
 }
 
-function nodeGraphChordMemoryStrikeVelocity127(event, surface) {
+function nodeGraphChordMemoryStrikeVelocity127(event, surface, nodeId) {
   let v01 = 1;
   if (typeof nodeGraphMidiKeyboardPointerXY === "function" && event && surface) {
     const xy = nodeGraphMidiKeyboardPointerXY(event, surface);
     if (Number.isFinite(Number(xy?.velocity))) v01 = Number(xy.velocity);
   }
   if (typeof nodeGraphMidiKeyboardMapStrikeVelocity01 === "function") {
-    v01 = nodeGraphMidiKeyboardMapStrikeVelocity01(v01);
+    v01 = nodeGraphMidiKeyboardMapStrikeVelocity01(nodeId, v01);
   }
   if (typeof nodeGraphMidiKeyboardClamp01 === "function") {
     v01 = nodeGraphMidiKeyboardClamp01(v01);
@@ -576,45 +503,32 @@ function nodeGraphChordMemoryStrikeVelocity127(event, surface) {
   return vel;
 }
 
-/**
- * Chord latch/unlatch is applied on the worklet via Chord Memory OUT → Voices.
- * Do not also poke VoiceManager from the UI thread — that raced with the
- * want-set (Gate off then on for notes that were already gone).
- */
-function nodeGraphChordMemoryVoiceDelta(_prevPlayMask, _prevTable) {
-}
-
 function nodeGraphChordMemoryActivateSlot(nodeId, midi, on, velocity127) {
   const slot = Math.round(Number(midi));
   if (slot < 0 || slot > 127) return false;
   if (on && !nodeGraphChordMemoryHasSlot(nodeId, slot)) return false;
-  const host = nodeGraphChordMemoryHost();
-  const prevPlay = host.chordMemoryPlayMask instanceof Uint8Array
-    ? new Uint8Array(host.chordMemoryPlayMask)
-    : (typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128));
-  const prevTable = (typeof nodeGraphMvp === "object" && nodeGraphMvp?.keyboardPolyphonyVelocities instanceof Uint8Array)
-    ? new Uint8Array(nodeGraphMvp.keyboardPolyphonyVelocities)
-    : null;
   if (on) {
     let vel = Math.round(Number(velocity127));
     if (!(vel > 0)) vel = 100;
     if (vel > 127) vel = 127;
-    host.chordMemoryPlayVelocity = vel;
+    nodeGraphChordMemoryHostMap("chordMemoryPlayVelocityByNode").set(String(nodeId || "").trim(), vel);
   }
   const active = nodeGraphChordMemoryActiveSetFor(nodeId);
   if (on) active.add(slot);
   else active.delete(slot);
   nodeGraphChordMemoryRebuildPlayMask(nodeId);
   // Blue Play Keys path: polyphony table only — never gold Arp latch.
+  // Chord latch/unlatch reaches VoiceManager on the worklet via Chord Memory
+  // OUT → Voices. Do not also poke VoiceManager from the UI thread — that
+  // raced with the want-set (Gate off then on for notes that were already gone).
   if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
+    syncNodeGraphKeyboardPolyphonyFromHeldNotes(nodeId);
   }
-  nodeGraphChordMemoryVoiceDelta(prevPlay, prevTable);
   if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
     renderNodeGraphMidiKeyboardHeldKeys();
   }
   if (typeof renderNodeGraphMidiKeyboardActiveKeys === "function") {
-    renderNodeGraphMidiKeyboardActiveKeys();
+    renderNodeGraphMidiKeyboardActiveKeys(nodeId);
   }
   if (typeof renderNodeGraphGridKeyboardPads === "function") {
     renderNodeGraphGridKeyboardPads();
@@ -623,48 +537,34 @@ function nodeGraphChordMemoryActivateSlot(nodeId, midi, on, velocity127) {
   return true;
 }
 
-function nodeGraphChordMemoryClearPointerIds() {
-  const host = nodeGraphChordMemoryHost();
-  host.chordMemoryPlayPointerId = null;
-  host.chordMemoryPlayPointerSlot = null;
-  host.chordMemoryPlayPointerNodeId = null;
+/** Strike velocity (1…127) of this keyboard's last chord activation (default 100). */
+function nodeGraphChordMemoryPlayVelocityForNode(nodeId) {
+  const vel = nodeGraphChordMemoryHostMap("chordMemoryPlayVelocityByNode").get(String(nodeId || "").trim());
+  return vel > 0 ? vel : 100;
 }
 
-/** Mouse/key up: momentary Play Keys off; latched chords stay. */
-function nodeGraphChordMemoryReleasePointerPlay() {
-  const host = nodeGraphChordMemoryHost();
-  const had = host.chordMemoryPlayPointerId != null || host.chordMemoryPlayPointerSlot != null;
-  const slot = Number(host.chordMemoryPlayPointerSlot);
-  const nodeId = host.chordMemoryPlayPointerNodeId;
-  const pointerId = host.chordMemoryPlayPointerId;
-  const momentary = Boolean(host.chordMemoryMomentary);
-  host.chordMemoryMomentary = false;
-  host.chordMemoryMomentaryPlayMask = typeof noteMaskCreate === "function"
-    ? noteMaskCreate()
-    : new Uint8Array(128);
-  nodeGraphChordMemoryClearPointerIds();
-  if (momentary) {
-    if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-      syncNodeGraphKeyboardPolyphonyFromHeldNotes();
-    }
-    if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
-      renderNodeGraphMidiKeyboardHeldKeys();
-    }
-    if (typeof renderNodeGraphMidiKeyboardActiveKeys === "function") {
-      renderNodeGraphMidiKeyboardActiveKeys();
-    }
-    nodeGraphChordMemorySyncLiveAudio();
-  } else if (had && Number.isFinite(slot) && slot >= 0 && slot <= 127) {
-    const latched = nodeGraphChordMemoryLatchedSetFor(nodeId);
-    if (!latched.has(slot)) {
-      nodeGraphChordMemoryActivateSlot(nodeId, slot, false);
-    }
+/** Mouse/key up: this keyboard's momentary Play Keys chord off; latched chords stay. */
+function nodeGraphChordMemoryReleasePointerPlay(nodeId) {
+  const id = String(nodeId || "").trim();
+  const momentary = nodeGraphChordMemoryHostMap("chordMemoryMomentaryByNode");
+  const entry = momentary.get(id);
+  if (!entry) return;
+  momentary.delete(id);
+  if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
+    syncNodeGraphKeyboardPolyphonyFromHeldNotes(id);
   }
-  if (pointerId != null && typeof document !== "undefined") {
+  if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
+    renderNodeGraphMidiKeyboardHeldKeys();
+  }
+  if (typeof renderNodeGraphMidiKeyboardActiveKeys === "function") {
+    renderNodeGraphMidiKeyboardActiveKeys(id);
+  }
+  nodeGraphChordMemorySyncLiveAudio();
+  if (entry.pointerId != null && typeof document !== "undefined") {
     try {
       document.querySelectorAll(".node-midi-keyboard-surface, .node-grid-keyboard-surface")
         .forEach((el) => {
-          try { el.releasePointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
+          try { el.releasePointerCapture?.(entry.pointerId); } catch (_e) { /* ignore */ }
         });
     } catch (_e) { /* ignore */ }
   }
@@ -675,23 +575,22 @@ function nodeGraphChordMemoryEnsurePointerReleaseBound() {
   if (host._chordPointerReleaseBound) return;
   if (typeof window === "undefined" || typeof window.addEventListener !== "function") return;
   host._chordPointerReleaseBound = true;
+  const releaseMatching = (pointerId) => {
+    for (const [id, entry] of [...nodeGraphChordMemoryHostMap("chordMemoryMomentaryByNode")]) {
+      if (pointerId != null && entry.pointerId !== pointerId) continue;
+      nodeGraphChordMemoryReleasePointerPlay(id);
+    }
+  };
   const end = (event) => {
-    if (host.chordMemoryPlayPointerId == null) return;
-    if (event && Number.isFinite(Number(event.pointerId))
-      && event.pointerId !== host.chordMemoryPlayPointerId) return;
-    nodeGraphChordMemoryReleasePointerPlay();
+    releaseMatching(event && Number.isFinite(Number(event.pointerId)) ? event.pointerId : null);
   };
   window.addEventListener("pointerup", end, true);
   window.addEventListener("pointercancel", end, true);
   window.addEventListener("lostpointercapture", end, true);
-  window.addEventListener("blur", () => {
-    if (host.chordMemoryPlayPointerId != null) nodeGraphChordMemoryReleasePointerPlay();
-  });
+  window.addEventListener("blur", () => releaseMatching(null));
   if (typeof document !== "undefined") {
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden && host.chordMemoryPlayPointerId != null) {
-        nodeGraphChordMemoryReleasePointerPlay();
-      }
+      if (document.hidden) releaseMatching(null);
     });
   }
 }
@@ -702,64 +601,28 @@ function nodeGraphChordMemoryEnsurePointerReleaseBound() {
  */
 function nodeGraphChordMemoryReleaseNode(nodeId) {
   const id = String(nodeId || "").trim();
+  if (!id) return;
+  nodeGraphChordMemoryReleasePointerPlay(id);
   const host = nodeGraphChordMemoryHost();
-  if (id && String(host.chordMemoryPlayPointerNodeId || "") === id) {
-    nodeGraphChordMemoryReleasePointerPlay();
-  }
-  const prevPlay = host.chordMemoryPlayMask instanceof Uint8Array
-    ? new Uint8Array(host.chordMemoryPlayMask)
-    : (typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128));
-  const prevTable = (typeof nodeGraphMvp === "object" && nodeGraphMvp?.keyboardPolyphonyVelocities instanceof Uint8Array)
-    ? new Uint8Array(nodeGraphMvp.keyboardPolyphonyVelocities)
-    : null;
-  const map = nodeGraphChordMemoryEnsureActiveMap();
-  if (id) {
-    map.delete(id);
-    const latchedMap = nodeGraphChordMemoryEnsureLatchedMap();
-    latchedMap.delete(id);
-    if (host.chordMemoryPlayMaskByNode instanceof Map) host.chordMemoryPlayMaskByNode.delete(id);
-    nodeGraphChordMemoryClearOutLatch(id);
-    if (nodeGraphChordMemoryEditIs(id, host.chordMemoryEditSlot)) nodeGraphChordMemoryEditClear();
-  } else {
-    map.clear();
-    nodeGraphChordMemoryEnsureLatchedMap().clear();
-    if (host.chordMemoryPlayMaskByNode instanceof Map) host.chordMemoryPlayMaskByNode.clear();
-    nodeGraphChordMemoryClearOutLatch("");
-    nodeGraphChordMemoryEditClear();
-    nodeGraphChordMemoryClearPointerIds();
-  }
-  const all = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
-  if (host.chordMemoryPlayMaskByNode instanceof Map) {
-    for (const m of host.chordMemoryPlayMaskByNode.values()) {
-      if (!(m instanceof Uint8Array)) continue;
-      for (let i = 0; i < 128; i += 1) {
-        if (m[i]) all[i] = 1;
-      }
-    }
-  }
-  host.chordMemoryPlayMask = all;
+  nodeGraphChordMemoryEnsureActiveMap().delete(id);
+  nodeGraphChordMemoryEnsureLatchedMap().delete(id);
+  if (host.chordMemoryPlayMaskByNode instanceof Map) host.chordMemoryPlayMaskByNode.delete(id);
+  nodeGraphChordMemoryClearOutLatch(id);
+  nodeGraphChordMemoryEditClear(id);
+  nodeGraphChordMemoryHostMap("chordMemoryPlayVelocityByNode").delete(id);
   if (typeof syncNodeGraphKeyboardPolyphonyFromHeldNotes === "function") {
-    syncNodeGraphKeyboardPolyphonyFromHeldNotes();
+    syncNodeGraphKeyboardPolyphonyFromHeldNotes(id);
   }
-  nodeGraphChordMemoryVoiceDelta(prevPlay, prevTable);
   if (typeof renderNodeGraphMidiKeyboardHeldKeys === "function") {
     renderNodeGraphMidiKeyboardHeldKeys();
   }
   if (typeof renderNodeGraphMidiKeyboardActiveKeys === "function") {
-    renderNodeGraphMidiKeyboardActiveKeys();
+    renderNodeGraphMidiKeyboardActiveKeys(id);
   }
   if (typeof renderNodeGraphGridKeyboardPads === "function") {
     renderNodeGraphGridKeyboardPads();
   }
   nodeGraphChordMemorySyncLiveAudio();
-}
-
-function nodeGraphChordMemoryPlayTransmit(phase) {
-  const mask = nodeGraphChordMemoryHost().chordMemoryPlayMask;
-  if (typeof noteMaskTransmit === "function" && mask instanceof Uint8Array) {
-    return noteMaskTransmit(mask, phase);
-  }
-  return 0;
 }
 
 function nodeGraphChordMemoryPlayTransmitForNode(nodeId, phase) {
@@ -779,11 +642,9 @@ function nodeGraphChordMemoryMaskHasNotes(mask) {
 }
 
 function nodeGraphChordMemoryLiveMaskForNode(nodeId) {
-  const host = nodeGraphChordMemoryHost();
-  const id = String(nodeId || "").trim() || "__global__";
-  const byNode = host.chordMemoryPlayMaskByNode;
-  if (byNode instanceof Map && byNode.get(id) instanceof Uint8Array) return byNode.get(id);
-  return host.chordMemoryPlayMask;
+  const byNode = nodeGraphChordMemoryHost().chordMemoryPlayMaskByNode;
+  const mask = byNode instanceof Map ? byNode.get(String(nodeId || "").trim()) : null;
+  return mask instanceof Uint8Array ? mask : null;
 }
 
 /**
@@ -795,7 +656,7 @@ function nodeGraphChordMemoryOutMaskForNode(nodeId) {
   const live = nodeGraphChordMemoryLiveMaskForNode(nodeId);
   if (nodeGraphChordMemoryMaskHasNotes(live)) return live;
   const host = nodeGraphChordMemoryHost();
-  const id = String(nodeId || "").trim() || "__global__";
+  const id = String(nodeId || "").trim();
   if (!(host.chordMemoryOutLatchByNode instanceof Map)) {
     host.chordMemoryOutLatchByNode = new Map();
   }
@@ -860,15 +721,8 @@ function nodeGraphChordMemoryNoteIsSounding(nodeId, midi) {
     if (mask instanceof Uint8Array && noteMaskGet(mask, m)) return true;
   }
   const posted = typeof nodeGraphMvp === "object" ? nodeGraphMvp?._chordMemorySoundingByNode : null;
-  if (posted && typeof posted === "object") {
-    const list = (id && posted[id]) || posted.__global__;
-    if (Array.isArray(list) && list.includes(m)) return true;
-  }
-  const all = nodeGraphChordMemoryHost().chordMemoryPlayMask;
-  if (all instanceof Uint8Array && typeof noteMaskGet === "function") {
-    return Boolean(noteMaskGet(all, m));
-  }
-  return false;
+  const list = id && posted && typeof posted === "object" ? posted[id] : null;
+  return Array.isArray(list) && list.includes(m);
 }
 
 function nodeGraphChordMemorySlotIsOn(nodeId, midi) {
@@ -878,7 +732,7 @@ function nodeGraphChordMemorySlotIsOn(nodeId, midi) {
   if (id && nodeGraphChordMemoryActiveSetFor(id).has(slot)) return true;
   const posted = typeof nodeGraphMvp === "object" ? nodeGraphMvp?._chordMemorySlotBitsByNode : null;
   if (!posted || typeof posted !== "object") return false;
-  const list = posted[id] || posted.__global__;
+  const list = posted[id];
   return Array.isArray(list) && list.includes(slot);
 }
 
@@ -943,22 +797,22 @@ function nodeGraphChordMemoryNodeIdFromSurface(surface) {
 function nodeGraphChordMemoryHandlePointer(event, surface, midi, options = {}) {
   const nodeId = options.nodeId || nodeGraphChordMemoryNodeIdFromSurface(surface);
   const pointerId = event.pointerId;
-  const host = nodeGraphChordMemoryHost();
 
-  // Exclusive capture for momentary chord play (blue, unlatched).
+  // Exclusive capture for this keyboard's momentary chord play (blue, unlatched).
   // Must run before the midi-finite check — pointerup can land off-key.
   // Window-level pointerup/cancel also call ReleasePointerPlay if this DOM
   // is rebuilt before the up event (that was the forever-stuck ghost keys).
-  if (host.chordMemoryPlayPointerId != null) {
-    if (event.type === "pointerdown" && host.chordMemoryPlayPointerId !== pointerId) {
-      nodeGraphChordMemoryReleasePointerPlay();
-    } else if (host.chordMemoryPlayPointerId === pointerId) {
+  const held = nodeGraphChordMemoryHostMap("chordMemoryMomentaryByNode").get(String(nodeId || "").trim());
+  if (held) {
+    if (event.type === "pointerdown" && held.pointerId !== pointerId) {
+      nodeGraphChordMemoryReleasePointerPlay(nodeId);
+    } else if (held.pointerId === pointerId) {
       if (
         event.type === "pointerup"
         || event.type === "pointercancel"
         || event.type === "lostpointercapture"
       ) {
-        nodeGraphChordMemoryReleasePointerPlay();
+        nodeGraphChordMemoryReleasePointerPlay(nodeId);
         event.preventDefault();
         return true;
       }
@@ -985,7 +839,7 @@ function nodeGraphChordMemoryHandlePointer(event, surface, midi, options = {}) {
     return true;
   }
 
-  const vel127 = nodeGraphChordMemoryStrikeVelocity127(event, surface);
+  const vel127 = nodeGraphChordMemoryStrikeVelocity127(event, surface, nodeId);
   const noMods = !event.ctrlKey && !event.shiftKey && !altDown;
 
   if (mode === "chordMemory") {
@@ -998,16 +852,13 @@ function nodeGraphChordMemoryHandlePointer(event, surface, midi, options = {}) {
     // Ctrl+click a blank key: start/stop an empty edit chord. Gold is untouched.
     if (event.ctrlKey && !event.shiftKey && !altDown) {
       if (nodeGraphChordMemoryEditIs(nodeId, slotMidi)) {
-        nodeGraphChordMemoryEditClear();
-        if (typeof nodeGraphMvp === "object" && nodeGraphMvp) {
-          nodeGraphMvp.midiKeyboardStatus = `chord edit off`;
-        }
+        nodeGraphChordMemoryEditClear(nodeId);
       } else {
         nodeGraphChordMemoryBeginBlankEdit(nodeId, slotMidi);
       }
       nodeGraphChordMemoryPaintKeys();
       if (typeof renderNodeGraphMidiKeyboardSignal === "function") {
-        renderNodeGraphMidiKeyboardSignal(nodeGraphMvp?.keyboardModuleSignal || null);
+        renderNodeGraphMidiKeyboardSignal(nodeId, null);
       }
       event.preventDefault();
       return true;
@@ -1021,7 +872,7 @@ function nodeGraphChordMemoryHandlePointer(event, surface, midi, options = {}) {
     // Plain click: red edit tones when a chord is active for editing.
     // No edit target: green slot → momentary Play Keys chord; else single play key.
     if (noMods) {
-      if (nodeGraphChordMemoryEditIs(nodeId, nodeGraphChordMemoryHost().chordMemoryEditSlot)) {
+      if (nodeGraphChordMemoryEditSlotFor(nodeId) != null) {
         nodeGraphChordMemoryToggleEditNote(nodeId, slotMidi, vel127);
         event.preventDefault();
         return true;
@@ -1086,13 +937,12 @@ function nodeGraphChordMemoryApplyInletMask(nodeId, mask, nodesMap = null) {
   const slots = nodeGraphChordMemorySlotsLookup(id, nodesMap);
   const active = nodeGraphChordMemoryActiveSetFor(id);
   const prevActive = new Set(active);
-  // Drop slots no longer held by inlet. Keep user-latched chords and the
-  // pointer-held slot — those must survive mode changes and empty IN.
+  // Drop slots no longer held by inlet. Keep user-latched chords and this
+  // keyboard's pointer-held slot — those must survive mode changes and empty IN.
   const host = nodeGraphChordMemoryHost();
   const latched = nodeGraphChordMemoryLatchedSetFor(id);
-  const pointerSlot = host.chordMemoryPlayPointerId != null
-    ? Number(host.chordMemoryPlayPointerSlot)
-    : NaN;
+  const momentaryEntry = nodeGraphChordMemoryHostMap("chordMemoryMomentaryByNode").get(id);
+  const pointerSlot = momentaryEntry && momentaryEntry.slot != null ? Number(momentaryEntry.slot) : NaN;
   // Sequencer Play Keys can overlap two notes; stacking both slots then
   // note-offing the first steals voices out from under the new chord.
   // Inlet drives at most the highest slot. User latches still merge.
@@ -1144,14 +994,6 @@ function nodeGraphChordMemoryApplyInletMask(nodeId, mask, nodesMap = null) {
     }
     host.chordMemoryOutLatchByNode.set(id, Uint8Array.from(play));
   }
-  const all = typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128);
-  for (const m of host.chordMemoryPlayMaskByNode.values()) {
-    if (!(m instanceof Uint8Array)) continue;
-    for (let i = 0; i < 128; i += 1) {
-      if (m[i]) all[i] = 1;
-    }
-  }
-  host.chordMemoryPlayMask = all;
   return added;
 }
 
@@ -1162,9 +1004,9 @@ if (typeof globalThis !== "undefined") {
   globalThis.nodeGraphChordMemoryEnsureNode = nodeGraphChordMemoryEnsureNode;
   globalThis.nodeGraphChordMemoryHasSlot = nodeGraphChordMemoryHasSlot;
   globalThis.nodeGraphChordMemoryNotesForSlot = nodeGraphChordMemoryNotesForSlot;
-  globalThis.nodeGraphChordMemorySaveFromArpMask = nodeGraphChordMemorySaveFromArpMask;
   globalThis.nodeGraphChordMemoryCurrentEditNotes = nodeGraphChordMemoryCurrentEditNotes;
   globalThis.nodeGraphChordMemorySaveCurrentEdit = nodeGraphChordMemorySaveCurrentEdit;
+  globalThis.nodeGraphChordMemoryEditSlotFor = nodeGraphChordMemoryEditSlotFor;
   globalThis.nodeGraphChordMemoryEditIs = nodeGraphChordMemoryEditIs;
   globalThis.nodeGraphChordMemoryEditClear = nodeGraphChordMemoryEditClear;
   globalThis.nodeGraphChordMemoryEditSet = nodeGraphChordMemoryEditSet;
@@ -1178,11 +1020,12 @@ if (typeof globalThis !== "undefined") {
   globalThis.nodeGraphChordMemoryApplyLiveLatch = nodeGraphChordMemoryApplyLiveLatch;
   globalThis.nodeGraphChordMemoryToggleEditNote = nodeGraphChordMemoryToggleEditNote;
   globalThis.nodeGraphChordMemoryNoteIsEdit = nodeGraphChordMemoryNoteIsEdit;
+  globalThis.nodeGraphChordMemoryMomentaryMaskForNode = nodeGraphChordMemoryMomentaryMaskForNode;
   globalThis.nodeGraphChordMemoryMomentaryPlayTransmit = nodeGraphChordMemoryMomentaryPlayTransmit;
   globalThis.nodeGraphChordMemoryStartMomentaryPlay = nodeGraphChordMemoryStartMomentaryPlay;
   globalThis.nodeGraphChordMemoryReleasePointerPlay = nodeGraphChordMemoryReleasePointerPlay;
   globalThis.nodeGraphChordMemoryReleaseNode = nodeGraphChordMemoryReleaseNode;
-  globalThis.nodeGraphChordMemoryPlayTransmit = nodeGraphChordMemoryPlayTransmit;
+  globalThis.nodeGraphChordMemoryPlayVelocityForNode = nodeGraphChordMemoryPlayVelocityForNode;
   globalThis.nodeGraphChordMemoryPlayTransmitForNode = nodeGraphChordMemoryPlayTransmitForNode;
   globalThis.nodeGraphChordMemoryLiveMaskForNode = nodeGraphChordMemoryLiveMaskForNode;
   globalThis.nodeGraphChordMemoryOutMaskForNode = nodeGraphChordMemoryOutMaskForNode;

@@ -117,6 +117,12 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       }
       canvas[key] = null;
     }
+    // Waterfall history (all variants) lives in GL history textures + hold /
+    // tape state, not the 2d plate. WebGL faces have no 2d context and skip
+    // the plate fill below, so without this Play re-presented the old history.
+    if (typeof nodeGraphWaterfallWipeHistory === "function") {
+      nodeGraphWaterfallWipeHistory(canvas);
+    }
     if (canvas._numberReadoutLastValueText !== undefined) {
       canvas._numberReadoutLastValueText = "";
       canvas._numberReadoutLastTextChangeAt = 0;

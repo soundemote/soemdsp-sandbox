@@ -105,44 +105,7 @@ function serializeNodeGraphPatch(patch = nodeGraphMvp.patch, options = {}) {
     circuitPatches: patch.circuitPatches,
     activeCircuitPatch: patch.activeCircuitPatch,
     defaultCircuitPatch: patch.defaultCircuitPatch,
-    // Gold Arp latch (ctrl+click) — patch-owned, not localStorage-only.
-    keyboardLatch: (typeof nodeGraphMvp !== "undefined" && patch === nodeGraphMvp?.patch)
-      ? {
-        lowBitmask: Math.max(0, Math.floor(Number(nodeGraphMvp.midiKeyboardHeldKeysLowBitmask)) || 0),
-        highBitmask: Math.max(0, Math.floor(Number(nodeGraphMvp.midiKeyboardHeldKeysHighBitmask)) || 0),
-        velocities: nodeGraphMvp.midiKeyboardHeldKeyVelocities instanceof Uint8Array
-          ? Array.from(nodeGraphMvp.midiKeyboardHeldKeyVelocities)
-          : undefined,
-        arpMask: nodeGraphMvp.midiKeyboardArpMask instanceof Uint8Array
-          ? Array.from(nodeGraphMvp.midiKeyboardArpMask)
-          : undefined,
-      }
-      : (patch.keyboardLatch && typeof patch.keyboardLatch === "object"
-        ? {
-          lowBitmask: Math.max(0, Math.floor(Number(patch.keyboardLatch.lowBitmask)) || 0),
-          highBitmask: Math.max(0, Math.floor(Number(patch.keyboardLatch.highBitmask)) || 0),
-          velocities: Array.isArray(patch.keyboardLatch.velocities)
-            ? patch.keyboardLatch.velocities
-            : undefined,
-          arpMask: Array.isArray(patch.keyboardLatch.arpMask)
-            ? patch.keyboardLatch.arpMask
-            : undefined,
-        }
-        : undefined),
   };
-  if (payload.keyboardLatch) {
-    const vels = payload.keyboardLatch.velocities;
-    if (Array.isArray(vels) && !vels.some((v) => (Number(v) || 0) > 0)) {
-      delete payload.keyboardLatch.velocities;
-    }
-    const arpBits = Array.isArray(payload.keyboardLatch.arpMask)
-      && payload.keyboardLatch.arpMask.some((v) => Number(v) > 0);
-    if (!payload.keyboardLatch.lowBitmask
-      && !payload.keyboardLatch.highBitmask
-      && !arpBits) {
-      delete payload.keyboardLatch;
-    }
-  }
   return options.pretty === false
     ? JSON.stringify(payload)
     : JSON.stringify(payload, null, 2);

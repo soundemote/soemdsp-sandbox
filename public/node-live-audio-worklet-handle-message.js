@@ -68,15 +68,15 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
       return;
     }
     if (message.type === "setKeyboardModuleSignal") {
-      this.setKeyboardModuleSignal(message.signal);
+      this.setKeyboardModuleSignal(message.nodeId, message.signal);
       return;
     }
-    if (message.type === "setMidiKeyboardHeldKeysBitmask") {
-      this.setMidiKeyboardHeldKeysBitmask(message.mask, message.velocities, message.octave);
+    if (message.type === "setKeyboardArpLatch") {
+      this.setKeyboardArpLatch(message.nodeId, message.mask, message.velocities);
       return;
     }
     if (message.type === "setChordMemoryLatch") {
-      this.setChordMemoryLatch?.(message.slotsByNode, message.playMaskByNode, message.momentaryPlayMask);
+      this.setChordMemoryLatch?.(message.slotsByNode, message.playMaskByNode, message.momentaryPlayMaskByNode);
       return;
     }
     if (message.type === "setMidiKeyboardPlayKeysBitmask") {
@@ -109,10 +109,6 @@ NodeLiveAudioProcessor.prototype.handleMessage = function handleMessage(message)
     }
     if (message.type === "vmAllNotesOff") {
       this.vmAllNotesOff?.();
-      return;
-    }
-    if (message.type === "setPitchModWheelSignal") {
-      this.setPitchModWheelSignal(message.signal);
       return;
     }
     if (message.type === "externalButtonEvent") {

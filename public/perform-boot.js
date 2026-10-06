@@ -339,11 +339,10 @@
     }
   };
 
-  global.soemdspPerformEmitNoteMask = function soemdspPerformEmitNoteMask(mask) {
+  global.soemdspPerformEmitNoteMask = function soemdspPerformEmitNoteMask(mask, nodeId) {
     if (typeof noteMaskPackChunks !== "function") return;
     var chunks = noteMaskPackChunks(mask);
-    var el = document.querySelector(".dsp-node[data-node-type='keyboardController']");
-    var id = el && el.dataset ? String(el.dataset.node || "") : "";
+    var id = String(nodeId || "");
     postToHost({
       event: "notes",
       nodeId: id,

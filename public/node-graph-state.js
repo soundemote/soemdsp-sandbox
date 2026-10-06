@@ -94,34 +94,20 @@ var nodeGraphMvp = {
   // Amount fill off until the user turns it on (Visibility / UI settings).
   sliderAmountVisible: false,
   sliderPositionVisible: true,
+  // Hardware MIDI device (MIDI module only).
   midiKeyboardSignal: null,
   midiKeyboardAccess: null,
-  midiKeyboardHeldKeysLowBitmask: 0,
-  midiKeyboardHeldKeysHighBitmask: 0,
-  midiKeyboardArpMask: new Uint8Array(128),
   midiKeyboardPlayMask: new Uint8Array(128),
-  midiKeyboardHeldKeyVelocities: new Uint8Array(128),
-  midiKeyboardArpLatchPointerId: null,
   midiKeyboardHeldNotes: new Map(),
-  // Local piano held notes (midi → velocity 1..127) for Keyboard Polyphony out.
-  keyboardModuleHeldNotes: new Map(),
-  // Authoritative Polyphony tables (Uint8Array[128]); status = velocity > 0.
+  // Authoritative MIDI Polyphony table (Uint8Array[128]); status = velocity > 0.
   midiPolyphonyVelocities: null,
-  keyboardPolyphonyVelocities: null,
-  midiKeyboardPlayKeysLowBitmask: 0,
-  midiKeyboardPlayKeysHighBitmask: 0,
   midiKeyboardInputId: "",
   midiKeyboardInputs: [],
   midiListenChannel: 0,
-  midiKeyboardMemoryLoaded: false,
-  midiKeyboardLayout: null,
-  midiKeyboardOctave: 0,
-  midiKeyboardPointerHeldSignal: null,
-  midiKeyboardPreviousGate: 0,
-  midiKeyboardPulseSerial: 0,
+  midiInputMemoryLoaded: false,
   midiKeyboardStatus: "",
-  modWheelSignal: 0,
-  pitchWheelSignal: 0,
+  // Per Keyboard / Grid Keyboard node id: transient play state (see nodeGraphKeyboardRuntime).
+  keyboardRuntimeByNode: new Map(),
   videoViewVisible: false,
   live: {
     context: null,

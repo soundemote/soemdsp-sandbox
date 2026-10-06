@@ -125,7 +125,7 @@ function nodeGraphPhoneTonePitchCvRatio(hasPitchCv, pitchCv, referenceVoltage) {
 function nodeGraphPhoneToneClampHz(hz) {
   const cap = typeof nodeGraphProjectSpeedLimitHz === "function"
     ? nodeGraphProjectSpeedLimitHz()
-    : (typeof nodeGraphSinepulseMaxHz === "function" ? nodeGraphSinepulseMaxHz() : 20000);
+    : 20000;
   const n = Number(hz);
   if (!Number.isFinite(n)) {
     return 0;

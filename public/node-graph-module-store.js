@@ -113,8 +113,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "screenSpaceShader",
   "waveguide",
   "vocoder",
-  "electroKick",
-  "electroSnare",
   "electroHat",
   "flexGrid",
   "gravity",
@@ -140,13 +138,10 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "bode",
   "buttonEvents",
   "curveOsc",
-  "kickEnvelope",
   "nextPatch",
   "previousPatch",
   "sampleLooper",
   "shootingStarExplosion",
-  "sineKick",
-  "sinepulse",
   "softpopOscillator",
   "stftBlur",
   "tiltFilter",
@@ -224,8 +219,6 @@ const nodeGraphModuleConstructionPlans = Object.freeze({
 
   wallDelay: "Geometric room/wall delay. Parked until ray-room DSP lands.",
   doppler: "parked Doppler (pitch only while delay time is moving)",
-  electroKick: "Electro kick voice. Parked until the drum shelf ships.",
-  electroSnare: "Electro snare voice. Parked until the drum shelf ships.",
   electroHat: "Electro hat voice. Parked until the drum shelf ships.",
   drummer: "Pattern/rhythm engine. Parked until Sequence drummer lands.",
 
@@ -586,9 +579,9 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   ellipsoidOsc: {
     category: "oms",
-    description: "soemdsp Ellipsoid::getEllipsoid — Offset/Shape/Scale stereo ellipse oscillator (Left/Right) with AA Off|Limit.",
+    description: "soemdsp Ellipsoid::getEllipsoid — Offset/Shape/Scale stereo ellipse oscillator (Left/Right) with AA Off|Limit|Dither.",
     label: "Ellipsoid",
-    notes: ["ellipsoid", "getEllipsoid", "offset", "shape", "scale", "AA Off|Limit", "stereo", "Left", "Right", "native", "oms"],
+    notes: ["ellipsoid", "getEllipsoid", "offset", "shape", "scale", "AA Off|Limit|Dither", "Robin dither", "stereo", "Left", "Right", "native", "oms"],
   },
   basicShape: {
     category: "modulator",
@@ -1645,68 +1638,6 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "stereo",
       "mono",
     ],
-  },
-  kickEnvelope: {
-    category: "drum",
-    description: "One-shot analog envelope: T trigger, A 0–1. Low/High range, Sharpness sine→square, Linear/Exponential curve.",
-    label: "Kick Envelope",
-    notes: [
-      "drum",
-      "kick",
-      "envelope",
-      "trigger",
-      "sharpness",
-      "sine",
-      "square",
-      "percussion",
-    ],
-  },
-  sineKick: {
-    category: "drum",
-    description: "Analog sine kick: T fires a decaying sine. Pitch, Punch, Decay, Sharpness (sine→square). Out is audio; A is the envelope.",
-    label: "Sine Kick",
-    notes: [
-      "drum",
-      "kick",
-      "sine",
-      "thump",
-      "trigger",
-      "punch",
-      "sharpness",
-      "percussion",
-    ],
-  },
-  sinepulse: {
-    category: "drum",
-    description: "Sine zap/chirp drum—electro kicks, risers, and swept sine hits.",
-    label: "Sinepulse",
-    notes: [
-      "drum",
-      "percussion",
-      "chirp",
-      "sine sweep",
-      "period reset",
-      "sweep",
-      "kick",
-      "zap",
-      "pulse",
-      "sine",
-      "high low",
-      "antialias",
-      "pitch dither",
-    ],
-  },
-  electroKick: {
-    category: "drum",
-    description: "Placeholder classic electro kick voice.",
-    label: "ElectroKick",
-    notes: ["under construction", "drum", "kick", "electro", "percussion", "bass drum"],
-  },
-  electroSnare: {
-    category: "drum",
-    description: "Placeholder classic electro snare voice.",
-    label: "ElectroSnare",
-    notes: ["under construction", "drum", "snare", "electro", "percussion"],
   },
   electroHat: {
     category: "drum",
@@ -2825,9 +2756,7 @@ const nodeGraphNativeModuleTargetAliases = Object.freeze({
 });
 
 const nodeGraphModuleStoreNativeLabelTypes = Object.freeze(new Set([
-  "kickEnvelope",
   "attackDecay",
-  "sineKick",
 ]));
 
 function applyNodeGraphNativeModuleCatalog(entries = []) {
@@ -3625,10 +3554,6 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   sinCos: {
     source: "public/node-graph-oscillator-runtime.js",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/node-graph-oscillator-runtime.js",
-  },
-  kickEnvelope: {
-    source: "public/modules/kickEnvelope/kick-envelope-math.js",
-    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/kickEnvelope/kick-envelope-math.js",
   },
   slewLimiter: {
     source: "native_modules/slew_limiter/slew_limiter.cpp",

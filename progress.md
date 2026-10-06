@@ -1,3 +1,8 @@
+## 2026-10-06 — C-002: old kick / snare cards removed (local, uncommitted)
+
+- Argi ("start"): remove Sinepulse, Sine Kick, Kick Envelope, the `electroKick` placeholder and the `electroSnare` placeholder (Electro Snare, `docs/SNARE_PLAN.md`, takes the key back). Kept: `electroHat`, `drummer`, `percussion`.
+- Deleted `public/modules/kickEnvelope/kick-envelope-math.js` and `scripts/test_kick_envelope.js`. Removed definitions, labels, store cards, UC lists, tooltips, bypass, scope defaults, dead runtime / worklet state maps, script tags, smoke row, the RoundShape face kick branch and the preset UC entries. Layout-band test checks RoundShape instead of Kick Envelope. No patch used any removed type. Smoke test passes. File list: `docs/KICK_PLAN.md` → Removal. Kick plan updated with Argi's decisions (Decay kept, Trigger keeps phase / Reset is the phase reset, Kick ≠ Electro Kick) and a Flat Zapper seed with measured cost. No commit.
+
 ## 2026-09-29 - Instant Waterfall Detail max 1 (local, uncommitted)
 
 - User: cap waterfall Detail (detail) max at 1. Range 0..1, default stays 1. Clamp stored values >1 down to 1. waterfall, waterfallRgb, waterfallXyz. Cache-bust wf-detail-max1.
@@ -198,6 +203,13 @@ graphify update . --force   # no LLM; AST re-extract
 ## Backlog Ideas
 - Varispeed Delay — plan only (`docs/VARISPEED_DELAY_PLAN.md`). Doppler is a separate parked Space card.
 - Display shaders — move per-pixel display math into GLSL fragment shaders on one shared WebGL context; audio stays native. Plan + progress tracker (all Not started): `docs/DISPLAY_SHADER_PLAN.md`.
+- Electro Snare drum module (Argi 2026-10-06: replaces the `electroSnare` placeholder, removed in C-002) — plan only, not started (`docs/SNARE_PLAN.md`). One shared param set (Tune / Tone / Snappy / Body Decay / Snap Decay / Bend / Amplitude + Algorithm). Candidate algorithms 808 / 909 / Simmons / Modal / FM. Param set and algorithm list under discussion with Argi.
+- Kick (SweepKicker) — plan only, not started (`docs/KICK_PLAN.md`). Robin Schmidt's RS-MET SweepKicker ported to native C++ with his permission (2026-10-06); Trigger / Reset in, Kick / Env out; parity test against Robin's class. Decided 2026-10-06: Decay kept; Trigger keeps the phase (Reset ↺ is the only phase reset); separate from Electro Kick. Owner SandyModules.
+- Flat Zapper — seed (Argi 2026-10-06): Robin's `rsFlatZapper` allpass chain (0–256 one-pole / biquad stages) with an audio input (feed anything through the dispersion chain) and a Trigger (internal impulse → flat-spectrum zap). Params: Stages, Mode, Low / High Freq, Freq Shape, Low / High Q, Q Shape, Impulse, Input, Mix, Amplitude. Measured ≈ 110 ns/sample at 50 biquad stages (≈ 1.25 × SweepKicker), ≈ 640–690 ns at 256. Separate module vs a Phase Disperse mode is open (`docs/KICK_PLAN.md` → Flat Zapper module (seed); `docs/FUTURE_PLANNING.md` §Flat Zapper).
+- Electro Kick — seed, discussion with Argi, not final (`docs/FUTURE_PLANNING.md`). Shared params + Algorithm: 808 / 909 / Simmons SDS-V (SweepKicker stays its own Kick module, Argi 2026-10-06).
+- Electro Hat — seed, discussion with Argi, not final (`docs/FUTURE_PLANNING.md`). 808 / 606 six-oscillator metal, FM / ring-mod, filtered noise; 909 hats are 6-bit samples (not synthesizable); Closed / Open triggers with choke proposed.
+- Electro Tom — seed, discussion with Argi, not final (`docs/FUTURE_PLANNING.md`). Trigger / Reset in, Tom / Env out; 808 / 909 / Simmons SDS-V; Tune, Tone, Body Decay, Bend, Noise, Amplitude (Tune and Bend primary).
+- [x] Remove old kick / snare cards (Sinepulse, Sine Kick, Kick Envelope, `electroSnare` placeholder, `electroKick`) — done 2026-10-06, local, uncommitted (`docs/BUG_PLAN.md` C-002, file list in `docs/KICK_PLAN.md` → Removal).
 - Unipolar switch on every 1D display — plan only, not implemented (docs/FUTURE_PLANNING.md).
 - VU meter — seed only, behavior not specified yet (docs/FUTURE_PLANNING.md).
 - AcidSequencer — like Sequencer, per-step Gate / Accent / Slide / Octave on a 13-note C-to-C grid (seed in `docs/FUTURE_PLANNING.md`).

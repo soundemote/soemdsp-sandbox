@@ -7,6 +7,8 @@
 // soemdsp Ellipsoid::getSineToSquare — AA Off | Limit:
 //   Limit floors C by ω=2πf/sr (edge slope ≲ 1 sample). Off honors shape as-is.
 // soemdsp_ellipsoid_sample — full multi-param ellipsoid oscillator (same AA).
+// AA 2 = Dither (Ellipsoid osc): Robin cycle-length dither phasor
+//   (soemdsp_ellipsoid_robin_phasor, host-owned state); shape rendered as Off.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -108,9 +110,70 @@ static double ellipsoidSampleLimited(
   );
 }
 
+static constexpr int kAaDither = 2;
+
 static bool aaIsLimit(int antialias) {
-  // 0 = Off; nonzero = Limit (legacy hosts that passed 1 keep Limit).
-  return antialias != 0;
+  // 0 = Off; 2 = Dither (phase-side, shape as Off); any other nonzero = Limit
+  // (legacy hosts that passed 1 keep Limit).
+  return antialias != 0 && antialias != kAaDither;
+}
+
+// Robin Schmidt cycle-length dither pick (same math as robin_oscillator /
+// robin_supersaw calcCycleDistribution + updateCycleLength): a cycle of
+// c2 - 1, c2 or c2 + 1 samples (c2 = round(c)) with probabilities giving
+// mean c and variance 0.25. xorshift32 stream, r = (state >> 8) / 16777216.
+// Returns false (rng untouched) only for a degenerate distribution.
+static bool robinPickCycleLength(
+  unsigned int* rng,
+  double cycleSamples,
+  double* outLen,
+  double* outMid
+) {
+  double c = cycleSamples;
+  if (!(c == c) || c < 2.0) c = 2.0;
+  if (c > 1.0e9) c = 1.0e9;
+  const double ci = dsp_floor(c);
+  const double cf = c - ci;
+  double c2 = ci;
+  if (cf >= 0.5) c2 += 1.0;
+  *outMid = c2;
+  const double c1 = c2 - 1.0;
+  const double c3 = c2 + 1.0;
+  const double e1 = c1 - c;
+  const double e2 = c2 - c;
+  const double e3 = c3 - c;
+  const double v1 = e1 * e1;
+  const double v2 = e2 * e2;
+  const double v3 = e3 * e3;
+  const double v = 0.25;
+  const double d1 = v - v1;
+  const double d2 = v - v2;
+  const double d3 = v - v3;
+  const double denom = e3 * (v1 - v2) - e2 * (v1 - v3) + e1 * (v2 - v3);
+  if (!(denom == denom) || denom == 0.0) return false;
+  const double s = 1.0 / denom;
+  const double probShort = (d2 * e3 - d3 * e2) * s;
+  const double probMid = (d3 * e1 - d1 * e3) * s;
+
+  unsigned int state = *rng;
+  if (state == 0u) state = 1u;
+  state = xorshift32(state);
+  *rng = state;
+  const double r = static_cast<double>(state >> 8) * (1.0 / 16777216.0);
+  double lenNow = c2;
+  if (r < probShort) lenNow = c2 - 1.0;
+  else if (r >= probShort + probMid) lenNow = c2 + 1.0;
+  *outLen = lenNow;
+  return true;
+}
+
+// Whole-sample cycle length for the Dither phasor (Robin: length <= 1 -> 2).
+static double robinCycleLength(unsigned int* rng, double cycleSamples) {
+  double lenNow = 0.0;
+  double c2 = 2.0;
+  if (!robinPickCycleLength(rng, cycleSamples, &lenNow, &c2)) lenNow = c2;
+  if (!(lenNow >= 2.0)) lenNow = 2.0;
+  return lenNow;
 }
 
 }  // namespace
@@ -120,7 +183,8 @@ extern "C" double soemdsp_ellipsoid_sine_to_square(double phaseCycles, double sh
   return sineToSquareCore(phaseCycles, shape, 0.0, 44100.0, false);
 }
 
-// antialias: 0 = Off, nonzero = Limit (steepness floor by omega when f/sr known).
+// antialias: 0 = Off, 2 = Off shape (Dither is phase-side), other nonzero =
+// Limit (steepness floor by omega when f/sr known).
 extern "C" double soemdsp_ellipsoid_sine_to_square_aa(
   double phaseCycles,
   double shape,
@@ -156,7 +220,8 @@ extern "C" double soemdsp_ellipsoid_sample(
   return ellipsoidSampleLegacy(phase, offset, shape, scale);
 }
 
-// Full osc path. antialias: 0 = Off, nonzero = Limit (scale floor by f/sr).
+// Full osc path. antialias: 0 = Off, 1 = Limit (scale floor by f/sr),
+// 2 = Dither (shape as Off; host drives soemdsp_ellipsoid_robin_phasor).
 extern "C" double soemdsp_ellipsoid_sample_aa(
   double phase,
   double offset,
@@ -201,39 +266,9 @@ extern "C" void soemdsp_ellipsoid_sample_pair(
 // Returns a phase offset in cycles. Does not change the sine-to-square formula.
 extern "C" double soemdsp_ellipsoid_robin_dither_cycles(unsigned int* rng, double cycleSamples) {
   if (!rng) return 0.0;
-  double c = cycleSamples;
-  if (!(c == c) || c < 2.0) c = 2.0;
-  if (c > 1.0e9) c = 1.0e9;
-  const double ci = dsp_floor(c);
-  const double cf = c - ci;
-  double c2 = ci;
-  if (cf >= 0.5) c2 += 1.0;
-  const double c1 = c2 - 1.0;
-  const double c3 = c2 + 1.0;
-  const double e1 = c1 - c;
-  const double e2 = c2 - c;
-  const double e3 = c3 - c;
-  const double v1 = e1 * e1;
-  const double v2 = e2 * e2;
-  const double v3 = e3 * e3;
-  const double v = 0.25;
-  const double d1 = v - v1;
-  const double d2 = v - v2;
-  const double d3 = v - v3;
-  const double denom = e3 * (v1 - v2) - e2 * (v1 - v3) + e1 * (v2 - v3);
-  if (!(denom == denom) || denom == 0.0) return 0.0;
-  const double s = 1.0 / denom;
-  const double probShort = (d2 * e3 - d3 * e2) * s;
-  const double probMid = (d3 * e1 - d1 * e3) * s;
-
-  unsigned int state = *rng;
-  if (state == 0u) state = 1u;
-  state = xorshift32(state);
-  *rng = state;
-  const double r = static_cast<double>(state >> 8) * (1.0 / 16777216.0);
-  double lenNow = c2;
-  if (r < probShort) lenNow = c2 - 1.0;
-  else if (r >= probShort + probMid) lenNow = c2 + 1.0;
+  double lenNow = 0.0;
+  double c2 = 0.0;
+  if (!robinPickCycleLength(rng, cycleSamples, &lenNow, &c2)) return 0.0;
   double maxCount = lenNow - 1.0;
   if (!(maxCount >= 1.0)) maxCount = 1.0;
   const double phaseSlope = 1.0 / maxCount;
@@ -242,6 +277,45 @@ extern "C" double soemdsp_ellipsoid_robin_dither_cycles(unsigned int* rng, doubl
   return 0.0;
 }
 
+// Ellipsoid osc AA = Dither: Robin cycle-length dither phasor (host owns
+// rng/count/len). Every cycle lasts a whole number of samples L, picked at
+// the wrap around cycleSamples = sr / |f| (mean sr / |f|, variance 0.25).
+// phase = count / L, so each cycle restarts on the sample grid and aliasing
+// turns into noise instead of inharmonic tones. f changes land at the next
+// wrap (Robin "On cycle"). *len < 1 starts a fresh cycle at startPhase
+// (reset, Dither switched on, leaving 0 Hz, reverse). direction: +1, -1, or
+// 0 = frozen. Returns this sample's phase in cycles [0, 1), then advances.
+extern "C" double soemdsp_ellipsoid_robin_phasor(
+  unsigned int* rng,
+  double* count,
+  double* len,
+  double cycleSamples,
+  double direction,
+  double startPhase
+) {
+  if (!rng || !count || !len) return 0.0;
+  if (!(*len >= 1.0)) {
+    double p0 = (startPhase == startPhase) ? startPhase : 0.0;
+    p0 -= dsp_floor(p0);
+    *len = robinCycleLength(rng, cycleSamples);
+    double n0 = (direction < 0.0 ? 1.0 - p0 : p0) * (*len);
+    if (!(n0 >= 0.0) || n0 >= *len) n0 = 0.0;
+    *count = n0;
+  }
+  const double u = *count / *len;
+  double phase = (direction < 0.0) ? 1.0 - u : u;
+  phase -= dsp_floor(phase);
+  if (direction != 0.0) {
+    *count += 1.0;
+    if (*count >= *len) {
+      *count -= *len; // keeps a fractional start offset (0 when on the grid)
+      *len = robinCycleLength(rng, cycleSamples);
+      if (!(*count < *len)) *count = 0.0;
+    }
+  }
+  return phase;
+}
+
 extern "C" int soemdsp_ellipsoid_version() {
-  return 13; // optional Robin cycle dither (phase offset only)
+  return 14; // Ellipsoid osc AA Dither (Robin cycle-length phasor)
 }

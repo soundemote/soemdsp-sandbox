@@ -526,7 +526,7 @@ async function sendNodeGraphLiveNativeModule(liveNode, entry) {
 // Chrome caps wasm memories per process (~100); many standalone instances
 // hit that cap. Slim is for small used-sets when per-module files exist;
 // huge patches / site deploys should use combined.
-const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=metro-sync-20261005";
+const nodeGraphLiveCombinedNativeModuleUrl = "native_modules/combined/soemdsp_combined.wasm?v=env-vel-20261006";
 
 /** @type {null|"slim"|"combined"} */
 let nodeGraphLiveNativeWasmLoadModeResolved = null;
@@ -2704,65 +2704,46 @@ function sendNodeGraphLiveMidiKeyboardSignal(signal = nodeGraphMvp.midiKeyboardS
   }
 }
 
-/** Local Keyboard face / dock pointer signal (not hardware MIDI). */
-function sendNodeGraphLiveKeyboardModuleSignal(signal = nodeGraphMvp.keyboardModuleSignal) {
+/** One Keyboard / Grid Keyboard's face pointer signal (not hardware MIDI). null = keyboard gone. */
+function sendNodeGraphLiveKeyboardModuleSignal(nodeId, signal) {
   const payload = signal && typeof signal === "object" ? { ...signal } : null;
-  if (nodeGraphMvp.live.runtime) {
-    nodeGraphMvp.live.runtime.keyboardModuleSignal = payload;
-  }
   if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
     nodeGraphMvp.live.node.port.postMessage({
+      nodeId: String(nodeId || ""),
       signal: payload,
       type: "setKeyboardModuleSignal",
     });
   }
-  if (typeof globalThis.soemdspPerformEmitNoteMask === "function") {
-    const held = nodeGraphMvp.midiKeyboardArpMask instanceof Uint8Array
-      ? nodeGraphMvp.midiKeyboardArpMask
-      : null;
-    if (held) globalThis.soemdspPerformEmitNoteMask(held);
-  }
 }
 
-function sendNodeGraphLiveMidiKeyboardHeldKeysBitmask() {
-  const mask = nodeGraphMvp.midiKeyboardArpMask instanceof Uint8Array
-    ? new Uint8Array(nodeGraphMvp.midiKeyboardArpMask)
-    : (typeof noteMaskCreate === "function" ? noteMaskCreate() : new Uint8Array(128));
-  const vels = nodeGraphMvp.midiKeyboardHeldKeyVelocities instanceof Uint8Array
-    ? new Uint8Array(nodeGraphMvp.midiKeyboardHeldKeyVelocities)
-    : null;
-  const octave = typeof nodeGraphMidiKeyboardOctaveOffset === "function"
-    ? nodeGraphMidiKeyboardOctaveOffset()
-    : 0;
-  if (nodeGraphMvp.live.runtime) {
-    nodeGraphMvp.live.runtime.midiKeyboardArpMask = mask;
-    if (vels) nodeGraphMvp.live.runtime.midiKeyboardHeldKeyVelocities = vels;
-    nodeGraphMvp.live.runtime.midiKeyboardOctave = octave;
-  }
-  if (typeof globalThis.soemdspPerformEmitNoteMask === "function") {
-    globalThis.soemdspPerformEmitNoteMask(mask);
+/** One keyboard's gold Arp Keys latch { mask, velocities } → worklet. null = keyboard gone. */
+function sendNodeGraphLiveKeyboardArpLatch(nodeId, latch) {
+  const mask = latch?.mask instanceof Uint8Array ? new Uint8Array(latch.mask) : null;
+  const velocities = latch?.velocities instanceof Uint8Array ? new Uint8Array(latch.velocities) : null;
+  if (mask && typeof globalThis.soemdspPerformEmitNoteMask === "function") {
+    globalThis.soemdspPerformEmitNoteMask(mask, String(nodeId || ""));
   }
   if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
     nodeGraphMvp.live.node.port.postMessage({
-      type: "setMidiKeyboardHeldKeysBitmask",
+      type: "setKeyboardArpLatch",
+      nodeId: String(nodeId || ""),
       mask,
-      velocities: vels,
-      octave,
+      velocities,
     });
   }
 }
 
-/** User-latched Chord Memory slots + live play mask â†’ worklet (Chord Memory OUT). */
-function sendNodeGraphLiveChordMemoryLatch(slotsByNode, playMaskByNode, momentaryMask) {
+/** Per-keyboard user-latched Chord Memory slots + live play masks + momentary chords → worklet (Chord Memory OUT). */
+function sendNodeGraphLiveChordMemoryLatch(slotsByNode, playMaskByNode, momentaryByNode) {
   if (!nodeGraphMvp?.live?.usesWorklet || !nodeGraphMvp.live.node?.port) return;
   const slots = slotsByNode && typeof slotsByNode === "object" ? slotsByNode : {};
   const masks = playMaskByNode && typeof playMaskByNode === "object" ? playMaskByNode : {};
-  const mom = momentaryMask instanceof Uint8Array ? new Uint8Array(momentaryMask) : null;
+  const momentary = momentaryByNode && typeof momentaryByNode === "object" ? momentaryByNode : {};
   nodeGraphMvp.live.node.port.postMessage({
     type: "setChordMemoryLatch",
     slotsByNode: slots,
     playMaskByNode: masks,
-    momentaryPlayMask: mom,
+    momentaryPlayMaskByNode: momentary,
   });
 }
 
@@ -2783,24 +2764,19 @@ function sendNodeGraphLiveMidiPlayKeysBitmask() {
 }
 
 /**
- * Polyphony velocity table (Uint8Array[128]) â†’ worklet.
- * source: "midi" | "keyboard"
+ * MIDI module Polyphony velocity table (Uint8Array[128]) â†’ worklet.
+ * source: "midi"
  * Legacy display path â€” Voices SSOT is VoiceManager note_on/off events.
  */
 function sendNodeGraphLivePolyphonyVelocities(source, velocities) {
   const key = String(source || "");
-  if (key !== "midi" && key !== "keyboard") return;
+  if (key !== "midi") return;
   const table = velocities instanceof Uint8Array
     ? velocities
     : (typeof polyphonyCreateTable === "function" ? polyphonyCreateTable() : new Uint8Array(128));
-  if (key === "midi") {
-    nodeGraphMvp.midiPolyphonyVelocities = table;
-  } else {
-    nodeGraphMvp.keyboardPolyphonyVelocities = table;
-  }
+  nodeGraphMvp.midiPolyphonyVelocities = table;
   if (nodeGraphMvp.live.runtime) {
-    if (key === "midi") nodeGraphMvp.live.runtime.midiPolyphonyVelocities = table;
-    else nodeGraphMvp.live.runtime.keyboardPolyphonyVelocities = table;
+    nodeGraphMvp.live.runtime.midiPolyphonyVelocities = table;
   }
   if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
     const copy = new Uint8Array(table);
@@ -2841,31 +2817,6 @@ function sendNodeGraphLiveVmNoteOff(note) {
 function sendNodeGraphLiveVmAllNotesOff() {
   if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
     nodeGraphMvp.live.node.port.postMessage({ type: "vmAllNotesOff" });
-  }
-}
-
-function nodeGraphPitchModWheelPayload() {
-  return {
-    mod: Math.max(0, Math.min(1, nodeGraphFiniteNumber(nodeGraphMvp.modWheelSignal))),
-    pitch: nodeGraphFiniteNumber(nodeGraphMvp.pitchWheelSignal),
-  };
-}
-
-function sendNodeGraphLivePitchModWheelSignal(signal = nodeGraphPitchModWheelPayload()) {
-  const source = signal && typeof signal === "object" ? signal : {};
-  const pitch = Number(source.pitch);
-  const payload = {
-    mod: Math.max(0, Math.min(1, nodeGraphFiniteNumber(source.mod))),
-    pitch: Number.isFinite(pitch) ? pitch : 0,
-  };
-  if (nodeGraphMvp.live.runtime) {
-    nodeGraphMvp.live.runtime.pitchModWheelSignal = payload;
-  }
-  if (nodeGraphMvp.live.usesWorklet && nodeGraphMvp.live.node?.port) {
-    nodeGraphMvp.live.node.port.postMessage({
-      signal: payload,
-      type: "setPitchModWheelSignal",
-    });
   }
 }
 
@@ -3245,7 +3196,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Bypass passthrough maps + frame eval (shared with main thread).
   "./public/node-graph-module-bypass.js?v=early-refl-1",
   "./public/node-graph-efficient-product.js?v=early-refl-1",
-  "./public/node-live-audio-worklet-core.js?v=rapt-native-1",
+  "./public/node-live-audio-worklet-core.js?v=kbd-own-1",
   // Phase D: class methods extracted from core (must follow class definition).
   "./public/node-live-audio-worklet-graph.js?v=plan-d-split-5",
   "./public/node-live-audio-worklet-smoother.js?v=hostcv-parammod-off-2",
@@ -3256,18 +3207,18 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   "./public/node-live-audio-worklet-dsp-state.js?v=rapt-native-1",
   "./public/lib/polyphony-voices.js?v=gold-oct-1",
   "./public/lib/note-mask-128.js?v=key-track-1",
-  "./public/node-graph-keyboard-chord-memory.js?v=mask128-2",
+  "./public/node-graph-keyboard-chord-memory.js?v=kbd-own-1",
   "./public/modules/sequencer/sequencer-math.js?v=seq-23",
-  "./public/node-live-audio-worklet-events.js?v=key-poke-1",
+  "./public/node-live-audio-worklet-events.js?v=key-block-1",
   "./public/node-live-audio-worklet-visual.js?v=planck-eps-1",
   "./public/node-live-audio-worklet-scope-io.js?v=output-face-prevol-1",
   "./public/node-live-audio-worklet-native-load.js?v=plan-d-split-7",
   "./public/node-live-audio-worklet-native-exports.js?v=hyperpluck-1",
-  "./public/node-live-audio-worklet-native-graph.js?v=key-poke-1",
+  "./public/node-live-audio-worklet-native-graph.js?v=host-signal-1",
   "./public/node-live-audio-worklet-meta-view.js?v=voice-preview-1",
   "./public/node-live-audio-worklet-set-plan.js?v=scope-ack-1",
-  "./public/node-live-audio-worklet-clear-plan.js?v=hyperpluck-1",
-  "./public/node-live-audio-worklet-handle-message.js?v=scope-ack-1",
+  "./public/node-live-audio-worklet-clear-plan.js?v=kbd-own-1",
+  "./public/node-live-audio-worklet-handle-message.js?v=kbd-own-1",
   "./public/node-live-audio-worklet-scope-snapshot.js?v=scope-ack-1",
   "./public/modules/spectrogram/spectrogram-worklet-evaluator.js?v=spectro-stride-1",
   "./public/modules/_shared/output-amplitude.js?v=output-amp-1",
@@ -3277,7 +3228,7 @@ const nodeGraphLiveWorkletSourceFilesEfficient = [
   // Envelope *Mod strips: native opcodes 70/72 (no JS ADSR / BakeStrip).
   // Keypad slot math (host CV controller — used by sidecar publish + setKeypadInteraction).
   "./public/modules/keypad/keypad-math.js?v=keypad-hostcv-1",
-  "./public/modules/_shared/controller-efficient-sidecar.js?v=toggle-trig-1samp-1",
+  "./public/modules/_shared/controller-efficient-sidecar.js?v=kbd-own-1",
   "./public/node-live-audio-worklet-process.js?v=scope-ack-1",
 ];
 
@@ -3681,7 +3632,6 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     if (typeof nodeGraphFlushLiveMetaView === "function") {
       nodeGraphFlushLiveMetaView();
     }
-    sendNodeGraphLivePitchModWheelSignal();
     // Play must never hand the worklet speed 0. Stop leaves pause (0) alone;
     // starting live audio is always "run". Always go through setNodeGraphLiveSpeed
     // (force) so a fresh worklet (boots at 0) receives setSpeed even when main
@@ -3731,10 +3681,10 @@ async function startNodeGraphLiveAudio(outputSerial = nodeGraphMvp.live.outputTo
     // Do not force outputEnabled â€” Input-only starts must leave Output grey/off.
     setNodeGraphLiveOutputMuted(false);
     applyNodeGraphLiveOutputGain();
-    // Arp latch must hit the worklet as soon as the port exists (patch load
-    // may have restored bitmasks before the AudioWorklet was up).
-    if (typeof sendNodeGraphLiveMidiKeyboardHeldKeysBitmask === "function") {
-      sendNodeGraphLiveMidiKeyboardHeldKeysBitmask();
+    // Every keyboard's latch + signal must hit the worklet as soon as the port
+    // exists (patch load may have restored them before the AudioWorklet was up).
+    if (typeof nodeGraphKeyboardSyncLiveAudio === "function") {
+      nodeGraphKeyboardSyncLiveAudio();
     }
     if (typeof sendNodeGraphLiveMidiPlayKeysBitmask === "function") {
       sendNodeGraphLiveMidiPlayKeysBitmask();

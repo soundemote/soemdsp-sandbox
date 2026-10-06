@@ -286,6 +286,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/oscilloscopeBank/oscilloscope-bank-display.js",
     "./public/modules/ensemble/ensemble-cloud-display.js",
     "./public/modules/videoscope/videoscope-display.js",
+    "./public/modules/spectrogram/spectrogram-gl.js",
     "./public/modules/spectrogram/spectrogram-display.js",
     "./public/modules/transport/transport-display.js",
     "./public/modules/vectorRgb/vector-rgb-display.js",
@@ -486,7 +487,6 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/curveAttackRelease/curve-attack-release-math.js",
     "./public/modules/pluckEnvelope/pluck-envelope-circuit-math.js",
     "./public/modules/pingEnvelope/ping-envelope-math.js",
-    "./public/modules/kickEnvelope/kick-envelope-math.js",
     "./public/modules/transport/transport-math.js",
     "./public/modules/sequencer/sequencer-math.js",
     "./public/modules/sequencer/sequencer-ui.js",
@@ -4260,6 +4260,236 @@ def require_module_frame_port_gap_contract() -> None:
     )
 
 
+IO_LABEL_TYPOGRAPHY_PROPS = (
+    "font",
+    "font-family",
+    "font-size",
+    "font-weight",
+    "letter-spacing",
+    "line-height",
+    "color",
+)
+IO_LABEL_TYPOGRAPHY_VARS = tuple(f"--node-io-label-{prop}" for prop in IO_LABEL_TYPOGRAPHY_PROPS[1:])
+# The ONE rule allowed to set label typography (via the variables above).
+IO_LABEL_TYPOGRAPHY_OWNER_SELECTOR = ".node-io-label"
+# STATE (never module/layout identity) exceptions on the label, by exact
+# selector -> {property: required value}.
+IO_LABEL_STATE_EXCEPTIONS = {
+    # Bypassed modules keep I/O fully opaque above the dimmed body.
+    ".dsp-node.bypassed .node-io-label": {"opacity": "1"},
+    # Label follows the row's hover / connection-selected tint.
+    ".node-io-row.patch-point-hover .node-io-label": {"color": "inherit"},
+    ".node-io-row.port-connection-selected .node-io-label": {"color": "inherit"},
+}
+
+
+def css_rules_flat(source: str) -> list[tuple[int, str, list[tuple[str, str]]]]:
+    """(line, selector, declarations) for every style rule, at any @media /
+    @supports / @container / @layer depth. Comments and strings are respected
+    and multi-line selectors are collapsed to single spaces."""
+    text = re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)), source, flags=re.S)
+    rules: list[tuple[int, str, list[tuple[str, str]]]] = []
+    stack: list[tuple[str, int]] = []  # (prelude, body start offset)
+    prelude_start = 0
+    index = 0
+    length = len(text)
+    while index < length:
+        char = text[index]
+        if char in "\"'":
+            end = index + 1
+            while end < length and text[end] != char:
+                end += 2 if text[end] == "\\" else 1
+            index = end + 1
+            continue
+        if char == "{":
+            stack.append((text[prelude_start:index], index + 1))
+            prelude_start = index + 1
+        elif char == "}":
+            if stack:
+                prelude, body_start = stack.pop()
+                body = text[body_start:index]
+                selector = " ".join(prelude.split())
+                if (
+                    "{" not in body
+                    and selector
+                    and not selector.startswith("@")
+                    and not any(p.startswith("@") and "keyframes" in p for p, _ in stack)
+                ):
+                    line = text.count("\n", 0, body_start) + 1
+                    declarations = []
+                    for part in body.split(";"):
+                        if ":" in part:
+                            name, value = part.split(":", 1)
+                            declarations.append((name.strip().lower(), " ".join(value.split())))
+                    rules.append((line, selector, declarations))
+            prelude_start = index + 1
+        elif char == ";":
+            # Ends a declaration or an @import-style statement; never part of a selector.
+            prelude_start = index + 1
+        index += 1
+    return rules
+
+
+def css_split_selector_list(selector: str) -> list[str]:
+    parts: list[str] = []
+    depth = 0
+    current = ""
+    for char in selector:
+        if char in "([":
+            depth += 1
+        elif char in ")]":
+            depth -= 1
+        if char == "," and depth == 0:
+            parts.append(current.strip())
+            current = ""
+        else:
+            current += char
+    parts.append(current.strip())
+    return [part for part in parts if part]
+
+
+def css_selector_targets_io_label(selector: str) -> bool:
+    """True when the selector's subject (or an ancestor compound) is
+    .node-io-label or a .node-io-label-* child class. Classes inside :not()
+    do not count."""
+    stripped = selector
+    while True:
+        match = re.search(r":not\(", stripped)
+        if not match:
+            break
+        depth = 0
+        for end in range(match.end() - 1, len(stripped)):
+            if stripped[end] == "(":
+                depth += 1
+            elif stripped[end] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+        stripped = stripped[: match.start()] + stripped[end + 1 :]
+    return re.search(r"\.node-io-label(?:-[A-Za-z0-9_-]+)?(?![A-Za-z0-9_-])", stripped) is not None
+
+
+def io_label_typography_css_sources() -> dict[str, str]:
+    sources = {"public/styles.css": (PUBLIC / "styles.css").read_text(encoding="utf-8")}
+    for css_path in sorted((PUBLIC / "modules").rglob("*.css")):
+        sources[css_path.relative_to(ROOT).as_posix()] = css_path.read_text(encoding="utf-8")
+    for html_name in ("index.html", "perform.html"):
+        html = (PUBLIC / html_name).read_text(encoding="utf-8")
+        for block_index, block in enumerate(re.findall(r"<style\b[^>]*>(.*?)</style>", html, flags=re.S | re.I)):
+            sources[f"{html_name} <style #{block_index + 1}>"] = block
+    return sources
+
+
+def io_label_typography_violations(css_sources: dict[str, str], js_sources: dict[str, str]) -> list[str]:
+    violations: list[str] = []
+    owner_rules = 0
+    for source_name, source in css_sources.items():
+        for line, selector, declarations in css_rules_flat(source):
+            for part in css_split_selector_list(selector):
+                is_owner = part == IO_LABEL_TYPOGRAPHY_OWNER_SELECTOR and source_name == "public/styles.css"
+                if is_owner and any(name in IO_LABEL_TYPOGRAPHY_PROPS for name, _ in declarations):
+                    owner_rules += 1
+                for name, value in declarations:
+                    if name in IO_LABEL_TYPOGRAPHY_VARS and not is_owner:
+                        violations.append(f"{source_name}:{line} `{part}` sets {name} (only the base .node-io-label rule may)")
+                if is_owner or not css_selector_targets_io_label(part):
+                    continue
+                allowed = IO_LABEL_STATE_EXCEPTIONS.get(part, {})
+                # A .node-io-label-* child may only defer to the label (inherit).
+                subject = re.split(r"\s*[>+~]\s*|\s+(?![^()]*\))", part)[-1]
+                child_subject = re.search(r"\.node-io-label-[A-Za-z0-9_-]+", subject) is not None
+                for name, value in declarations:
+                    if name not in IO_LABEL_TYPOGRAPHY_PROPS and name != "opacity":
+                        continue
+                    if allowed.get(name) == value.lower():
+                        continue
+                    if child_subject and name != "opacity" and value.lower() == "inherit":
+                        continue
+                    violations.append(f"{source_name}:{line} `{part}` sets {name}: {value}")
+    if owner_rules != 1:
+        violations.append(f"expected exactly 1 base `.node-io-label` typography rule in styles.css, found {owner_rules}")
+    style_prop = r"(?:fontFamily|fontSize|fontWeight|font|letterSpacing|lineHeight|color)"
+    css_prop = r"(?:font|font-family|font-size|font-weight|letter-spacing|line-height|color)"
+    for source_name, source in js_sources.items():
+        for match in re.finditer(r"setProperty\(\s*[\"'`](--node-io-label-[a-z-]+)", source):
+            if match.group(1) in IO_LABEL_TYPOGRAPHY_VARS:
+                line = source.count("\n", 0, match.start()) + 1
+                violations.append(f"{source_name}:{line} JS sets {match.group(1)}")
+        for match in re.finditer(r"class=[\"'][^\"']*\bnode-io-label\b[^>]*\bstyle=[\"'][^\"']*\b" + css_prop + r"\s*:", source):
+            line = source.count("\n", 0, match.start()) + 1
+            violations.append(f"{source_name}:{line} inline style typography on a .node-io-label")
+        if "node-io-label" not in source:
+            continue
+        patterns = (
+            r"\.style\." + style_prop + r"\s*=(?!=)",
+            r"\.style\.setProperty\(\s*[\"'`]" + css_prop + r"[\"'`]",
+            r"\.style\.cssText\s*[+]?=[^;]*[\"'`;]\s*" + css_prop + r"\s*:",
+        )
+        for pattern in patterns:
+            for match in re.finditer(pattern, source):
+                line = source.count("\n", 0, match.start()) + 1
+                violations.append(f"{source_name}:{line} JS sets label-capable typography `{match.group(0).strip()}`")
+    return violations
+
+
+def require_io_label_typography_contract() -> None:
+    """Jack (port) label typography has ONE owner: the base `.node-io-label`
+    rule, through --node-io-label-* knobs. No module/layout rule may restyle
+    labels (the labeled-LayoutB bold/accent ⎍ drift)."""
+    styles = (PUBLIC / "styles.css").read_text(encoding="utf-8")
+    owner = [
+        declarations
+        for _, selector, declarations in css_rules_flat(styles)
+        if selector == IO_LABEL_TYPOGRAPHY_OWNER_SELECTOR
+        and any(name in IO_LABEL_TYPOGRAPHY_PROPS for name, _ in declarations)
+    ]
+    require(len(owner) == 1, f"styles.css needs exactly one base `.node-io-label` typography rule, found {len(owner)}")
+    owner_declarations = {
+        name: " ".join(value.replace("( ", "(").replace(" )", ")").split()) for name, value in owner[0]
+    }
+    for prop, default in (
+        ("font-family", '"Cascadia Mono", "Cascadia Code", Consolas, "Courier New", monospace'),
+        ("font-size", "0.84rem"),
+        ("font-weight", "400"),
+        ("line-height", "1"),
+        ("letter-spacing", "normal"),
+        ("color", "var(--muted)"),
+    ):
+        value = owner_declarations.get(prop, "")
+        knob = owner_declarations.get(f"--node-io-label-{prop}")
+        require(
+            value == f"var(--node-io-label-{prop}, {default})"
+            or (value == f"var(--node-io-label-{prop})" and knob == default),
+            f"base .node-io-label {prop} should come from --node-io-label-{prop} (default {default}), "
+            f"got {prop}: {value!r}, knob: {knob!r}",
+        )
+    js_sources = {
+        js_path.relative_to(ROOT).as_posix(): js_path.read_text(encoding="utf-8", errors="replace")
+        for js_path in sorted(PUBLIC.rglob("*.js"))
+        if "node_modules" not in js_path.parts
+    }
+    violations = io_label_typography_violations(io_label_typography_css_sources(), js_sources)
+    require(not violations, "I/O label typography must only come from the base .node-io-label rule:\n  " + "\n  ".join(violations))
+    # Self-test so the guard itself cannot silently rot.
+    drift = (
+        "/* { */ @media (min-width: 1px) {\n:is(.a, .b).layout-b-port-labels\n"
+        "  > .node-io-column:not(.labels-hidden)\n  .node-io-label { /* x */ font-weight: 700; }\n}"
+    )
+    drift_hits = io_label_typography_violations({"public/styles.css": styles + "\n" + drift}, {})
+    require(
+        len(drift_hits) == 1 and "font-weight: 700" in drift_hits[0],
+        f"IO label guard self-test: a multi-line layout rule with font-weight should be flagged, got {drift_hits}",
+    )
+    js_hits = io_label_typography_violations(
+        {"public/styles.css": styles},
+        {"x.js": "row.querySelector('.node-io-label').style.fontWeight = '700';"},
+    )
+    require(
+        len(js_hits) == 1 and "fontWeight" in js_hits[0],
+        f"IO label guard self-test: JS style.fontWeight in a label file should be flagged, got {js_hits}",
+    )
+
+
 def require_render_sample_native_only() -> None:
     """Render Sample / Live must stay native-graph only (no JS DSP evaluators)."""
     render_source = (PUBLIC / "node-graph-render-output.js").read_text(encoding="utf-8")
@@ -4804,9 +5034,9 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         "t: nodeGraphTSeriesSingleModuleDefinition()" in script_sources["./public/node-graph-module-definitions.js"]
-        and 't2: nodeGraphTSeriesModuleDefinition(1, { adFirst: true, inLabel: "->" })' in script_sources["./public/node-graph-module-definitions.js"]
+        and 't2: nodeGraphTSeriesModuleDefinition(1, { adFirst: true, inLabel: "→" })' in script_sources["./public/node-graph-module-definitions.js"]
         and "t11: nodeGraphTSeriesModuleDefinition(10)" in script_sources["./public/node-graph-module-definitions.js"]
-        and '"2t": nodeGraphTSeriesMuxModuleDefinition(1, { adFirst: true, outLabel: "<-" })' in script_sources["./public/node-graph-module-definitions.js"]
+        and '"2t": nodeGraphTSeriesMuxModuleDefinition(1, { adFirst: true, outLabel: "←" })' in script_sources["./public/node-graph-module-definitions.js"]
         and '"4t": nodeGraphTSeriesMuxModuleDefinition(3)' in script_sources["./public/node-graph-module-definitions.js"]
         and '"11t": nodeGraphTSeriesMuxModuleDefinition(10)' in script_sources["./public/node-graph-module-definitions.js"]
         and 't: "t"' in script_sources["./public/node-graph-module-definitions.js"]
@@ -19097,6 +19327,7 @@ def run_valid_manifest_smoke(port: int, manifest: Path) -> None:
         run_step("chromeless module registry contract", require_chromeless_module_registry_contract)
         run_step("bug button interaction contract", require_bug_button_interaction_contract)
         run_step("module frame port-gap contract", require_module_frame_port_gap_contract)
+        run_step("IO label typography contract", require_io_label_typography_contract)
         run_step("XY pad interaction contract", require_xy_pad_interaction_contract)
         run_step("README scheduler contract", require_readme_scheduler_contract)
         run_step("soemdsp WireMeta traits", require_soemdsp_wire_meta_traits)

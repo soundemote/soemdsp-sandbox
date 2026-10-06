@@ -17,6 +17,12 @@
 //   buffer — present scales the same ink. Module drag-resize does change
 //   layout size — we rebuffer with bilinear stretch and only when the size
 //   moves by a few pixels so continuous drag doesn’t thrash nearest-neighbor.
+//
+// GPU path (spectrogram-gl.js, display-shader plan M1): when the shared picture
+// device is usable, JS only keeps a ring of raw spectrum columns plus the
+// settings each column was painted with; the fragment shader does the row→Hz
+// mapping, bin lerp, fold, contrast/brightness and LUT per pixel. The Canvas2D
+// bitmap below stays as the fallback and is rebuilt from the ring on switch.
 
 const spectrogramHistory = new Map();
 const spectrogramLutRgbCache = new Map();
@@ -372,6 +378,10 @@ function spectrogramResizePreserve(st, faceW, faceH) {
   next.historySeconds = st.historySeconds;
   next.plateReady = true;
   next.lutRgb = st.lutRgb || null;
+  next.inkMode = st.inkMode;
+  next.ring = st.ring && typeof spectrogramGlRingResize === "function"
+    ? spectrogramGlRingResize(st.ring, w)
+    : null;
   next.pendingValid = Boolean(st.pendingValid);
   if (st.pendingValid && st.pendingMags?.length) {
     // Bilinear-ish vertical remap of pending column (sample neighbors).
@@ -580,21 +590,27 @@ function spectrogramIngestHop(
   // Smaller history → fewer seconds per pixel → faster scroll (same hop covers more px).
   const secPerPx = hist / Math.max(1, w);
 
-  // Map spectrum with CURRENT paint settings (frozen into this ink).
-  if (!st.columnScratch || st.columnScratch.length < h) {
-    st.columnScratch = new Float32Array(h);
+  // GPU path: pool raw bins only; the shader does the row mapping.
+  if (st.ring && typeof spectrogramGlRingPool === "function") {
+    spectrogramGlRingPool(st.ring, spectrum, spectrumBins);
   }
-  spectrogramSpectrumToColumnMags(
-    st.columnScratch,
-    spectrum,
-    spectrumBins,
-    h,
-    freqScaleIdx,
-    sampleRate,
-    minFreqHz,
-    maxFreqHz,
-  );
-  spectrogramPoolPending(st, st.columnScratch);
+  if (!st.useGl) {
+    // Map spectrum with CURRENT paint settings (frozen into this ink).
+    if (!st.columnScratch || st.columnScratch.length < h) {
+      st.columnScratch = new Float32Array(h);
+    }
+    spectrogramSpectrumToColumnMags(
+      st.columnScratch,
+      spectrum,
+      spectrumBins,
+      h,
+      freqScaleIdx,
+      sampleRate,
+      minFreqHz,
+      maxFreqHz,
+    );
+    spectrogramPoolPending(st, st.columnScratch);
+  }
 
   st.scrollDebtSec = Math.max(0, nodeGraphFiniteNumber(st.scrollDebtSec)) + hopSec;
   // Emit whole *buffer* pixels. Map display sec/px → buffer pixels so scroll
@@ -604,10 +620,79 @@ function spectrogramIngestHop(
   let whole = Math.floor(st.scrollDebtSec / Math.max(1e-12, secPerBufPx));
   if (whole >= 1) {
     whole = Math.min(bufW, whole);
-    spectrogramScrollPaintPixels(st, whole, lutRgb, brightness, contrast);
+    if (!st.useGl) {
+      spectrogramScrollPaintPixels(st, whole, lutRgb, brightness, contrast);
+    }
+    if (st.ring && typeof spectrogramGlRingWrite === "function") {
+      // Settings frozen per column (permanent ink), resolved like spectrogramRowTToHz.
+      const band = spectrogramResolveViewBand(minFreqHz, maxFreqHz, sampleRate);
+      spectrogramGlRingWrite(st.ring, whole, {
+        contrast,
+        brightness,
+        freqScale: freqScaleIdx,
+        minFreq: band.minFreq,
+        maxFreq: band.maxFreq,
+        nyquist: band.nyquist,
+        lutRgb,
+      });
+    }
     st.scrollDebtSec -= whole * secPerBufPx;
     if (st.scrollDebtSec < 0) st.scrollDebtSec = 0;
   }
+}
+
+/**
+ * Rebuild the Canvas2D bitmap from the GPU ring (one-off, when the GL path is
+ * lost). Same math as the shader, per column with that column's settings.
+ */
+function spectrogramRasterizeRingTo2d(st) {
+  const ring = st?.ring;
+  const ctx = st?.ctx;
+  const w = st?.faceW | 0;
+  const h = st?.faceH | 0;
+  if (!ring || !ctx || w < 1 || h < 1 || ring.w !== w) return false;
+  const img = ctx.createImageData(w, h);
+  const d = img.data;
+  const stride = ring.stride;
+  const lutRows = Math.max(1, Math.floor(ring.lut.length / 1024));
+  const rowDenom = Math.max(1, h - 1);
+  for (let x = 0; x < w; x += 1) {
+    const r = (ring.head + x) % w;
+    const m = r * 8;
+    const contrast = ring.meta[m];
+    const bright = ring.meta[m + 1];
+    const scale = ring.meta[m + 2];
+    const bins = ring.meta[m + 3] | 0;
+    const lo = ring.meta[m + 4];
+    const hi = ring.meta[m + 5];
+    const sr = ring.meta[m + 6] * 2;
+    const lutO = Math.max(0, Math.min(lutRows - 1, ring.meta[m + 7] | 0)) * 1024;
+    const o = r * stride;
+    for (let y = 0; y < h; y += 1) {
+      let v = 0;
+      if (Number.isFinite(bright) && bright !== 0) {
+        let mag = 0;
+        if (bins >= 1) {
+          const hz = spectrogramRowTToHz(y / rowDenom, scale, sr, lo, hi);
+          const binF = spectrogramHzToLinearBin(hz, bins, sr);
+          const b0 = Math.max(0, Math.min(bins - 1, Math.floor(binF)));
+          const b1 = Math.min(bins - 1, b0 + 1);
+          const bf = binF - b0;
+          mag = ring.mags[o + b0] * (1 - bf) + ring.mags[o + b1] * bf;
+        }
+        v = spectrogramGrade01(mag, contrast, bright);
+      }
+      const li = Math.min(255, Math.max(0, Math.floor((Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0) * 255 + 1e-6)));
+      const s = lutO + li * 4;
+      const p = (y * w + x) * 4;
+      d[p] = ring.lut[s];
+      d[p + 1] = ring.lut[s + 1];
+      d[p + 2] = ring.lut[s + 2];
+      d[p + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return true;
 }
 
 function spectrogramPresent(ctx, st, faceW, faceH, lutRgb) {
@@ -686,6 +771,18 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
     spectrogramFillBrightness(st.ctx, lutRgb, 0, 0, 0, st.faceW, st.faceH);
     st.plateReady = true;
   }
+  // GPU ring (spectrogram-gl.js) is kept in both modes so either path can resume.
+  if (!st.ring && typeof spectrogramGlRingCreate === "function") {
+    st.ring = spectrogramGlRingCreate(st.faceW, lutRgb);
+  }
+  st.useGl = Boolean(st.ring)
+    && typeof spectrogramGlUsable === "function"
+    && spectrogramGlUsable(st.ring, st.faceW, st.faceH);
+  if (!st.useGl && st.inkMode === "gl") {
+    // GL went away: the Canvas2D bitmap is stale, rebuild it from the ring.
+    spectrogramRasterizeRingTo2d(st);
+  }
+  st.inkMode = st.useGl ? "gl" : "2d";
 
   // Ink uses settings at paint time; already-drawn pixels stay as-is.
   st.paintFreqScale = freqScaleIdx;
@@ -779,6 +876,12 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
     }
   }
 
+  if (st.useGl) {
+    if (spectrogramGlRingPresent(st.ring, st.faceW, st.faceH, ctx, faceW, faceH)) return;
+    // Failed mid-frame (context lost, bins past texture limit): fall back now.
+    spectrogramRasterizeRingTo2d(st);
+    st.inkMode = "2d";
+  }
   spectrogramPresent(ctx, st, faceW, faceH, lutRgb);
 }
 
@@ -802,6 +905,9 @@ function clearNodeGraphSpectrogramHistory() {
       st.pendingValid = false;
       st.lastHop = 0;
       st.scrollDebtSec = 0;
+      if (st.ring && typeof spectrogramGlRingRelease === "function") {
+        spectrogramGlRingRelease(st.ring);
+      }
     } catch (_error) {
       // Best-effort per face.
     }
@@ -833,6 +939,9 @@ function clearNodeGraphSpectrogramHistoryForNode(nodeId) {
     st.pendingValid = false;
     st.lastHop = 0;
     st.scrollDebtSec = 0;
+    if (st.ring && typeof spectrogramGlRingRelease === "function") {
+      spectrogramGlRingRelease(st.ring);
+    }
   } catch (_error) {
     // Best-effort.
   }

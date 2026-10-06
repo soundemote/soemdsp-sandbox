@@ -208,11 +208,6 @@ const nodeGraphNodeLabels = Object.freeze({
   crossover5: "5-Crossover",
   crossover6: "6-Crossover",
   softpopOscillator: "Softpop Oscillator",
-  sinepulse: "Sinepulse",
-  kickEnvelope: "Kick Envelope",
-  sineKick: "Sine Kick",
-  electroKick: "ElectroKick",
-  electroSnare: "ElectroSnare",
   electroHat: "ElectroHat",
   formantFilter: "Formant Filter",
   binaryClock: "Binary Clock",
@@ -3106,18 +3101,18 @@ const nodeGraphModuleDefinitions = (
     outputs: ["Left", "Right"],
     parameters: [
       {
-        choices: ["Off", "Limit"],
+        choices: ["Off", "Limit", "Dither"],
         defaultValue: "1",
         displayChoices: true,
         divideChoicesVisibly: true,
         key: "antialias",
         label: "AA",
         linearSmoothing: false,
-        max: "1",
+        max: "2",
         mid: "1",
         min: "0",
         step: "1",
-        tooltip: "Off = full scale (may alias). Limit = floor C by \u03c9=2\u03c0f/sr so edge steepness stays under Nyquist." },
+        tooltip: "Off = full scale (may alias). Limit = floor C by \u03c9=2\u03c0f/sr so edge steepness stays under Nyquist. Dither = Robin cycle-length dither (each cycle a whole number of samples, randomly \u00b11 around sr/f) so aliasing turns into noise; C is not floored." },
       { defaultValue: "100", key: "frequency", kind: "frequency", label: "Frequency", max: "20000", mid: "220", min: "0", step: "any", unit: "Hz" },
       { defaultValue: "0", key: "phase", kind: "phase", label: "Phase", max: "1", mid: "0.5", min: "0", step: "0.01", unit: "cycle", wraparound: true },
       {
@@ -6682,7 +6677,7 @@ const nodeGraphModuleDefinitions = (
     ]
   },
   t: nodeGraphTSeriesSingleModuleDefinition(),
-  t2: nodeGraphTSeriesModuleDefinition(1, { adFirst: true, inLabel: "->" }),
+  t2: nodeGraphTSeriesModuleDefinition(1, { adFirst: true, inLabel: "→" }),
   t3: nodeGraphTSeriesModuleDefinition(2),
   t4: nodeGraphTSeriesModuleDefinition(3),
   t5: nodeGraphTSeriesModuleDefinition(4),
@@ -6692,7 +6687,7 @@ const nodeGraphModuleDefinitions = (
   t9: nodeGraphTSeriesModuleDefinition(8),
   t10: nodeGraphTSeriesModuleDefinition(9),
   t11: nodeGraphTSeriesModuleDefinition(10),
-  "2t": nodeGraphTSeriesMuxModuleDefinition(1, { adFirst: true, outLabel: "<-" }),
+  "2t": nodeGraphTSeriesMuxModuleDefinition(1, { adFirst: true, outLabel: "←" }),
   "3t": nodeGraphTSeriesMuxModuleDefinition(2),
   "4t": nodeGraphTSeriesMuxModuleDefinition(3),
   "5t": nodeGraphTSeriesMuxModuleDefinition(4),
@@ -7819,7 +7814,7 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         showSign: true,
         step: "any",
-        tooltip: "Grid bias / operating point (-1...+1). Shifts where the transfer curve sits."
+        tooltip: "Grid bias / operating point (-1...+1). Shifts where the transfer curve sits (asymmetry / even harmonics). Level is matched to Bias 0 as set by Gain Compensation (boost capped at 4x / +12 dB)."
       },
       {
         defaultValue: "0.5",
@@ -7831,6 +7826,25 @@ const nodeGraphModuleDefinitions = (
         nonlinearSlider: false,
         step: "any",
         tooltip: "Blends precomputed plate load lines (light to heavy). No same-sample feedback iteration."
+      },
+      {
+        choices: ["Small Signal", "Large Signal"],
+        choiceKeys: ["smallSignal", "largeSignal"],
+        choiceIds: [0, 1],
+        defaultValue: "smallSignal",
+        displayChoices: true,
+        divideChoicesVisibly: true,
+        key: "gainCompensation",
+        kind: "choice",
+        label: "Gain Compensation",
+        linearSmoothing: false,
+        smoothingType: "none",
+        max: "1",
+        mid: "0",
+        min: "0",
+        nonlinearSlider: false,
+        step: "1",
+        tooltip: "How Bias is level-matched to Bias 0 (boost capped at 4x / +12 dB). Small Signal = matches quiet input; hot Drive at negative Bias gets louder. Large Signal = matches full-scale input; quiet input at extreme Bias is matched less."
       },
       {
         defaultValue: "1",
@@ -8467,11 +8481,14 @@ const nodeGraphModuleDefinitions = (
   butterworth: {
     planRole: "processor",
     inputAliases: {Mono: "In"},
-    inputLabels: {In: "Mono"},
+    // Lone In/Out: arrow labels; channels keep the green (mono) jack color the Mono label gave.
+    inputChannels: {In: "green"},
+    inputLabels: {In: "→"},
     inputs: ["In"],
     layout: "filterCurve",
     outputAliases: {Mono: "Out"},
-    outputLabels: {Out: "Mono"},
+    outputChannels: {Out: "green"},
+    outputLabels: {Out: "←"},
     outputs: ["Out"],
     parameters: [
       {
@@ -8531,11 +8548,14 @@ const nodeGraphModuleDefinitions = (
   linkwitzRiley: {
     planRole: "processor",
     inputAliases: {Mono: "In"},
-    inputLabels: {In: "Mono"},
+    // Lone In/Out: arrow labels; channels keep the green (mono) jack color the Mono label gave.
+    inputChannels: {In: "green"},
+    inputLabels: {In: "→"},
     inputs: ["In"],
     layout: "filterCurve",
     outputAliases: {Mono: "Out"},
-    outputLabels: {Out: "Mono"},
+    outputChannels: {Out: "green"},
+    outputLabels: {Out: "←"},
     outputs: ["Out"],
     parameters: [
       {
@@ -8593,11 +8613,14 @@ const nodeGraphModuleDefinitions = (
   bessel: {
     planRole: "processor",
     inputAliases: {Mono: "In"},
-    inputLabels: {In: "Mono"},
+    // Lone In/Out: arrow labels; channels keep the green (mono) jack color the Mono label gave.
+    inputChannels: {In: "green"},
+    inputLabels: {In: "→"},
     inputs: ["In"],
     layout: "filterCurve",
     outputAliases: {Mono: "Out"},
-    outputLabels: {Out: "Mono"},
+    outputChannels: {Out: "green"},
+    outputLabels: {Out: "←"},
     outputs: ["Out"],
     parameters: [
       {
@@ -8654,11 +8677,14 @@ const nodeGraphModuleDefinitions = (
   chebyshev: {
     planRole: "processor",
     inputAliases: {Mono: "In"},
-    inputLabels: {In: "Mono"},
+    // Lone In/Out: arrow labels; channels keep the green (mono) jack color the Mono label gave.
+    inputChannels: {In: "green"},
+    inputLabels: {In: "→"},
     inputs: ["In"],
     layout: "filterCurve",
     outputAliases: {Mono: "Out"},
-    outputLabels: {Out: "Mono"},
+    outputChannels: {Out: "green"},
+    outputLabels: {Out: "←"},
     outputs: ["Out"],
     parameters: [
       {
@@ -8727,11 +8753,14 @@ const nodeGraphModuleDefinitions = (
   elliptic: {
     planRole: "processor",
     inputAliases: {Mono: "In"},
-    inputLabels: {In: "Mono"},
+    // Lone In/Out: arrow labels; channels keep the green (mono) jack color the Mono label gave.
+    inputChannels: {In: "green"},
+    inputLabels: {In: "→"},
     inputs: ["In"],
     layout: "filterCurve",
     outputAliases: {Mono: "Out"},
-    outputLabels: {Out: "Mono"},
+    outputChannels: {Out: "green"},
+    outputLabels: {Out: "←"},
     outputs: ["Out"],
     parameters: [
       {
@@ -9699,481 +9728,7 @@ const nodeGraphModuleDefinitions = (
       },
     ]
   },
-  // One-shot analog envelope only (T → A). Sharpness is sine→square on the curve.
-  kickEnvelope: {
-    planRole: "source",
-    layout: "roundShape",
-    chrome: "LayoutA",
-    customDisplayArea: true,
-    displayType: "roundShapeFace",
-    defaultWidthGu: 5,
-    displayHeightGu: 5,
-    spectrumCompanion: false,
-    inputs: ["T"],
-    inputLabels: {
-      T: "T" },
-    inputAliases: {Trigger: "T",
-      Reset: "T",
-      Gate: "T"},
-    outputs: ["A"],
-    outputLabels: {
-      A: "A" },
-    outputAliases: {
-      Amp: "A",
-      Out: "A",
-      Env: "A" },
-    parameters: [
-      {
-        defaultValue: "1",
-        key: "amplitude",
-        label: "Amplitude",
-        max: "1",
-        mid: "1",
-        min: "0",
-        step: "any",
-        tooltip: "Gain on A. 1 = full Low/High span. 0 = silence." },
-      {
-        defaultValue: "0",
-        key: "low",
-        label: "Low",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "any",
-        tooltip: "Rest / floor of A (0–1). After the hit, A sits here." },
-      {
-        defaultValue: "1",
-        key: "high",
-        label: "High",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "any",
-        tooltip: "Peak of A at trigger (0–1). The hit runs High → Low." },
-      {
-        defaultValue: "0.2",
-        key: "speed",
-        kind: "time",
-        label: "Speed",
-        max: "4",
-        maxDigits: 5,
-        mid: "0.2",
-        min: "0.001",
-        step: "any",
-        unit: "s",
-        tooltip: "How long the envelope takes from High to Low (seconds)." },
-      {
-        defaultValue: "0",
-        key: "sharpness",
-        label: "Sharpness",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "any",
-        tooltip: "0 = sine (round decay). 1 = square (hold, then snap). Face uses the same sine→square. Legacy key: roundness." },
-      {
-        choices: ["Linear", "Exponential"],
-        defaultValue: "1",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "curve",
-        label: "Curve",
-        linearSmoothing: false,
-        max: "1",
-        mid: "0",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1",
-        tooltip:
-          "How A travels High → Low. Linear = even mix. Exponential = pitch / octave (log2)." },
-    ] },
-  // Analog sine kick voice (T → Out audio, A envelope).
-  sineKick: {
-    planRole: "source",
-    planFreeRun: true,
-    layout: "roundShape",
-    chrome: "LayoutA",
-    customDisplayArea: true,
-    displayType: "roundShapeFace",
-    defaultWidthGu: 5,
-    displayHeightGu: 5,
-    spectrumCompanion: false,
-    inputs: ["T"],
-    inputLabels: {T: "T"},
-    inputAliases: {Trigger: "T",
-      Reset: "T",
-      Gate: "T"},
-    outputs: ["Out", "A"],
-    outputLabels: {Out: "Out",
-      A: "A" },
-    outputAliases: {Amp: "A",
-      Env: "A",
-      Audio: "Out",
-      Kick: "Out" },
-    parameters: [
-      {
-        defaultValue: "1",
-        key: "amplitude",
-        label: "Amplitude",
-        max: "1",
-        mid: "1",
-        min: "0",
-        step: "any",
-        tooltip: "Peak level of Out and A." },
-      {
-        defaultValue: "52",
-        key: "pitch",
-        kind: "frequency",
-        label: "Pitch",
-        max: "400",
-        maxDigits: 5,
-        mid: "52",
-        min: "8",
-        step: "any",
-        unit: "Hz",
-        tooltip: "Rest frequency in Hz. The hit starts Punch octaves above this, then falls back." },
-      {
-        defaultValue: "1.7",
-        key: "punch",
-        label: "Punch",
-        max: "4",
-        mid: "1.7",
-        min: "0",
-        step: "any",
-        unit: "oct",
-        tooltip: "Beater tension in octaves above Pitch. 0 = sine tom. ~1.7 = analog kick thump." },
-      {
-        defaultValue: "0.28",
-        key: "decay",
-        kind: "time",
-        label: "Decay",
-        max: "4",
-        maxDigits: 5,
-        mid: "0.28",
-        min: "0.01",
-        step: "any",
-        unit: "s",
-        tooltip: "How long the boom lasts (seconds to about 1% amplitude). Pitch drop is faster than this." },
-      {
-        defaultValue: "0",
-        key: "sharpness",
-        label: "Sharpness",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "any",
-        tooltip: "Sine→square on the oscillator (same ellipsoid curve as RoundShape). 0 = sine. 1 = square." },
-    ] },
-  // Period-reset sine chirp: Frequency = rate; High/Low + Together; FreqCurve/AmpCurve bipolar.
-  sinepulse: {
-    planRole: "source",
-    displayType: "lineBurn",
-    displayModes: [
-      { key: "lineBurn", renderer: "lineBurn", source: { value: "Out" } },
-    ],
-    displaySignals: [
-      { key: "Out", kind: "scalar" },
-    ],
-    inputs: ["Reset", "f"],
-    inputLabels: {
-      f: "ƒ"},
-    // Out = audio; f = instant Hz; Amp/Freq = 0..1 curves for driving other modules.
-    outputs: ["Out", "f", "Amp", "Freq"],
-    outputLabels: {Out: "Out",
-      Amp: "Amp",
-      Freq: "Freq"},
-    parameters: [
-      {
-        defaultValue: "1",
-        key: "rate",
-        kind: "frequency",
-        label: "Rate",
-        max: "20000",
-        maxDigits: 5,
-        mid: "8",
-        min: "0",
-        step: "any",
-        unit: "Hz",
-        tooltip:
-          "Master sweep rate: chirps per second (period = 1/Rate). Domain max = project Speed Limit. Pitch MOD / f as usual. Legacy key: frequency."
-      },
-      {
-        defaultValue: "0",
-        key: "lowFreq",
-        kind: "frequency",
-        label: "LowFreq",
-        max: "20000",
-        maxDigits: 5,
-        mid: "40",
-        min: "0",
-        step: "any",
-        unit: "Hz",
-        tooltip:
-          "Lower end of the chirp (Hz). Up starts here; Down ends here. Max = project Speed Limit. Shift collapses LowFreq toward HighFreq. Legacy key: frequencyLow."
-      },
-      {
-        defaultValue: "20000",
-        key: "highFreq",
-        kind: "frequency",
-        label: "HighFreq",
-        max: "20000",
-        maxDigits: 5,
-        mid: "8000",
-        min: "0",
-        step: "any",
-        unit: "Hz",
-        tooltip:
-          "Upper end of the chirp (Hz). Up ends here; Down starts here. Max = project Speed Limit (never exceeded by Shift). Legacy key: frequencyHigh."
-      },
-      {
-        defaultValue: "0",
-        key: "shift",
-        label: "Shift",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip:
-          "Range bias 0…1. 0 = full LowFreq…HighFreq span. 1 = LowFreq rises to meet HighFreq (single tone at HighFreq). Only shrinks the gap — never past HighFreq or project Speed Limit."
-      },
-      {
-        defaultValue: "1",
-        key: "sweep",
-        label: "Sweep",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip:
-          "Active fraction of each Rate period. 0 = click; 1 = full HighFreq↔LowFreq. Rest is silence."
-      },
-      {
-        choices: ["Up", "Down"],
-        defaultValue: "0",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "direction",
-        label: "Direction",
-        linearSmoothing: false,
-        max: "1",
-        mid: "0",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1",
-        tooltip:
-          "Up = LowFreq → HighFreq. Down = HighFreq → LowFreq. Flipping mid-sweep reflects progress so pitch continues the other way without a jump."
-      },
-      {
-        defaultValue: "0.5",
-        key: "freqCurve",
-        label: "FreqCurve",
-        max: "1",
-        mid: "0",
-        min: "-1",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip:
-          "Frequency path shape (−1…+1): −1 super-log, −0.5 log, 0 linear, +0.5 exponential, +1 super-exponential."
-      },
-      {
-        defaultValue: "0",
-        key: "ampCurve",
-        label: "AmpCurve",
-        max: "1",
-        mid: "0",
-        min: "-1",
-        nonlinearSlider: false,
-        step: "any",
-        tooltip:
-          "Amplitude envelope shape (−1…+1), same map as FreqCurve: −1 super-log … 0 linear … +1 super-exponential. Independent of FreqCurve."
-      },
-      {
-        choices: ["Off", "On"],
-        defaultValue: "1",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "hardReset",
-        label: "Hard Reset",
-        linearSmoothing: false,
-        max: "1",
-        mid: "1",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1",
-        tooltip:
-          "On = zero the sine phase at each tooth (and Reset jack edge) for a sharper attack. Off = continuous phase across teeth."
-      },
-      {
-        defaultValue: "0",
-        key: "phase",
-        kind: "phase",
-        label: "Phase",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "0.01",
-        unit: "cycle",
-        wraparound: true
-      },
-      {
-        defaultValue: "1",
-        key: "amplitude",
-        label: "Amplitude",
-        max: "1",
-        mid: "1",
-        min: "0",
-        nonlinearSlider: false,
-        step: "any",
-        modClamp: false
-      },
-      {
-        // Lo-fi → hi-fi (less high-frequency timing jitter). Default = Fine.
-        choices: ["Off", "Soft Edge", "Adaptive", "Shaped", "Noise", "Fine"],
-        defaultValue: "5",
-        displayChoices: true,
-        divideChoicesVisibly: true,
-        key: "antialias",
-        label: "Antialias",
-        linearSmoothing: false,
-        max: "5",
-        mid: "5",
-        min: "0",
-        nonlinearSlider: false,
-        step: "1",
-        tooltip:
-          "Rate-period AA, ordered lo-fi → hi-fi. Off = continuous Rate, no period AA. Soft Edge = continuous + PolyBLEP on tooth wrap / hard-reset (Cont+BLEP). Adaptive = Noise when periods are long, continuous when short (Noise+Blend). Shaped = noise-shaped integer lengths (Noise+Shape). Noise = classic Robin ±1-sample pitch dither. Fine (default) = same at half-sample resolution (Noise+½)."
-      },
-    ]
-  },
   // Under construction: electro drum voice suite (Drum shelf).
-  electroKick: {
-    planRole: "source",
-    planFreeRun: true,
-    displayType: "lineBurn",
-    displayModes: [
-      { key: "lineBurn", renderer: "lineBurn", source: { value: "Out" } },
-    ],
-    displaySignals: [
-      { key: "Out", kind: "scalar" },
-    ],
-    inputs: ["Trigger", "Accent"],
-    inputLabels: {
-      Trigger: "Trig",
-      Accent: "Acc"
-    },
-    outputs: ["Out"],
-    parameters: [
-      {
-        defaultValue: "50",
-        key: "pitch",
-        kind: "frequency",
-        label: "Pitch",
-        max: "200",
-        maxDigits: 4,
-        mid: "50",
-        min: "10",
-        step: "any",
-        unit: "Hz",
-        tooltip: "Under construction — kick fundamental / start pitch."
-      },
-      {
-        defaultValue: "0.35",
-        key: "decay",
-        label: "Decay",
-        max: "2",
-        mid: "0.35",
-        min: "0.01",
-        step: "any",
-        unit: "s",
-        tooltip: "Under construction — body decay time."
-      },
-      {
-        defaultValue: "0.5",
-        key: "punch",
-        label: "Punch",
-        max: "1",
-        mid: "0.5",
-        min: "0",
-        step: "any",
-        tooltip: "Under construction — click / attack amount."
-      },
-      {
-        defaultValue: "1",
-        key: "level",
-        label: "Level",
-        max: "1",
-        mid: "1",
-        min: "0",
-        step: "any",
-        tooltip: "Under construction — output level."
-      },
-    ]
-  },
-  electroSnare: {
-    planRole: "source",
-    planFreeRun: true,
-    displayType: "lineBurn",
-    displayModes: [
-      { key: "lineBurn", renderer: "lineBurn", source: { value: "Out" } },
-    ],
-    displaySignals: [
-      { key: "Out", kind: "scalar" },
-    ],
-    inputs: ["Trigger", "Accent"],
-    inputLabels: {
-      Trigger: "Trig",
-      Accent: "Acc"
-    },
-    outputs: ["Out"],
-    parameters: [
-      {
-        defaultValue: "180",
-        key: "tone",
-        kind: "frequency",
-        label: "Tone",
-        max: "2000",
-        maxDigits: 4,
-        mid: "180",
-        min: "40",
-        step: "any",
-        unit: "Hz",
-        tooltip: "Under construction — snare body / tone pitch."
-      },
-      {
-        defaultValue: "0.2",
-        key: "decay",
-        label: "Decay",
-        max: "2",
-        mid: "0.2",
-        min: "0.01",
-        step: "any",
-        unit: "s",
-        tooltip: "Under construction — snare decay time."
-      },
-      {
-        defaultValue: "0.65",
-        key: "noise",
-        label: "Noise",
-        max: "1",
-        mid: "0.65",
-        min: "0",
-        step: "any",
-        tooltip: "Under construction — noise / snare-wire amount."
-      },
-      {
-        defaultValue: "1",
-        key: "level",
-        label: "Level",
-        max: "1",
-        mid: "1",
-        min: "0",
-        step: "any",
-        tooltip: "Under construction — output level."
-      },
-    ]
-  },
   electroHat: {
     planRole: "source",
     planFreeRun: true,
@@ -10263,10 +9818,13 @@ const nodeGraphModuleDefinitions = (
   besselThomson: {
     planRole: "processor",
     inputAliases: {Mono: "In"},
-    inputLabels: {In: "Mono"},
+    // Lone In/Out: arrow labels; channels keep the green (mono) jack color the Mono label gave.
+    inputChannels: {In: "green"},
+    inputLabels: {In: "→"},
     inputs: ["In"],
     outputAliases: {Mono: "Out"},
-    outputLabels: {Out: "Mono"},
+    outputChannels: {Out: "green"},
+    outputLabels: {Out: "←"},
     outputs: ["Out"],
     parameters: [
       {
@@ -13918,10 +13476,13 @@ const nodeGraphModuleDefinitions = (
   inertialFilter: {
     planRole: "processor",
     inputAliases: { Mono: "In" },
-    inputLabels: { In: "Mono" },
+    // Lone In/Out: arrow labels; channels keep the green (mono) jack color the Mono label gave.
+    inputChannels: { In: "green" },
+    inputLabels: { In: "→" },
     inputs: ["In"],
     outputAliases: { Mono: "Out" },
-    outputLabels: { Out: "Mono" },
+    outputChannels: { Out: "green" },
+    outputLabels: { Out: "←" },
     outputs: ["Out"],
     parameters: [
       {

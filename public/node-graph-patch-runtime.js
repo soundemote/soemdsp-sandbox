@@ -69,11 +69,7 @@ function syncNodeGraphRuntimeFromPatch() {
       nodeGraphMvp.live.speedLimit = lim;
     }
   }
-  // Gold Arp latch from patch — restore + push to worklet immediately.
-  if (typeof applyNodeGraphKeyboardLatchFromPatch === "function") {
-    applyNodeGraphKeyboardLatchFromPatch(nodeGraphMvp.patch);
-  }
-  // Keyboard face settings live on the module node (same bag as other display settings).
+  // Keyboard settings + gold Arp latch live on each keyboard module node.
   if (typeof applyNodeGraphKeyboardModuleSettingsFromPatch === "function") {
     applyNodeGraphKeyboardModuleSettingsFromPatch();
   }

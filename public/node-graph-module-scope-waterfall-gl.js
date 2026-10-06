@@ -438,6 +438,22 @@ function nodeGraphWaterfallGlReset(canvas, plateCss) {
   return true;
 }
 
+// Transport Stop: blank an existing history session in place. Never creates
+// a session (a face with no GL context yet must not be claimed for WebGL).
+// Clears both ping-pong history targets AND the presented framebuffer
+// (preserveDrawingBuffer keeps the last present), so Play has nothing old
+// to re-present.
+function nodeGraphWaterfallGlWipe(canvas) {
+  const s = canvas && canvas._wfGlSession;
+  if (!s || !s.gl || s.gl.isContextLost() || !s.read || !s.write) return false;
+  const gl = s.gl;
+  nodeGraphWaterfallGlClearRead(s);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, s.w, s.h);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  return true;
+}
+
 function nodeGraphWaterfallGlScroll(canvas, px, plateCss) {
   const s = nodeGraphWaterfallGlEnsure(canvas, plateCss);
   if (!s) return false;

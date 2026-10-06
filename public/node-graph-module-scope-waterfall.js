@@ -1789,6 +1789,26 @@ function nodeGraphWaterfallAbandonTape(canvas) {
   }
 }
 
+/**
+ * Transport Stop: drop this face's whole waterfall history. Every variant
+ * (mono / stereo / XYZ / RGB / onset) keeps its history on the face canvas:
+ * tape cursor + hold plate + TraceTape strips + onset pass + WebGL history
+ * textures. The next paint starts a fresh tape on an empty plate.
+ */
+function nodeGraphWaterfallWipeHistory(canvas) {
+  if (!canvas) return false;
+  if (!canvas._waterfall && !canvas._waterfallHold && !canvas._wfGlSession && !canvas._onset) {
+    return false;
+  }
+  nodeGraphWaterfallAbandonTape(canvas);
+  canvas._onset = null;
+  canvas._wfSubPx = 0;
+  if (typeof nodeGraphWaterfallGlWipe === "function") {
+    nodeGraphWaterfallGlWipe(canvas);
+  }
+  return true;
+}
+
 function nodeGraphWaterfallState(canvas, width, height, nowLine, bg, context, blendMode) {
   const st = canvas._waterfall || (canvas._waterfall = {
     started: false,

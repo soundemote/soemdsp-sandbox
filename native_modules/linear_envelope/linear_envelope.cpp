@@ -39,17 +39,30 @@ struct LinearEnvelopeState {
   double secondsPassed;
   double releaseDecrement;
   double lastGate;
+  double velocity; // Gate height latched on rise = attack peak
   int    stage;
   bool   active;
 };
 
 static LinearEnvelopeState gPool[kMaxInstances];
 
+// Step x toward target by inc (either direction). True once it arrives.
+static bool step_toward(double& x, double target, double inc) {
+  if (x < target) {
+    x += inc;
+    if (x >= target) { x = target; return true; }
+    return false;
+  }
+  x -= inc;
+  if (x <= target) { x = target; return true; }
+  return false;
+}
+
 static void trigger_attack(LinearEnvelopeState& s, double delay, double attack, double period) {
   if (delay < period) {
     if (attack <= period) {
       s.stage = STAGE_DECAY;
-      s.out = 1.0;
+      s.out = s.velocity;
     } else {
       s.stage = STAGE_ATTACK;
     }
@@ -72,6 +85,7 @@ extern "C" int soemdsp_linear_envelope_create() {
       s.secondsPassed = 0.0;
       s.releaseDecrement = 0.0;
       s.lastGate = 0.0;
+      s.velocity = 0.0;
       s.stage = STAGE_OFF;
       s.active = true;
       return i + 1;
@@ -114,6 +128,8 @@ extern "C" double soemdsp_linear_envelope_sample(
   const bool rising = rising_edge(safeGate, &s.lastGate, 0.0);
   const bool falling = prevGate > 0.0 && safeGate <= 0.0;
   if (rising) {
+    // Velocity = raw Gate height at the rise (peak target, not an output multiplier).
+    s.velocity = safeGate;
     trigger_attack(s, safeDelay, safeAttack, period);
   } else if (falling) {
     s.stage = STAGE_RELEASE;
@@ -121,7 +137,9 @@ extern "C" double soemdsp_linear_envelope_sample(
   }
 
   const double attackIncrement = mind(period / maxd(safeAttack, period), 1.0);
-  const double decayDecrement = (1.0 - safeSustain) * period / maxd(safeDecay, period);
+  const double peak = s.velocity;
+  const double sustainLevel = peak * safeSustain;
+  const double decayDecrement = (peak - sustainLevel) * period / maxd(safeDecay, period);
 
   switch (s.stage) {
     case STAGE_DELAY:
@@ -130,21 +148,20 @@ extern "C" double soemdsp_linear_envelope_sample(
         s.stage = safeAttack <= period ? STAGE_DECAY : STAGE_ATTACK;
         s.secondsPassed = 0.0;
         if (safeAttack <= period) {
-          s.out = 1.0;
+          s.out = peak;
         }
       }
       break;
     case STAGE_ATTACK:
-      s.out += attackIncrement;
-      if (s.out >= 1.0) {
-        s.out = 1.0;
+      // Glide from the current level to the peak (down too, on a softer re-strike).
+      if (step_toward(s.out, peak, attackIncrement)) {
         s.stage = STAGE_DECAY;
       }
       break;
     case STAGE_DECAY:
       s.out -= decayDecrement;
-      if (s.out <= safeSustain) {
-        s.out = safeSustain;
+      if (s.out <= sustainLevel) {
+        s.out = sustainLevel;
         s.stage = STAGE_SUSTAIN;
       }
       break;
@@ -152,7 +169,7 @@ extern "C" double soemdsp_linear_envelope_sample(
       if (looping) {
         s.stage = STAGE_ATTACK;
       }
-      s.out = safeSustain;
+      s.out = sustainLevel;
       break;
     case STAGE_RELEASE:
       s.out -= s.releaseDecrement;
@@ -167,7 +184,7 @@ extern "C" double soemdsp_linear_envelope_sample(
       break;
   }
 
-  return safe(clamp(s.out, 0.0, 1.0) * level);
+  return safe(s.out * level);
 }
 
 /** 1 when envelope stage is Off. Wire → Meta Voice Idle. */

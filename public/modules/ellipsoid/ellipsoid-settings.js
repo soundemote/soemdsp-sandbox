@@ -1,4 +1,4 @@
-// RoundShape / KickEnvelope face look — Display Settings schema `roundShapeFace`.
+// RoundShape face look — Display Settings schema `roundShapeFace`.
 // Line / dot / background use hue + physically-plausible brightness
 // (nodeGraphHueBrightnessCss: black → full hue @ 0.5 → white).
 

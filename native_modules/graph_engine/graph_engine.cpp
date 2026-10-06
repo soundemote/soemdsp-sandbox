@@ -66,7 +66,8 @@ extern "C" void soemdsp_soft_clipper_process_block(int handle, int channel, int 
 extern "C" int soemdsp_soft_clipper_block_input_ptr(int handle, int channel);
 extern "C" int soemdsp_soft_clipper_block_output_ptr(int handle, int channel);
 extern "C" double soemdsp_tube_saturation_sample(
-  double input, double drive, double bias, double load, double mix, double amplitude
+  double input, double drive, double bias, double load, double gainCompensation,
+  double mix, double amplitude
 );
 
 extern "C" int soemdsp_sabrina_reverb_create(double sampleRate);
@@ -765,6 +766,14 @@ extern "C" double soemdsp_ellipsoid_sine_to_square_aa(
   int antialias
 );
 extern "C" double soemdsp_ellipsoid_robin_dither_cycles(unsigned int* rng, double cycleSamples);
+extern "C" double soemdsp_ellipsoid_robin_phasor(
+  unsigned int* rng,
+  double* count,
+  double* len,
+  double cycleSamples,
+  double direction,
+  double startPhase
+);
 extern "C" void soemdsp_ellipsoid_sample_pair(
   double phase,
   double offset,
@@ -1756,7 +1765,7 @@ static const int kTypeDsfOscillator = 46;
 static const int kTypeSinc = 48;
 static const int kTypeBradley2a = 49;
 static const int kTypeEllipsoid = 50;
-static const int kTypeEllipsoidOsc = 186; // full getEllipsoid (A/B/C) + Limit AA
+static const int kTypeEllipsoidOsc = 186; // full getEllipsoid (A/B/C) + Limit / Dither AA
 static const int kTypeSnowflake = 51;
 static const int kTypeButterworth = 52;
 static const int kTypeLinkwitzRiley = 53;
@@ -2150,6 +2159,10 @@ struct Node {
   unsigned int robinDitherRng;
   double robinDitherOffset;
   unsigned char robinDitherWasOn;
+  // Ellipsoid osc AA Dither: Robin cycle-length phasor state (uses robinDitherRng).
+  double robinCycleCount;
+  double robinCycleLen; // < 1 = start a fresh cycle at the current phase
+  double robinCycleDir;
   // Yellow Graph (Additive): processors publish GraphPayload; Out sums.
   soemdsp_yellow_graph::GraphPayload yellowGraph;
   double yellowPhaseAcc[soemdsp_yellow_graph::kMaxHarmonics];
@@ -2976,6 +2989,7 @@ static void init_node_defaults(Node& n, int typeId) {
     (typeId == kTypeAdditiveOsc || typeId == kTypeDsfOscillator) ? 1.0
       : (typeId == kTypePingEnvelope) ? 1.0 // Model Long (default, choiceId 1, "for Lin Amp")
       : (typeId == kTypeVactrol) ? 0.0 // Model ModelA (default, choiceId 0)
+      : (typeId == kTypeTubeSaturation) ? 0.0 // Gain Compensation smallSignal (default, choiceId 0)
       : (typeId == kTypeHypersaw2) ? 1.0 // Saw (Trisaw=0 … Trapezoid=6)
       : (typeId == kTypeHyperpluck) ? 1.0 // Saw (Trisaw=0 … Square=5)
       : (typeId == kTypeRobinSupersaw) ? 0.0 // Saw
@@ -3244,7 +3258,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeCrossover5) ? 500.0
       : (typeId == kTypeCrossover6) ? 300.0
       : (typeId == kTypeActiveFilter || typeId == kTypePassiveFilter) ? 0.0 // sweep st
-      : (typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc) ? 1.0 // AA Limit (0 Off / 1 Limit)
+      : (typeId == kTypeEllipsoid || typeId == kTypeEllipsoidOsc) ? 1.0 // AA Limit (0 Off / 1 Limit / 2 Dither osc only)
       : (typeId == kTypeHelmholtzPitch) ? 0.93 // fidelity threshold
       : (typeId == kTypeSoftClipper) ? 1.0 // threshold
       : (typeId == kTypeDivide) ? 127.0 // Divide
@@ -3686,6 +3700,9 @@ static void init_node_defaults(Node& n, int typeId) {
   if (n.robinDitherRng == 0u) n.robinDitherRng = 1u;
   n.robinDitherOffset = 0.0;
   n.robinDitherWasOn = 0;
+  n.robinCycleCount = 0.0;
+  n.robinCycleLen = 0.0;
+  n.robinCycleDir = 0.0;
   n.yellowPhaseAccLen = 0;
   n.yellowLastHarmonics = -1;
   n.yellowWalkCount = 0;
@@ -5131,24 +5148,26 @@ static void process_tube_saturation(Circuit& g, Node& node, int frames) {
     const double drive = control_audio(g, node.gainDb, f);
     const double bias = control_audio(g, node.offset, f);
     const double load = control_audio(g, node.width, f);
+    // waveform = Gain Compensation (choiceId 0 smallSignal / 1 largeSignal).
+    const double gainComp = control_effective(node.waveform);
     const double mix = control_audio(g, node.mix, f);
     const double amp = control_audio(g, node.amplitude, f);
     if (needMono) {
       double in = g.mixMono[f];
       if (!hasLeftIn && !hasRightIn) in += g.mixLeft[f] + g.mixRight[f];
-      const double out = soemdsp_tube_saturation_sample(in, drive, bias, load, mix, amp);
+      const double out = soemdsp_tube_saturation_sample(in, drive, bias, load, gainComp, mix, amp);
       node.buf[kPortMono][f] = out;
       if (!hasLeftIn) node.buf[kPortLeft][f] = out;
       if (!hasRightIn) node.buf[kPortRight][f] = out;
     }
     if (hasLeftIn) {
       node.buf[kPortLeft][f] = soemdsp_tube_saturation_sample(
-        g.mixLeft[f] + g.mixMono[f], drive, bias, load, mix, amp
+        g.mixLeft[f] + g.mixMono[f], drive, bias, load, gainComp, mix, amp
       );
     }
     if (hasRightIn) {
       node.buf[kPortRight][f] = soemdsp_tube_saturation_sample(
-        g.mixRight[f] + g.mixMono[f], drive, bias, load, mix, amp
+        g.mixRight[f] + g.mixMono[f], drive, bias, load, gainComp, mix, amp
       );
     }
   }
@@ -7432,7 +7451,12 @@ static void process_ellipsoid_osc(Circuit& g, Node& node, int frames) {
   const double referenceVoltage = circuit_pitch_ref_v(g);
   double aaRaw = control_effective(node.center);
   if (!(aaRaw == aaRaw)) aaRaw = 1.0;
-  int aaMode = (aaRaw >= 0.5) ? 1 : 0;
+  // AA: 0 Off, 1 Limit, 2 Dither (Robin cycle-length dither phasor, shape
+  // rendered as Off). Saved patches only hold 0 / 1, so they are unchanged.
+  int aaMode = (aaRaw >= 1.5) ? 2 : ((aaRaw >= 0.5) ? 1 : 0);
+  const bool ditherAa = (aaMode == 2);
+  // Off / Limit: drop the dither cycle so Dither restarts at the live phase.
+  if (!ditherAa) node.robinCycleLen = 0.0;
 
   double phase = node.phase; // cycles 0..1
   if (!liveReset) node.lastReset = 0.0;
@@ -7448,6 +7472,7 @@ static void process_ellipsoid_osc(Circuit& g, Node& node, int frames) {
       if (gate_hit(rv, &node.lastReset)) {
         phase = 0.0;
         node.phase = 0.0;
+        node.robinCycleLen = 0.0; // Dither: fresh cycle from phase 0
       }
       node.lastReset = rv;
     }
@@ -7455,6 +7480,23 @@ static void process_ellipsoid_osc(Circuit& g, Node& node, int frames) {
       g, f, liveF, livePitch, node.frequency, referenceVoltage, sr
     );
     double phaseInc = freq / sr;
+
+    if (ditherAa) {
+      // Whole-sample cycles around sr / |f| (Robin Oscillator technique).
+      const double absF = freq < 0.0 ? -freq : freq;
+      const double dir = (absF > 1.0e-12) ? (freq < 0.0 ? -1.0 : 1.0) : 0.0;
+      // Leaving 0 Hz or reversing re-places the cycle at the current phase.
+      if (dir != node.robinCycleDir) node.robinCycleLen = 0.0;
+      node.robinCycleDir = dir;
+      phase = soemdsp_ellipsoid_robin_phasor(
+        &node.robinDitherRng,
+        &node.robinCycleCount,
+        &node.robinCycleLen,
+        (dir != 0.0) ? (sr / absF) : 1.0e9,
+        dir,
+        phase
+      );
+    }
 
     double samplePhase = phase + phaseOff;
     samplePhase -= dsp_floor(samplePhase);
@@ -14672,5 +14714,6 @@ extern "C" int soemdsp_graph_version() {
   // 130: surgical remove_node / clear_connections (delete module keeps other DSP state)
   // 156: B-082 unit-band MOD always clamps to domain min/max
   // 157: PowerDecay (type 204)
-  return 158; // Vactrol Model (ModelA / ModelB)
+  // 158: Vactrol Model (ModelA / ModelB)
+  return 159; // Ellipsoid osc AA Dither (Robin cycle-length phasor)
 }

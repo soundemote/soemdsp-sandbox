@@ -6,7 +6,13 @@
 // First-order (memoryless) triode approx: Koren-style Ip(Vg,Vp) with load line
 // Vp = Vbb - R*Ip, precomputed as tables. Runtime interpolates in Vg; Load blends
 // two nearby load lines. No same-sample feedback iteration.
-// Matches public/modules/tubeSaturation/tube-saturation-math.js.
+// Native-only (no JS twin). Bias gain compensation: the wet signal is scaled by
+// g(bias 0) / g(bias), the curve gain at the Bias=0 idle point over the gain at
+// the current idle point, both from the Vp(Vg) table with the live Drive/Load
+// state. Gain Compensation picks the slope span: Small Signal = tangent (one
+// table cell, levels quiet input); Large Signal = secant over the full-scale
+// grid swing (+/- 2*drive, levels loud input). Stateless; boost capped at
+// kMaxBiasBoost.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -19,6 +25,7 @@ using soemdsp::math::clamp11;
 using soemdsp::math::clamp_int;
 using soemdsp::math::dsp_floor;
 using soemdsp::math::lerp;
+using soemdsp::math::maxd;
 using soemdsp_maths::dsp_exp;
 using soemdsp_maths::dsp_ln;
 
@@ -34,6 +41,14 @@ static const int kNumLoads = 8;
 static const int kNumVg = 257;
 static const double kVgMin = -5.0;
 static const double kVgMax = 1.0;
+// Bias -1..+1 maps to idle grid voltage kVgIdle + bias * kVgPerBias.
+static const double kVgIdle = -1.2;
+static const double kVgPerBias = 2.0;
+// Max bias-compensation boost (4x = +12 dB). Fully levels Bias >= -0.75 at
+// mid/heavy Load (needs <= ~3.4x) and is within ~1 dB at light Load; deep
+// cutoff (Bias -1 needs 5.5x..16x) stays quieter instead of lifting noise and
+// the harsh cutoff edge by 20+ dB.
+static const double kMaxBiasBoost = 4.0;
 
 static const double kRLoads[kNumLoads] = {
   12000.0, 22000.0, 33000.0, 47000.0, 68000.0, 100000.0, 150000.0, 220000.0
@@ -55,6 +70,9 @@ static const char kMetadataJson[] =
       "{\"key\":\"drive\",\"label\":\"Drive\",\"defaultValue\":0.5,\"min\":0,\"mid\":1,\"max\":4},"
       "{\"key\":\"bias\",\"label\":\"Bias\",\"defaultValue\":0,\"min\":-1,\"mid\":0,\"max\":1},"
       "{\"key\":\"load\",\"label\":\"Load\",\"defaultValue\":0.5,\"min\":0,\"mid\":0.5,\"max\":1},"
+      "{\"key\":\"gainCompensation\",\"label\":\"Gain Compensation\",\"defaultValue\":\"smallSignal\","
+        "\"choices\":[\"Small Signal\",\"Large Signal\"],"
+        "\"choiceKeys\":[\"smallSignal\",\"largeSignal\"],\"choiceIds\":[0,1]},"
       "{\"key\":\"mix\",\"label\":\"Mix\",\"defaultValue\":1,\"min\":0,\"mid\":0.5,\"max\":1},"
       "{\"key\":\"amplitude\",\"label\":\"Amplitude\",\"defaultValue\":1,\"min\":0,\"mid\":1,\"max\":1}"
     "]"
@@ -124,13 +142,43 @@ static double lookup_vp(int loadIdx, double vg) {
   return lerp(gVpTable[loadIdx][i0], gVpTable[loadIdx][i0 + 1], frac);
 }
 
-static double tube_wet(double input, double drive, double bias, double load) {
+// Gain Compensation choiceIds: smallSignal=0 (default), largeSignal=1.
+// Unknown / NaN -> smallSignal.
+static bool gain_comp_is_large_signal(double choice) {
+  const double c = safe(choice);
+  return c >= 0.5;
+}
+
+// Wet gain at idle grid voltage vgIdle: plate slope -dVp/dVg as a central
+// difference over +/- dv, * gridScale (= 2*drive) / outScale, lerped across the
+// two load lines exactly like tube_wet's output. dv = one table cell gives the
+// small-signal (tangent) gain and stays continuous as Bias moves; dv = gridScale
+// gives the secant over the full-scale input swing.
+static double curve_gain(
+  int li0, int li1, double loadFrac, double gridScale, double vgIdle, double dv
+) {
+  const double s0 = (lookup_vp(li0, vgIdle - dv) - lookup_vp(li0, vgIdle + dv)) / (2.0 * dv);
+  const double s1 = (lookup_vp(li1, vgIdle - dv) - lookup_vp(li1, vgIdle + dv)) / (2.0 * dv);
+  return lerp(s0 / gOutScale[li0], s1 / gOutScale[li1], loadFrac) * gridScale;
+}
+
+// gRef / g, capped at kMaxBiasBoost. A zero/negative/NaN g lands on the cap;
+// gRef <= 0 (Drive 0: wet is silent anyway) leaves the level untouched.
+static double bias_gain_comp(double gRef, double g) {
+  if (!(gRef > 0.0)) return 1.0;
+  return gRef / maxd(g, gRef / kMaxBiasBoost);
+}
+
+static double tube_wet(
+  double input, double drive, double bias, double load, double gainCompensation
+) {
   ensure_tables();
   const double x = safe(input);
   const double d = clamp(safe(drive), 0.0, 4.0);
   const double b = clamp11(safe(bias));
-  const double vgBias = -1.2 + b * 2.0;
-  const double vg = vgBias + x * d * 2.0;
+  const double gridScale = d * 2.0;
+  const double vgBias = kVgIdle + b * kVgPerBias;
+  const double vg = vgBias + x * gridScale;
 
   const double load01 = clamp01(safe(load));
   const double loadPos = load01 * (double)(kNumLoads - 1);
@@ -145,14 +193,21 @@ static double tube_wet(double input, double drive, double bias, double load) {
   const double vp1 = lookup_vp(li1, vg);
   const double ac0 = (vpIdle0 - vp0) / gOutScale[li0];
   const double ac1 = (vpIdle1 - vp1) / gOutScale[li1];
-  return lerp(ac0, ac1, loadFrac);
+
+  // Level-match to Bias 0 using the same Drive/Load state as this sample.
+  const double cell = (kVgMax - kVgMin) / (double)(kNumVg - 1);
+  const double dv = gain_comp_is_large_signal(gainCompensation) ? maxd(cell, gridScale) : cell;
+  const double gBias = curve_gain(li0, li1, loadFrac, gridScale, vgBias, dv);
+  const double gRef = curve_gain(li0, li1, loadFrac, gridScale, kVgIdle, dv);
+  return lerp(ac0, ac1, loadFrac) * bias_gain_comp(gRef, gBias);
 }
 
 static double process_one(
-  double input, double drive, double bias, double load, double mix, double amplitude
+  double input, double drive, double bias, double load, double gainCompensation,
+  double mix, double amplitude
 ) {
   const double x = safe(input);
-  const double wet = tube_wet(x, drive, bias, load);
+  const double wet = tube_wet(x, drive, bias, load, gainCompensation);
   const double m = clamp01(safe(mix));
   // Amplitude: 0..1 is DOMAIN preference / slider guide (nodeGraphOutputAmplitudeParam +
   // modClamp at host). Do not hard-clamp here — that fights typed/past-unity makeup gain.
@@ -168,12 +223,13 @@ extern "C" double soemdsp_tube_saturation_sample(
   double drive,
   double bias,
   double load,
+  double gainCompensation,
   double mix,
   double amplitude
 ) {
-  return process_one(input, drive, bias, load, mix, amplitude);
+  return process_one(input, drive, bias, load, gainCompensation, mix, amplitude);
 }
 
-extern "C" int soemdsp_tube_saturation_version() { return 1; }
+extern "C" int soemdsp_tube_saturation_version() { return 2; }
 extern "C" const char* soemdsp_tube_saturation_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_tube_saturation_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

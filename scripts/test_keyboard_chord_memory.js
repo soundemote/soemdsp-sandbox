@@ -8,17 +8,32 @@ var vmOn = [];
 var vmOff = [];
 globalThis.sendNodeGraphLiveVmNoteOn = function (midi) { vmOn.push(midi); };
 globalThis.sendNodeGraphLiveVmNoteOff = function (midi) { vmOff.push(midi); };
-globalThis.syncNodeGraphKeyboardPolyphonyFromHeldNotes = function () {
-  var host = nodeGraphChordMemoryHost();
-  var table = polyphonyCreateTable();
-  if (host.chordMemoryPlayMask instanceof Uint8Array) {
-    polyphonyTableAddNoteMask(table, host.chordMemoryPlayMask, 0, null, 100);
-  }
-  nodeGraphMvp.keyboardPolyphonyVelocities = table;
-};
+globalThis.syncNodeGraphKeyboardPolyphonyFromHeldNotes = function () {};
 globalThis.renderNodeGraphMidiKeyboardHeldKeys = function () {};
 globalThis.renderNodeGraphMidiKeyboardActiveKeys = function () {};
 globalThis.renderNodeGraphGridKeyboardPads = function () {};
+globalThis.renderNodeGraphMidiKeyboardSignal = function () {};
+globalThis.sendNodeGraphLiveKeyboardModuleSignal = function () {};
+
+// Each keyboard owns its own gold Arp latch and runtime (view-controls stubs).
+var goldByNode = {};
+globalThis.setNodeGraphKeyboardArpLatch = function (nodeId, mask) {
+  goldByNode[String(nodeId)] = Uint8Array.from(mask);
+};
+function gold(nodeId) {
+  return goldByNode[nodeId] || noteMaskCreate();
+}
+function setGold(nodeId, notes) {
+  var mask = noteMaskCreate();
+  notes.forEach(function (n) { noteMaskSet(mask, n, true); });
+  goldByNode[nodeId] = mask;
+}
+var runtimeByNode = {};
+globalThis.nodeGraphKeyboardRuntime = function (nodeId) {
+  var id = String(nodeId);
+  if (!runtimeByNode[id]) runtimeByNode[id] = { signal: null };
+  return runtimeByNode[id];
+};
 
 var patchNodes = {
   "keyboard-1": {
@@ -26,10 +41,14 @@ var patchNodes = {
     type: "keyboard",
     chordMemory: { slots: { "60": [60, 64, 67], "62": [62, 66, 69] } },
   },
+  "keyboard-2": {
+    id: "keyboard-2",
+    type: "keyboard",
+    chordMemory: { slots: { "60": [60, 63, 67], "65": [65, 69, 72] } },
+  },
 };
 globalThis.nodeGraphPatchNode = function (id) { return patchNodes[String(id)] || null; };
 globalThis.nodeGraphMvp = {
-  keyboardPolyphonyVelocities: polyphonyCreateTable(),
   patchDirtyState: "clean",
 };
 
@@ -51,18 +70,14 @@ assert(nodeGraphChordMemoryNoteIsSounding("keyboard-1", 67), "ghost G while chor
 assert(vmOn.length === 0 && vmOff.length === 0, "UI latch does not poke VoiceManager (Voices want-set is SSOT)");
 
 var host = nodeGraphChordMemoryHost();
-host.chordMemoryPlayPointerId = 7;
-host.chordMemoryPlayPointerSlot = 60;
-host.chordMemoryPlayPointerNodeId = "keyboard-1";
-nodeGraphChordMemoryReleasePointerPlay();
-assert(host.chordMemoryPlayPointerId == null, "pointer id cleared on release");
+nodeGraphChordMemoryActivateSlot("keyboard-1", 60, false);
 assert(!nodeGraphChordMemorySlotIsOn("keyboard-1", 60), "trigger key off after mouse up");
 assert(!nodeGraphChordMemoryNoteIsSounding("keyboard-1", 64), "ghost E off after mouse up");
 assert(!nodeGraphChordMemoryNoteIsSounding("keyboard-1", 67), "ghost G off after mouse up");
 
 nodeGraphChordMemoryActivateSlot("keyboard-1", 60, true, 100);
 host.chordMemoryOutLatchByNode = new Map();
-host.chordMemoryOutLatchByNode.set("keyboard-1", Uint8Array.from(host.chordMemoryPlayMask));
+host.chordMemoryOutLatchByNode.set("keyboard-1", Uint8Array.from(nodeGraphChordMemoryLiveMaskForNode("keyboard-1")));
 assert(nodeGraphChordMemoryNoteIsSounding("keyboard-1", 64), "live mask still sounds");
 nodeGraphChordMemoryActivateSlot("keyboard-1", 60, false);
 assert(
@@ -74,23 +89,15 @@ assert(
   "OUT jack may stay latched for arp during rests",
 );
 
-host.chordMemoryPlayPointerId = 99;
-host.chordMemoryPlayPointerSlot = 60;
-host.chordMemoryPlayPointerNodeId = "keyboard-1";
+nodeGraphChordMemoryStartMomentaryPlay("keyboard-1", 60, 99, 100);
 nodeGraphChordMemoryActivateSlot("keyboard-1", 60, true, 100);
 nodeGraphChordMemoryReleaseNode("keyboard-1");
 assert(!nodeGraphChordMemorySlotIsOn("keyboard-1", 60), "delete keyboard clears trigger");
 assert(!nodeGraphChordMemoryNoteIsSounding("keyboard-1", 60), "delete keyboard clears ghosts");
-assert(host.chordMemoryPlayPointerId == null, "delete keyboard clears pointer capture");
+assert(nodeGraphChordMemoryMomentaryMaskForNode("keyboard-1") == null, "delete keyboard clears pointer capture");
 
 globalThis.nodeGraphMidiKeyboardModeForNode = function () { return "chordMemory"; };
-globalThis.nodeGraphMidiKeyboardClearArpKeys = function () {
-  if (nodeGraphMvp.midiKeyboardArpMask instanceof Uint8Array) nodeGraphMvp.midiKeyboardArpMask.fill(0);
-};
-nodeGraphMvp.midiKeyboardArpMask = noteMaskCreate();
-noteMaskSet(nodeGraphMvp.midiKeyboardArpMask, 60, true);
-noteMaskSet(nodeGraphMvp.midiKeyboardArpMask, 64, true);
-noteMaskSet(nodeGraphMvp.midiKeyboardArpMask, 67, true);
+setGold("keyboard-1", [60, 64, 67]);
 
 var goldToggles = [];
 var clickEv = {
@@ -111,11 +118,11 @@ assert(
 );
 assert(goldToggles.length === 0, "plain click with no edit target does not touch gold");
 assert(!nodeGraphChordMemorySlotIsOn("keyboard-1", 60), "plain click does not latch the chord");
-assert(nodeGraphChordMemoryHost().chordMemoryMomentary, "green slot plays the chord on Play Keys");
-assert(noteMaskGet(nodeGraphChordMemoryHost().chordMemoryMomentaryPlayMask, 64), "momentary chord includes tones");
-assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 60), "plain click does not touch gold");
-nodeGraphChordMemoryReleasePointerPlay();
-assert(!nodeGraphChordMemoryHost().chordMemoryMomentary, "mouse up clears momentary chord play");
+assert(nodeGraphChordMemoryMomentaryMaskForNode("keyboard-1"), "green slot plays the chord on Play Keys");
+assert(noteMaskGet(nodeGraphChordMemoryMomentaryMaskForNode("keyboard-1"), 64), "momentary chord includes tones");
+assert(noteMaskGet(gold("keyboard-1"), 60), "plain click does not touch gold");
+nodeGraphChordMemoryReleasePointerPlay("keyboard-1");
+assert(!nodeGraphChordMemoryMomentaryMaskForNode("keyboard-1"), "mouse up clears momentary chord play");
 
 var blankPlayEv = {
   type: "pointerdown",
@@ -150,7 +157,7 @@ assert(
 );
 assert(!nodeGraphChordMemoryHasSlot("keyboard-1", 72), "ctrl+click blank does not copy the current chord");
 assert(nodeGraphChordMemoryEditIs("keyboard-1", 72), "ctrl+click blank selects the empty slot for edit");
-assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 60), "blank edit does not clear gold");
+assert(noteMaskGet(gold("keyboard-1"), 60), "blank edit does not clear gold");
 
 vmOn.length = 0;
 vmOff.length = 0;
@@ -246,13 +253,11 @@ var migrated = nodeGraphPatchMigrateMetaPolyphonyToVoices({
 var ports = migrated.connections.map(function (c) { return c.sourcePort; }).sort();
 assert(ports.join(",") === "Arp Keys,Chord Memory,Play Keys", "old Polyphony fans into play/arp/chord at Voices");
 
-nodeGraphMvp.midiKeyboardArpMask = noteMaskCreate();
-noteMaskSet(nodeGraphMvp.midiKeyboardArpMask, 50, true);
-noteMaskSet(nodeGraphMvp.midiKeyboardArpMask, 52, true);
+setGold("keyboard-1", [50, 52]);
 assert(nodeGraphChordMemoryToggleLatch("keyboard-1", 60, 100), "re-latch after unlatch");
-assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 50), "latch does not steal gold");
-assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 52), "latch does not steal gold");
-assert(!noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 64), "latch does not copy chord into gold");
+assert(noteMaskGet(gold("keyboard-1"), 50), "latch does not steal gold");
+assert(noteMaskGet(gold("keyboard-1"), 52), "latch does not steal gold");
+assert(!noteMaskGet(gold("keyboard-1"), 64), "latch does not copy chord into gold");
 
 globalThis.nodeGraphMidiKeyboardModeForNode = function () { return "chordMemory"; };
 var ctrlChordEv = {
@@ -270,9 +275,9 @@ assert(
   }),
   "ctrl+click chord is handled",
 );
-assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 50), "ctrl+click in CM mode does not replace gold");
-assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 52), "ctrl+click in CM mode leaves gold third");
-assert(!noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 66), "ctrl+click in CM mode does not copy chord into gold");
+assert(noteMaskGet(gold("keyboard-1"), 50), "ctrl+click in CM mode does not replace gold");
+assert(noteMaskGet(gold("keyboard-1"), 52), "ctrl+click in CM mode leaves gold third");
+assert(!noteMaskGet(gold("keyboard-1"), 66), "ctrl+click in CM mode does not copy chord into gold");
 assert(nodeGraphChordMemorySlotIsOn("keyboard-1", 62), "ctrl+click in CM mode latches for edit");
 assert(nodeGraphChordMemoryEditIs("keyboard-1", 62), "ctrl+click in CM mode is the edit target");
 
@@ -302,7 +307,7 @@ assert(
 assert(nodeGraphChordMemoryHasSlot("keyboard-1", 72), "alt+click writes a slot from red keys");
 assert(nodeGraphChordMemoryNotesForSlot("keyboard-1", 72).indexOf(61) >= 0, "saved chord includes red edit notes");
 assert(nodeGraphChordMemoryNotesForSlot("keyboard-1", 72).indexOf(66) >= 0, "saved chord includes previous red tones");
-assert(!noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 66), "alt+click save does not write gold");
+assert(!noteMaskGet(gold("keyboard-1"), 66), "alt+click save does not write gold");
 assert(nodeGraphChordMemoryEditIs("keyboard-1", 72), "alt+click save edits the destination key");
 assert(nodeGraphChordMemorySlotIsOn("keyboard-1", 72), "saved slot becomes the active chord");
 assert(!nodeGraphChordMemorySlotIsOn("keyboard-1", 62), "previous edit chord unlatches");
@@ -323,12 +328,11 @@ assert(
   }),
   "shift+click chord is handled",
 );
-var hostAfterShift = nodeGraphChordMemoryHost();
-assert(hostAfterShift.chordMemoryMomentary, "shift+click is momentary Play Keys");
-assert(noteMaskGet(hostAfterShift.chordMemoryMomentaryPlayMask, 64), "momentary includes chord tones");
+assert(nodeGraphChordMemoryMomentaryMaskForNode("keyboard-1"), "shift+click is momentary Play Keys");
+assert(noteMaskGet(nodeGraphChordMemoryMomentaryMaskForNode("keyboard-1"), 64), "momentary includes chord tones");
 assert(nodeGraphChordMemorySlotIsOn("keyboard-1", 72), "momentary does not steal the latched chord");
-nodeGraphChordMemoryReleasePointerPlay();
-assert(!hostAfterShift.chordMemoryMomentary, "mouse up clears momentary play");
+nodeGraphChordMemoryReleasePointerPlay("keyboard-1");
+assert(!nodeGraphChordMemoryMomentaryMaskForNode("keyboard-1"), "mouse up clears momentary play");
 assert(nodeGraphChordMemorySlotIsOn("keyboard-1", 72), "momentary release leaves the latched chord on");
 
 var ctrlArpEv = {
@@ -346,9 +350,52 @@ assert(
   }),
   "ctrl+click chord in slide mode is handled",
 );
-assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 60), "non-CM ctrl+click copies chord root to gold");
-assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 64), "non-CM ctrl+click copies chord third to gold");
-assert(noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 67), "non-CM ctrl+click copies chord fifth to gold");
-assert(!noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, 50), "non-CM ctrl+click replaces previous gold");
+assert(noteMaskGet(gold("keyboard-1"), 60), "non-CM ctrl+click copies chord root to gold");
+assert(noteMaskGet(gold("keyboard-1"), 64), "non-CM ctrl+click copies chord third to gold");
+assert(noteMaskGet(gold("keyboard-1"), 67), "non-CM ctrl+click copies chord fifth to gold");
+assert(!noteMaskGet(gold("keyboard-1"), 50), "non-CM ctrl+click replaces previous gold");
+
+// Two keyboards never share chord / momentary / gold / edit state.
+setGold("keyboard-2", [40]);
+var k2ShiftEv = {
+  type: "pointerdown",
+  pointerId: 31,
+  ctrlKey: false,
+  shiftKey: true,
+  altKey: false,
+  metaKey: false,
+  preventDefault: function () {},
+};
+assert(
+  nodeGraphChordMemoryHandlePointer(k2ShiftEv, { setPointerCapture: function () {} }, 60, {
+    nodeId: "keyboard-2",
+  }),
+  "keyboard-2 shift+click chord is handled",
+);
+assert(noteMaskGet(nodeGraphChordMemoryMomentaryMaskForNode("keyboard-2"), 63), "keyboard-2 plays its own chord");
+assert(!nodeGraphChordMemoryMomentaryMaskForNode("keyboard-1"), "keyboard-2 momentary is not on keyboard-1");
+nodeGraphChordMemoryReleasePointerPlay("keyboard-1");
+assert(nodeGraphChordMemoryMomentaryMaskForNode("keyboard-2"), "keyboard-1 mouse up does not release keyboard-2");
+nodeGraphChordMemoryReleasePointerPlay("keyboard-2");
+assert(!nodeGraphChordMemoryMomentaryMaskForNode("keyboard-2"), "keyboard-2 mouse up releases its chord");
+var k2CtrlEv = {
+  type: "pointerdown",
+  pointerId: 32,
+  ctrlKey: true,
+  shiftKey: false,
+  altKey: false,
+  metaKey: false,
+  preventDefault: function () {},
+};
+nodeGraphChordMemoryHandlePointer(k2CtrlEv, { setPointerCapture: function () {} }, 65, { nodeId: "keyboard-2" });
+assert(noteMaskGet(gold("keyboard-2"), 69), "keyboard-2 ctrl+click writes keyboard-2 gold");
+assert(!noteMaskGet(gold("keyboard-2"), 40), "keyboard-2 ctrl+click replaces keyboard-2 gold");
+assert(noteMaskGet(gold("keyboard-1"), 64) && !noteMaskGet(gold("keyboard-1"), 69), "keyboard-1 gold untouched");
+assert(nodeGraphChordMemoryToggleLatch("keyboard-2", 65, 100), "keyboard-2 latches its own chord");
+assert(nodeGraphChordMemorySlotIsOn("keyboard-1", 72), "keyboard-2 latch leaves keyboard-1 latch on");
+assert(nodeGraphChordMemoryEditIs("keyboard-2", 65) && nodeGraphChordMemoryEditIs("keyboard-1", 72), "edit targets are per keyboard");
+nodeGraphChordMemoryReleaseNode("keyboard-2");
+assert(!nodeGraphChordMemorySlotIsOn("keyboard-2", 65), "deleting keyboard-2 clears its latch");
+assert(nodeGraphChordMemorySlotIsOn("keyboard-1", 72), "deleting keyboard-2 leaves keyboard-1 latched");
 
 console.log("test_keyboard_chord_memory ok");

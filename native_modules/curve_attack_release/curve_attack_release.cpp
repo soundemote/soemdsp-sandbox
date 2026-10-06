@@ -5,6 +5,8 @@
 //
 // Shaped Attack–Release (same bipolar curves as Curve ADSR).
 // Gate follow or Trigger one-shot. UpdateOnTrigger latches knobs on rise.
+// Peak = Gate height latched on rise (velocity). Re-strike glides from the
+// current level toward the new peak.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -28,6 +30,7 @@ struct Shot {
 struct State {
   double out;
   double lastGate;
+  double velocity; // Gate height latched on rise = attack peak
   double stageElapsed;
   double stageStart;
   double stageEnd;
@@ -88,6 +91,11 @@ static void retarget_stage(State& s, double newEnd, double newDuration, double p
   }
 }
 
+// Output has reached (or passed) the stage end, in either direction.
+static bool reached_stage_end(const State& s) {
+  return (s.stageEnd >= s.stageStart) ? (s.out >= s.stageEnd) : (s.out <= s.stageEnd);
+}
+
 static bool advance_shaped(State& s, double shape, double period) {
   if (s.stageDuration <= period) {
     if (s.stageElapsed <= 0.0) {
@@ -108,11 +116,11 @@ static bool advance_shaped(State& s, double shape, double period) {
 static void start_attack(State& s, const Shot& p, double period) {
   s.phase = PHASE_ATTACK;
   if (p.attack <= period) {
-    begin_stage(s, 1.0, 1.0, 0.0);
-    s.out = 1.0;
+    begin_stage(s, s.velocity, s.velocity, 0.0);
+    s.out = s.velocity;
     s.stageElapsed = period;
   } else {
-    begin_stage(s, s.out, 1.0, p.attack);
+    begin_stage(s, s.out, s.velocity, p.attack);
   }
 }
 
@@ -135,6 +143,7 @@ extern "C" int soemdsp_curve_attack_release_create() {
       State& s = gPool[i];
       s.out = 0.0;
       s.lastGate = 0.0;
+      s.velocity = 0.0;
       s.stageElapsed = 0.0;
       s.stageStart = 0.0;
       s.stageEnd = 0.0;
@@ -199,6 +208,10 @@ extern "C" double soemdsp_curve_attack_release_sample(
   }
   const Shot& p = s.shot;
 
+  // Velocity = raw Gate height at the hit (Gate mode: also a Gate already high
+  // while idle). Peak target, not an output multiplier.
+  if (rising || (p.inputMode == 0 && gateOn && s.phase == PHASE_IDLE)) s.velocity = g;
+
   if (p.inputMode == 0) {
     if (rising || (gateOn && s.phase == PHASE_IDLE)) start_attack(s, p, period);
     if (falling || (!gateOn && s.phase != PHASE_RELEASE && s.phase != PHASE_IDLE)) {
@@ -209,22 +222,22 @@ extern "C" double soemdsp_curve_attack_release_sample(
   }
 
   if (!latch) {
-    if (s.phase == PHASE_ATTACK) retarget_stage(s, 1.0, p.attack, period);
+    if (s.phase == PHASE_ATTACK) retarget_stage(s, s.velocity, p.attack, period);
     else if (s.phase == PHASE_RELEASE) retarget_stage(s, 0.0, p.release, period);
   }
 
   if (s.phase == PHASE_ATTACK) {
-    if (advance_shaped(s, p.attackShape, period) || s.out >= 1.0) {
-      s.out = 1.0;
+    if (advance_shaped(s, p.attackShape, period) || reached_stage_end(s)) {
+      s.out = s.velocity;
       if (p.inputMode == 1) start_release(s, p, period);
       else if (gateOn) s.phase = PHASE_HOLD;
       else start_release(s, p, period);
     }
   } else if (s.phase == PHASE_HOLD) {
-    s.out = 1.0;
+    s.out = s.velocity;
     if (!gateOn) start_release(s, p, period);
   } else if (s.phase == PHASE_RELEASE) {
-    if (advance_shaped(s, p.releaseShape, period) || s.out <= 0.0) {
+    if (advance_shaped(s, p.releaseShape, period) || reached_stage_end(s)) {
       s.out = 0.0;
       s.phase = PHASE_IDLE;
     }
@@ -233,7 +246,7 @@ extern "C" double soemdsp_curve_attack_release_sample(
   }
 
   if (!(s.out * 0.0 == 0.0)) s.out = 0.0;
-  const double y = clamp(s.out, 0.0, 1.0) * p.amplitude;
+  const double y = s.out * p.amplitude;
   return (y * 0.0 == 0.0) ? y : 0.0;
 }
 

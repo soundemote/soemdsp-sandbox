@@ -3,7 +3,8 @@
 // soemdsp-native-target: linearAttackRelease
 // soemdsp-native-kind: envelope
 //
-// Port of public/modules/linearAttackRelease/linear-attack-release-math.js (exact).
+// Port of public/modules/linearAttackRelease/linear-attack-release-math.js.
+// App Gate contract (gate_on / gate_hit). Peak = Gate height latched on the hit.
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -18,6 +19,7 @@ enum Phase { PHASE_IDLE = 0, PHASE_ATTACK = 1, PHASE_HOLD = 2, PHASE_RELEASE = 3
 struct State {
   double out;
   double lastGate;
+  double velocity; // Gate height latched on hit = attack peak
   double releaseDecrement;
   int phase;
   bool active;
@@ -30,6 +32,18 @@ static void start_release(State& s, double release, double period) {
   s.releaseDecrement = s.out * period / maxd(release, period);
 }
 
+// Step x toward target by inc (either direction). True once it arrives.
+static bool step_toward(double& x, double target, double inc) {
+  if (x < target) {
+    x += inc;
+    if (x >= target) { x = target; return true; }
+    return false;
+  }
+  x -= inc;
+  if (x <= target) { x = target; return true; }
+  return false;
+}
+
 }  // namespace
 
 extern "C" int soemdsp_linear_attack_release_create() {
@@ -38,6 +52,7 @@ extern "C" int soemdsp_linear_attack_release_create() {
       State& s = gPool[i];
       s.out = 0.0;
       s.lastGate = 0.0;
+      s.velocity = 0.0;
       s.releaseDecrement = 0.0;
       s.phase = PHASE_IDLE;
       s.active = true;
@@ -74,11 +89,15 @@ extern "C" double soemdsp_linear_attack_release_sample(
   if (mode < 0) mode = 0;
   if (mode > 1) mode = 1;
 
-  const bool gateOn = safe(gate) > 0.5;
-  const double gateVal = gateOn ? 1.0 : 0.0;
-  const double prevGate = s.lastGate;
-  const bool rising = rising_edge(gateVal, &s.lastGate, 0.5);
-  const bool falling = prevGate > 0.5 && gateVal <= 0.5;
+  const double g = safe(gate);
+  const bool wasOn = gate_on(s.lastGate);
+  const bool rising = gate_hit(g, &s.lastGate);
+  const bool gateOn = gate_on(g);
+  const bool falling = wasOn && !gateOn;
+
+  // Velocity = raw Gate height at the hit (Gate mode: also a Gate already high
+  // while idle). Peak target, not an output multiplier.
+  if (rising || (mode == 0 && gateOn && s.phase == PHASE_IDLE)) s.velocity = g;
 
   if (mode == 0) {
     if (rising || (gateOn && s.phase == PHASE_IDLE)) {
@@ -97,24 +116,25 @@ extern "C" double soemdsp_linear_attack_release_sample(
   const double attackIncrement = mind(period / maxd(safeAttack, period), 1.0);
 
   if (s.phase == PHASE_ATTACK) {
+    bool atPeak = true;
     if (safeAttack <= period) {
-      s.out = 1.0;
+      s.out = s.velocity;
     } else {
-      s.out += attackIncrement;
-      if (s.out >= 1.0) s.out = 1.0;
+      // Glide from the current level to the peak (down too, on a softer re-strike).
+      atPeak = step_toward(s.out, s.velocity, attackIncrement);
     }
-    if (s.out >= 1.0) {
+    if (atPeak) {
       if (mode == 1) {
         start_release(s, safeRelease, period);
       } else if (gateOn) {
         s.phase = PHASE_HOLD;
-        s.out = 1.0;
+        s.out = s.velocity;
       } else {
         start_release(s, safeRelease, period);
       }
     }
   } else if (s.phase == PHASE_HOLD) {
-    s.out = 1.0;
+    s.out = s.velocity;
     if (!gateOn) start_release(s, safeRelease, period);
   } else if (s.phase == PHASE_RELEASE) {
     if (safeRelease <= period) {
@@ -123,7 +143,8 @@ extern "C" double soemdsp_linear_attack_release_sample(
       s.releaseDecrement = 0.0;
     } else {
       s.out -= s.releaseDecrement;
-      if (s.out <= 0.0) {
+      // Decrement carries the sign of the level it releases from.
+      if (s.releaseDecrement >= 0.0 ? s.out <= 0.0 : s.out >= 0.0) {
         s.out = 0.0;
         s.phase = PHASE_IDLE;
         s.releaseDecrement = 0.0;
@@ -134,8 +155,7 @@ extern "C" double soemdsp_linear_attack_release_sample(
   }
 
   if (!(s.out * 0.0 == 0.0)) s.out = 0.0;
-  const double clamped = s.out < 0.0 ? 0.0 : (s.out > 1.0 ? 1.0 : s.out);
-  const double y = clamped * level;
+  const double y = s.out * level;
   return (y * 0.0 == 0.0) ? y : 0.0;
 }
 

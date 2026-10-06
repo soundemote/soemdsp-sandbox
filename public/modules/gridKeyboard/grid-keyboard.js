@@ -54,6 +54,7 @@ function nodeGraphGridKeyboardPadFromPointer(event, surface) {
 }
 
 function nodeGraphGridKeyboardSignalFromPad(pad, event, options = {}) {
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(pad);
   const col = Number(pad.dataset.gridCol);
   const row = Number(pad.dataset.gridRow);
   const rawMidi = Number(pad.dataset.gridMidi);
@@ -65,13 +66,11 @@ function nodeGraphGridKeyboardSignalFromPad(pad, event, options = {}) {
     || options.gatePulse === true;
   const rawStrike = refreshVelocity
     ? strike
-    : (Number(nodeGraphMvp.keyboardModuleSignal?._strikeVelocity) > 0
-      ? Number(nodeGraphMvp.keyboardModuleSignal._strikeVelocity)
+    : (Number(nodeGraphKeyboardRuntime(nodeId).signal?._strikeVelocity) > 0
+      ? Number(nodeGraphKeyboardRuntime(nodeId).signal._strikeVelocity)
       : strike);
-  const velocity = typeof nodeGraphMidiKeyboardMapStrikeVelocity01 === "function"
-    ? nodeGraphMidiKeyboardMapStrikeVelocity01(rawStrike)
-    : rawStrike;
-  const signal = nodeGraphMidiKeyboardSignalFromRaw(rawMidi, {
+  const velocity = nodeGraphMidiKeyboardMapStrikeVelocity01(nodeId, rawStrike);
+  const signal = nodeGraphMidiKeyboardSignalFromRaw(nodeId, rawMidi, {
     source: "pointer",
     gate,
     gatePulse: 0,
@@ -83,16 +82,6 @@ function nodeGraphGridKeyboardSignalFromPad(pad, event, options = {}) {
   signal._gridCol = col;
   signal._gridRow = row;
   return signal;
-}
-
-function nodeGraphMidiKeyboardGoldMidiIsOn(midi) {
-  const m = Math.round(Number(midi));
-  if (m < 0 || m > 127) return false;
-  if (typeof noteMaskGet === "function" && nodeGraphMvp?.midiKeyboardArpMask instanceof Uint8Array) {
-    return noteMaskGet(nodeGraphMvp.midiKeyboardArpMask, m);
-  }
-  const mask = nodeGraphMvp?.midiKeyboardArpMask;
-  return mask instanceof Uint8Array && Boolean(mask[m]);
 }
 
 function createNodeGraphGridKeyboardBody(node = null) {
@@ -229,36 +218,34 @@ function nodeGraphGridKeyboardFillSurface(surface, octave) {
 }
 
 function renderNodeGraphGridKeyboardPads() {
-  const octave = typeof nodeGraphMidiKeyboardOctaveOffset === "function"
-    ? nodeGraphMidiKeyboardOctaveOffset()
-    : 0;
-  const playing = Number(nodeGraphMvp?.keyboardModuleSignal?.gate) > 0
-    ? Number(nodeGraphMvp.keyboardModuleSignal.midi)
-    : NaN;
+  // Hardware MIDI Play Keys (MIDI module) ghost on every grid face.
+  const midiPlay = nodeGraphMvp?.midiKeyboardPlayMask;
   document.querySelectorAll(".node-grid-keyboard-surface").forEach((surface) => {
+    const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(surface);
+    const octave = nodeGraphKeyboardOctaveFor(nodeId);
     if (surface.dataset.gridOctave !== String(octave)) {
       nodeGraphGridKeyboardFillSurface(surface, octave);
     }
-    const triggerPatch = typeof nodeGraphMidiKeyboardModeForElement === "function"
-      && nodeGraphMidiKeyboardModeForElement(surface) === "triggerPatch";
+    const signal = nodeGraphKeyboardRuntime(nodeId).signal;
+    const playing = Number(signal?.gate) > 0 ? Number(signal.midi) : NaN;
+    const gold = nodeGraphKeyboardArpLatchView(nodeId).mask;
+    const momMask = typeof nodeGraphChordMemoryMomentaryMaskForNode === "function"
+      ? nodeGraphChordMemoryMomentaryMaskForNode(nodeId)
+      : null;
+    const triggerPatch = nodeGraphMidiKeyboardModeForNode(nodeId) === "triggerPatch";
     surface.querySelectorAll(".node-grid-keyboard-pad[data-grid-midi]").forEach((pad) => {
       const midi = Number(pad.dataset.gridMidi);
       if (!(midi >= 0 && midi <= 127)) return;
-      const goldOn = nodeGraphMidiKeyboardGoldMidiIsOn(midi);
+      const goldOn = Boolean(gold[midi]);
       const setPatch = triggerPatch && Boolean(nodeGraphMvp.patch?.circuitPatches?.[midi]?.values);
       pad.classList.toggle("held", goldOn);
       pad.classList.toggle("active", Number.isFinite(playing) && playing === midi);
       pad.classList.toggle("patch-set", setPatch);
-      const momMask = typeof nodeGraphChordMemoryHost === "function"
-        ? nodeGraphChordMemoryHost()?.chordMemoryMomentaryPlayMask
-        : null;
-      const midiPlay = nodeGraphMvp?.midiKeyboardPlayMask;
       const playGhost = typeof noteMaskGet === "function"
         && ((momMask instanceof Uint8Array && noteMaskGet(momMask, midi))
           || (midiPlay instanceof Uint8Array && noteMaskGet(midiPlay, midi)));
-      const arpGhost = goldOn;
       pad.classList.toggle("ghost-play", Boolean(playGhost) && !goldOn);
-      pad.classList.toggle("ghost-arp", Boolean(arpGhost) && !goldOn);
+      pad.classList.remove("ghost-arp");
     });
   });
   if (typeof nodeGraphChordMemoryPaintKeys === "function") {
@@ -274,20 +261,17 @@ function updateNodeGraphGridKeyboardSignal(event) {
     : "press";
   const pointerId = event.pointerId;
   const pad = nodeGraphGridKeyboardPadFromPointer(event, surface);
+  const nodeId = nodeGraphMidiKeyboardNodeIdFromElement(surface);
+  const rt = nodeGraphKeyboardRuntime(nodeId);
 
   const altDown = Boolean(event.altKey || event.getModifierState?.("Alt"));
 
   if (typeof nodeGraphChordMemoryHandlePointer === "function") {
     const midi = pad ? Number(pad.dataset.gridMidi) : NaN;
-    const nodeId = typeof nodeGraphChordMemoryNodeIdFromSurface === "function"
-      ? nodeGraphChordMemoryNodeIdFromSurface(surface)
-      : "";
     if (nodeGraphChordMemoryHandlePointer(event, surface, midi, {
       nodeId,
       onArpToggle: (slotMidi) => {
-        if (typeof nodeGraphMidiKeyboardToggleHeldMidi === "function") {
-          nodeGraphMidiKeyboardToggleHeldMidi(slotMidi, 1);
-        }
+        nodeGraphMidiKeyboardToggleHeldMidi(nodeId, slotMidi, 1);
       },
     })) {
       return;
@@ -295,36 +279,28 @@ function updateNodeGraphGridKeyboardSignal(event) {
   }
 
   if (event.type === "pointerdown" && event.ctrlKey && altDown) {
-    if (typeof nodeGraphMidiKeyboardClearArpKeys === "function") {
-      nodeGraphMidiKeyboardClearArpKeys();
-    }
-    if (typeof nodeGraphMidiKeyboardClearPlayGate === "function") {
-      nodeGraphMidiKeyboardClearPlayGate("arp clear");
-    }
+    nodeGraphMidiKeyboardClearArpKeys(nodeId);
+    nodeGraphMidiKeyboardClearPlayGate(nodeId);
     event.preventDefault();
     event.stopPropagation();
     return;
   }
 
   if (event.type === "pointerdown" && event.ctrlKey) {
-    nodeGraphMvp.midiKeyboardArpLatchPointerId = pointerId;
-    if (typeof nodeGraphMidiKeyboardClearPlayGate === "function") {
-      nodeGraphMidiKeyboardClearPlayGate("arp latch");
-    }
-    if (typeof clearNodeGraphMidiKeyboardPointerHold === "function") {
-      clearNodeGraphMidiKeyboardPointerHold();
-    }
+    rt.arpLatchPointerId = pointerId;
+    nodeGraphMidiKeyboardClearPlayGate(nodeId);
+    clearNodeGraphMidiKeyboardPointerHold(nodeId);
     if (pad) {
-      nodeGraphMidiKeyboardToggleHeldMidi(Number(pad.dataset.gridMidi), 1);
+      nodeGraphMidiKeyboardToggleHeldMidi(nodeId, Number(pad.dataset.gridMidi), 1);
     }
     try { surface.setPointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
     event.preventDefault();
     return;
   }
-  if (nodeGraphMvp.midiKeyboardArpLatchPointerId === pointerId) {
+  if (rt.arpLatchPointerId === pointerId) {
     if (event.type === "pointerup" || event.type === "pointercancel") {
       try { surface.releasePointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
-      nodeGraphMvp.midiKeyboardArpLatchPointerId = null;
+      rt.arpLatchPointerId = null;
     }
     event.preventDefault();
     return;
@@ -337,38 +313,30 @@ function updateNodeGraphGridKeyboardSignal(event) {
       if (typeof nodeGraphApplyCircuitPatchSlot === "function") {
         nodeGraphApplyCircuitPatchSlot(midi);
       }
-      if (typeof nodeGraphTriggerPatchGhostKey === "function") {
-        nodeGraphTriggerPatchGhostKey(pad, pointerId);
-      } else {
-        pad.classList.add("ghost-patch");
-      }
+      nodeGraphTriggerPatchGhostKey(pad, pointerId);
       try { surface.setPointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
     } else if (
-      nodeGraphMvp?.midiKeyboardTriggerPatchPointerId === pointerId
+      rt.triggerPatchPointerId === pointerId
       && (event.type === "pointerup" || event.type === "pointercancel" || event.type === "lostpointercapture")
     ) {
       try { surface.releasePointerCapture?.(pointerId); } catch (_e) { /* ignore */ }
-      if (typeof nodeGraphTriggerPatchClearGhost === "function") {
-        nodeGraphTriggerPatchClearGhost();
-      } else {
-        pad?.classList.remove("ghost-patch");
-      }
+      nodeGraphTriggerPatchClearGhost(nodeId);
     }
     event.preventDefault();
     return;
   }
 
   if (event.type === "pointerdown" && mode === "toggle" && !event.ctrlKey) {
-    if (pad) nodeGraphMidiKeyboardToggleHeldMidi(Number(pad.dataset.gridMidi), 1);
+    if (pad) nodeGraphMidiKeyboardToggleHeldMidi(nodeId, Number(pad.dataset.gridMidi), 1);
     event.preventDefault();
     return;
   }
 
   if (event.type === "pointerdown" && (event.shiftKey || mode === "hold")) {
-    if (pad && typeof renderNodeGraphMidiKeyboardSignal === "function") {
+    if (pad) {
       const next = nodeGraphGridKeyboardSignalFromPad(pad, event);
       next.gate = 1;
-      renderNodeGraphMidiKeyboardSignal(next);
+      renderNodeGraphMidiKeyboardSignal(nodeId, next);
     }
     try { surface.setPointerCapture?.(event.pointerId); } catch (_e) { /* ignore */ }
     event.preventDefault();
@@ -376,18 +344,16 @@ function updateNodeGraphGridKeyboardSignal(event) {
   }
 
   if (event.type === "pointermove") {
-    if (nodeGraphMvp.midiKeyboardArpLatchPointerId != null) return;
+    if (rt.arpLatchPointerId != null) return;
     if ((mode === "slide" || mode === "press") && event.buttons > 0 && !event.ctrlKey && pad) {
-      const prevRaw = Number(nodeGraphMvp.keyboardModuleSignal?.rawMidi);
+      const prevRaw = Number(rt.signal?.rawMidi);
       const rawMidi = Number(pad.dataset.gridMidi);
       const next = nodeGraphGridKeyboardSignalFromPad(pad, event, {
         gatePulse: Number.isFinite(prevRaw) && prevRaw !== rawMidi,
         refreshVelocity: true,
       });
       next.gate = 1;
-      if (typeof renderNodeGraphMidiKeyboardSignal === "function") {
-        renderNodeGraphMidiKeyboardSignal(next);
-      }
+      renderNodeGraphMidiKeyboardSignal(nodeId, next);
       renderNodeGraphGridKeyboardPads();
     }
     event.preventDefault();
@@ -396,18 +362,14 @@ function updateNodeGraphGridKeyboardSignal(event) {
 
   if (event.type === "pointerup" || event.type === "pointercancel") {
     try { surface.releasePointerCapture?.(event.pointerId); } catch (_e) { /* ignore */ }
-    const held = typeof nodeGraphMidiKeyboardHeldPointerSignal === "function"
-      ? nodeGraphMidiKeyboardHeldPointerSignal()
-      : null;
+    const held = nodeGraphMidiKeyboardHeldPointerSignal(nodeId);
     if (held) {
-      if (typeof renderNodeGraphMidiKeyboardSignal === "function") {
-        renderNodeGraphMidiKeyboardSignal({ ...held, gate: 1, gatePulse: 0 });
-      }
+      renderNodeGraphMidiKeyboardSignal(nodeId, { ...held, gate: 1, gatePulse: 0 });
       return;
     }
-    const current = nodeGraphMvp.keyboardModuleSignal;
-    if (current && typeof renderNodeGraphMidiKeyboardSignal === "function") {
-      renderNodeGraphMidiKeyboardSignal({ ...current, gate: 0, gatePulse: 0 });
+    const current = rt.signal;
+    if (current) {
+      renderNodeGraphMidiKeyboardSignal(nodeId, { ...current, gate: 0, gatePulse: 0 });
     }
     renderNodeGraphGridKeyboardPads();
     return;
@@ -415,9 +377,7 @@ function updateNodeGraphGridKeyboardSignal(event) {
 
   if (event.type === "pointerdown" && pad) {
     try { surface.setPointerCapture?.(event.pointerId); } catch (_e) { /* ignore */ }
-    if (typeof renderNodeGraphMidiKeyboardSignal === "function") {
-      renderNodeGraphMidiKeyboardSignal(nodeGraphGridKeyboardSignalFromPad(pad, event));
-    }
+    renderNodeGraphMidiKeyboardSignal(nodeId, nodeGraphGridKeyboardSignalFromPad(pad, event));
     renderNodeGraphGridKeyboardPads();
   }
 }

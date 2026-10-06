@@ -2,7 +2,7 @@
 
 Status: implemented (apply path + CSS forest removed). §7 band-stack
 checks live in `scripts/test_module_layout_bands.js` (Output, Gain,
-Sample Player/Looper, Music Player, Kick Envelope, Active Filter,
+Sample Player/Looper, Music Player, RoundShape, Active Filter,
 Smooth Graph / LayoutB, Vectorscope / LayoutC). Hide-display and
 Display Height 0 omit the face track.
 
