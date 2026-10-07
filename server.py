@@ -839,6 +839,56 @@ class SandboxServer(BaseHTTPRequestHandler):
         if target is None:
             self.send_json({"ok": False, "error": "original patch file not found"}, status=404)
             return
+        expected_raw = str(params.get("expectedMtimeMs", [""])[0] or "").strip()
+        if not expected_raw:
+            self.send_json(
+                {
+                    "ok": False,
+                    "conflict": True,
+                    "error": "expectedMtimeMs required to overwrite (file may have changed in another tab)",
+                },
+                status=409,
+            )
+            return
+        try:
+            expected_ms = int(round(float(expected_raw)))
+        except (TypeError, ValueError):
+            self.send_json({"ok": False, "error": "expectedMtimeMs must be a number"}, status=400)
+            return
+        actual_ms = int(round(target.stat().st_mtime * 1000.0))
+        # HTTP Last-Modified is second-precision; allow 1s slack. Size check catches same-second clobbers.
+        if abs(actual_ms - expected_ms) > 1000:
+            self.send_json(
+                {
+                    "ok": False,
+                    "conflict": True,
+                    "error": "original file changed since this tab loaded or saved",
+                    "mtimeMs": actual_ms,
+                    "bytes": target.stat().st_size,
+                },
+                status=409,
+            )
+            return
+        expected_size_raw = str(params.get("expectedSize", [""])[0] or "").strip()
+        if expected_size_raw:
+            try:
+                expected_size = int(round(float(expected_size_raw)))
+            except (TypeError, ValueError):
+                self.send_json({"ok": False, "error": "expectedSize must be a number"}, status=400)
+                return
+            actual_size = int(target.stat().st_size)
+            if actual_size != expected_size:
+                self.send_json(
+                    {
+                        "ok": False,
+                        "conflict": True,
+                        "error": "original file changed since this tab loaded or saved",
+                        "mtimeMs": actual_ms,
+                        "bytes": actual_size,
+                    },
+                    status=409,
+                )
+                return
         try:
             target.write_text(
                 f"{json.dumps(payload, indent=2, sort_keys=False)}\n",
@@ -847,12 +897,14 @@ class SandboxServer(BaseHTTPRequestHandler):
         except OSError as exc:
             self.send_json({"ok": False, "error": f"patch overwrite failed: {exc}"}, status=500)
             return
+        stat = target.stat()
         self.send_json(
             {
                 "ok": True,
                 "filename": filename,
                 "path": str(target),
-                "bytes": target.stat().st_size,
+                "bytes": stat.st_size,
+                "mtimeMs": int(round(stat.st_mtime * 1000.0)),
             },
         )
 

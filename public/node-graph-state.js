@@ -359,6 +359,9 @@ var nodeGraphMvp = {
   rendered: null,
   renderedAudioUrl: "",
   currentSavedPatchFilename: "",
+  // Per-tab only (not shared IndexedDB): overwrite target + freshness baseline.
+  patchFileHandle: null,
+  patchFileBaseline: null,
   selectedSavedPatchFilename: "",
   workingPatch: null,
   renderedPlayback: {

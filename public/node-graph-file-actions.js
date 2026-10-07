@@ -68,6 +68,9 @@ function nodeGraphSavedPatchDisplayName(filename) {
 
 function setNodeGraphCurrentSavedPatch(filename = "") {
   nodeGraphMvp.currentSavedPatchFilename = String(filename || "");
+  if (!nodeGraphMvp.currentSavedPatchFilename && typeof nodeGraphClearPatchFileTabState === "function") {
+    nodeGraphClearPatchFileTabState();
+  }
   if (nodeGraphMvp.currentSavedPatchFilename) {
     nodeGraphMvp.selectedSavedPatchFilename = nodeGraphMvp.currentSavedPatchFilename;
     const entry = nodeGraphSavedPatchEntryByFilename(nodeGraphMvp.currentSavedPatchFilename);
@@ -667,6 +670,75 @@ async function nodeGraphFilePickerRememberCurrentPatchFile(handle) {
   }
 }
 
+function nodeGraphClearPatchFileTabState() {
+  if (!nodeGraphMvp) return;
+  nodeGraphMvp.patchFileHandle = null;
+  nodeGraphMvp.patchFileBaseline = null;
+}
+
+function nodeGraphSetPatchFileBaselineFromMeta({ name = "", lastModified = 0, size = 0 } = {}) {
+  if (!nodeGraphMvp) return null;
+  const baseline = {
+    name: String(name || "").trim(),
+    lastModified: Math.max(0, Math.round(Number(lastModified) || 0)),
+    size: Math.max(0, Math.round(Number(size) || 0)),
+  };
+  nodeGraphMvp.patchFileBaseline = baseline.name ? baseline : null;
+  return nodeGraphMvp.patchFileBaseline;
+}
+
+async function nodeGraphCapturePatchFileBaseline(handle, fallbackName = "") {
+  if (!handle || typeof handle.getFile !== "function") {
+    return null;
+  }
+  try {
+    const file = await handle.getFile();
+    const baseline = nodeGraphSetPatchFileBaselineFromMeta({
+      name: file.name || handle.name || fallbackName || "",
+      lastModified: file.lastModified,
+      size: file.size,
+    });
+    if (nodeGraphMvp) {
+      nodeGraphMvp.patchFileHandle = handle;
+    }
+    return baseline;
+  } catch {
+    return null;
+  }
+}
+
+function nodeGraphPatchFileBaselineMatches(file, baseline) {
+  if (!file || !baseline) return false;
+  const name = String(file.name || "").trim();
+  const expectedName = String(baseline.name || "").trim();
+  if (expectedName && name && name !== expectedName) {
+    return false;
+  }
+  const lastModified = Math.max(0, Math.round(Number(file.lastModified) || 0));
+  const size = Math.max(0, Math.round(Number(file.size) || 0));
+  const expectedModified = Math.max(0, Math.round(Number(baseline.lastModified) || 0));
+  const expectedSize = Math.max(0, Math.round(Number(baseline.size) || 0));
+  return lastModified === expectedModified && size === expectedSize;
+}
+
+/**
+ * Bind this tab's in-memory patch file handle + freshness baseline.
+ * Still mirrors the handle into shared IndexedDB for picker convenience only;
+ * overwrite must use the per-tab handle, never the shared key as write target.
+ */
+async function nodeGraphRememberTabPatchFile(handle, { persistIdb = true } = {}) {
+  if (handle?.kind !== "file") {
+    return null;
+  }
+  if (nodeGraphMvp) {
+    nodeGraphMvp.patchFileHandle = handle;
+  }
+  if (persistIdb) {
+    await nodeGraphFilePickerRememberCurrentPatchFile(handle);
+  }
+  return nodeGraphCapturePatchFileBaseline(handle, handle.name || "");
+}
+
 async function nodeGraphFilePickerStartIn({ allowHandle = true } = {}) {
   if (allowHandle) {
     const handle = await nodeGraphFilePickerGetHandle();
@@ -865,7 +937,7 @@ async function saveNodeGraphPatchWithNativeDialog() {
         const writable = await result.handle.createWritable();
         await writable.write(namedText);
         await writable.close();
-        await nodeGraphFilePickerRememberCurrentPatchFile(result.handle);
+        await nodeGraphRememberTabPatchFile(result.handle);
       }
       if (typeof commitNodeGraphPatch === "function") {
         commitNodeGraphPatch(patch, {
@@ -969,11 +1041,22 @@ async function overwriteNodeGraphOriginalPatch() {
     : null;
   if (!payload) return false;
   const { text } = payload;
+  const refuseStale = (detail = "") => {
+    const suffix = detail ? ` (${detail})` : "";
+    if (typeof setNodeGraphScriptStatus === "function") {
+      setNodeGraphScriptStatus(
+        `original file changed since this tab loaded or saved — use Save as new or reload${suffix}`,
+        false,
+      );
+    }
+    return false;
+  };
   try {
-    const handle = typeof nodeGraphFilePickerGetHandle === "function"
-      ? await nodeGraphFilePickerGetHandle("currentPatch")
+    // Prefer this tab's in-memory handle — never shared IndexedDB currentPatch as write target.
+    const handle = nodeGraphMvp?.patchFileHandle?.kind === "file"
+      ? nodeGraphMvp.patchFileHandle
       : null;
-    if (handle?.kind === "file" && typeof handle.createWritable === "function") {
+    if (handle && typeof handle.createWritable === "function") {
       let allowed = true;
       if (typeof handle.queryPermission === "function") {
         let perm = await handle.queryPermission({ mode: "readwrite" });
@@ -983,9 +1066,22 @@ async function overwriteNodeGraphOriginalPatch() {
         allowed = perm === "granted";
       }
       if (allowed) {
+        if (typeof handle.getFile !== "function") {
+          return refuseStale("no file metadata");
+        }
+        const file = await handle.getFile();
+        const baseline = nodeGraphMvp?.patchFileBaseline;
+        const handleName = String(handle.name || file.name || "").trim();
+        if (filename && handleName && handleName.toLowerCase() !== filename.toLowerCase()) {
+          return refuseStale("handle name mismatch");
+        }
+        if (!baseline || !nodeGraphPatchFileBaselineMatches(file, baseline)) {
+          return refuseStale("mtime/size mismatch");
+        }
         const writable = await handle.createWritable();
         await writable.write(text);
         await writable.close();
+        await nodeGraphRememberTabPatchFile(handle);
         if (typeof setNodeGraphCurrentSavedPatch === "function") {
           setNodeGraphCurrentSavedPatch(handle.name || filename);
         }
@@ -998,19 +1094,39 @@ async function overwriteNodeGraphOriginalPatch() {
         return true;
       }
     }
-    const response = await fetch(
-      `/api/patches/overwrite?filename=${encodeURIComponent(filename)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: text,
-      },
-    );
+    const baseline = nodeGraphMvp?.patchFileBaseline;
+    const expectedMtime = Math.max(0, Math.round(Number(baseline?.lastModified) || 0));
+    if (!baseline || !expectedMtime) {
+      return refuseStale("no freshness baseline for server overwrite");
+    }
+    if (baseline.name && filename && baseline.name.toLowerCase() !== filename.toLowerCase()) {
+      return refuseStale("baseline name mismatch");
+    }
+    const query = new URLSearchParams({
+      filename,
+      expectedMtimeMs: String(expectedMtime),
+    });
+    if (Number.isFinite(Number(baseline.size))) {
+      query.set("expectedSize", String(Math.max(0, Math.round(Number(baseline.size) || 0))));
+    }
+    const response = await fetch(`/api/patches/overwrite?${query.toString()}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: text,
+    });
     const result = await response.json().catch(() => ({}));
+    if (response.status === 409 || result.conflict === true) {
+      return refuseStale(result.error || "server reported conflict");
+    }
     if (!response.ok || result.ok === false) {
       throw new Error(result.error || `HTTP ${response.status}`);
     }
     const savedName = result.filename || filename;
+    nodeGraphSetPatchFileBaselineFromMeta({
+      name: savedName,
+      lastModified: result.mtimeMs != null ? result.mtimeMs : expectedMtime,
+      size: result.bytes != null ? result.bytes : baseline.size,
+    });
     if (typeof setNodeGraphCurrentSavedPatch === "function") {
       setNodeGraphCurrentSavedPatch(savedName);
     }
@@ -1183,7 +1299,9 @@ async function loadNodeGraphScript() {
     }
     rememberNodeGraphFilePickerMeta({ lastPatchName: result.name });
     if (result.handle) {
-      await nodeGraphFilePickerRememberCurrentPatchFile(result.handle);
+      await nodeGraphRememberTabPatchFile(result.handle);
+    } else {
+      nodeGraphClearPatchFileTabState();
     }
     commitNodeGraphPatch(loadNodeGraphPatchFromScript(result.text), {
       patchDirtyState: "saved",
@@ -1509,6 +1627,16 @@ async function loadNodeGraphDemoPatch(filename) {
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
+    // Server-backed load: no FileSystemFileHandle; keep an mtime/size baseline for overwrite guard.
+    nodeGraphClearPatchFileTabState();
+    const lastModifiedHeader = response.headers.get("Last-Modified");
+    const parsedMtime = lastModifiedHeader ? Date.parse(lastModifiedHeader) : NaN;
+    const headerSize = Number(response.headers.get("Content-Length"));
+    nodeGraphSetPatchFileBaselineFromMeta({
+      name: safeFilename,
+      lastModified: Number.isFinite(parsedMtime) ? parsedMtime : 0,
+      size: Number.isFinite(headerSize) ? headerSize : scriptText.length,
+    });
     commitNodeGraphPatch(loadNodeGraphPatchFromScript(scriptText), {
       patchDirtyState: "saved",
       status: `patch loaded: ${safeFilename}`,

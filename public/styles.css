@@ -15856,6 +15856,21 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   height: 100%;
 }
 
+/* Canvas tiles are free-sized. The plot viewBox is square, so stretch it
+   to the tile and the curve shears. Fit the largest square instead. */
+.node-layout-canvas-tile .node-module-graph-display,
+.node-metamodule-canvas-stage .node-module-graph-display {
+  container-type: size;
+  display: grid;
+  place-items: center;
+}
+
+.node-layout-canvas-tile .node-module-graph-svg,
+.node-metamodule-canvas-stage .node-module-graph-svg {
+  width: min(100cqw, 100cqh);
+  height: min(100cqw, 100cqh);
+}
+
 .node-module-graph-svg :is(
   rect,
   line,

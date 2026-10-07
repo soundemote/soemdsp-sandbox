@@ -147,6 +147,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-094 | hear | fixed (local, uncommitted) | Curve AR, Curve ADSR, Linear ADSR, Linear AR ignore gate velocity |
 | B-095 | hear | open | Slew: S curve looks like a double S instead of one smooth S |
 | B-096 | see | open | Spectrogram: scroll is uneven (jittery tempo) after GPU shader port |
+| B-097 | see | open | Instant Waterfall: blank after WebGL context lost and restored |
 ---
 
 ## Inbox (unnumbered user reports)
@@ -1125,6 +1126,16 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Likely cause (unconfirmed): whole-pixel column advance per frame (1,2,1,2 or 0,1) when hop/History timing is not a multiple of the frame rate; port did not reuse the waterfall's sub-texel `uSub` scroll.
 - Expected: Steady, even scroll.
 - Fix shape: Not started. Logged only; Argi said do not fix now. Evaluate fractional head offset (`uSub`-style) or time-based column clock; check whether Canvas2D had the same quantization. Respect display rule (JS copies C++ output only; no JS scaling/timing). Docs-only; no code fix in this report.
+### B-097 — Instant Waterfall: blank after WebGL context lost and restored
+- Status: open
+- Severity: see
+- Source: user 2026-10-06 (ArchIV), reported by Argi via Librarian
+- Doc: `docs/B-097_WATERFALL_BLANK_AFTER_WEBGL_CONTEXT_RESTORE.md`
+- Files: `public/node-graph-module-scope-waterfall-gl.js`, `public/node-graph-module-scope-waterfall.js`.
+- What: After a WebGL context is lost and restored, 1D Instant Waterfall faces stay blank; the face never rebuilds its GL session (`canvas._wfGl`).
+- Likely cause (unconfirmed): stamp paths return false on lost context, but nothing recreates the session on restore. Meet stamp same as bar stamps while lost. Related to DISPLAY_SHADER_PLAN P0a (too many per-face contexts).
+- Expected: On restore, recreate the GL session and draw again.
+- Fix shape: Not started. Logged only; Argi said do not fix now. Docs-only; no code fix in this report.
 
 ---
 
