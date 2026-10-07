@@ -58,10 +58,10 @@
       "folder": "demo_patches"
     },
     {
-      "slug": "demo_patches/death_whistle",
-      "label": "death_whistle",
+      "slug": "demo_patches/deathwhistle",
+      "label": "deathwhistle",
       "name": "",
-      "url": "/soemdsp-sandbox/patches/demo_patches/death_whistle.json",
+      "url": "/soemdsp-sandbox/patches/demo_patches/deathwhistle.json",
       "author": "",
       "emoji": "",
       "folder": "demo_patches"
@@ -80,6 +80,15 @@
       "label": "ping_vs_pluck",
       "name": "",
       "url": "/soemdsp-sandbox/patches/demo_patches/ping_vs_pluck.json",
+      "author": "",
+      "emoji": "",
+      "folder": "demo_patches"
+    },
+    {
+      "slug": "demo_patches/ping_vs_power_vs_expo",
+      "label": "ping_vs_power_vs_expo",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/demo_patches/ping_vs_power_vs_expo.json",
       "author": "",
       "emoji": "",
       "folder": "demo_patches"
