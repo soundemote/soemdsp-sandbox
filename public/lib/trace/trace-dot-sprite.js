@@ -437,21 +437,44 @@
     if (a <= 0.001 || !(extents.rx > 0.05) || !(extents.ry > 0.05)) {
       return false;
     }
-    const sprite = ensure(extents.rx, extents.ry, blur01, extents.shape, extents.shapeParam);
-    if (!sprite) {
-      return false;
-    }
     const opts = style && typeof style === "object" ? style : { color: style };
     const amount = clamp01(opts.amount, 1);
     if (amount <= 0.001 && typeof opts.colorAt !== "function" && !opts.color) {
+      return false;
+    }
+    const flat = Boolean(opts.flat)
+      || (Boolean(opts.color) && !Number.isFinite(Number(opts.hue)) && typeof opts.colorAt !== "function");
+    // Live frames: SDF in GLSL on shared picture device (no JS bake).
+    if (typeof global.TraceDotSpriteGl !== "undefined"
+      && typeof global.TraceDotSpriteGl.draw === "function") {
+      const ok = global.TraceDotSpriteGl.draw(
+        context,
+        Number(cx),
+        Number(cy),
+        extents.rx,
+        extents.ry,
+        blur01,
+        extents.shape,
+        extents.shapeParam,
+        amount,
+        resolveColorAt(opts),
+        flat,
+        flat ? (opts.color || resolveColorAt(opts)(amount)) : null,
+        a,
+      );
+      if (ok) {
+        return true;
+      }
+    }
+    // Fallback: bake sprite (CPU SDF) when GL unavailable / context lost.
+    const sprite = ensure(extents.rx, extents.ry, blur01, extents.shape, extents.shapeParam);
+    if (!sprite) {
       return false;
     }
     const ctx = tintScratchCtx(sprite);
     if (!ctx) {
       return false;
     }
-    const flat = Boolean(opts.flat)
-      || (Boolean(opts.color) && !Number.isFinite(Number(opts.hue)) && typeof opts.colorAt !== "function");
     paintGradient(ctx, sprite, amount, resolveColorAt(opts), flat);
     const prev = context.globalAlpha;
     context.globalAlpha = prev * a;

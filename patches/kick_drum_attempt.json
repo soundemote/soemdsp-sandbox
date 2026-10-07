@@ -154,8 +154,7 @@
     "bankName": "",
     "category": "",
     "description": "",
-    "program": 0,
-    "tags": "circle"
+    "program": 0
   },
   "masterSeed": 2959284602,
   "modularOnlyControlsVisible": false,

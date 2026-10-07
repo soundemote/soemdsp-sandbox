@@ -719,24 +719,8 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   const controls = document.createElement("div");
   controls.className = "node-midi-keyboard-midi-controls";
   const modeLabel = createNodeGraphMidiModeControl();
-  const octave = createNodeGraphPlusMinusControl({
-    ariaLabel: "Keyboard octave transpose",
-    downKey: "midiKeyboardOctaveDown",
-    valueKey: "midiKeyboardOctaveValue",
-    upKey: "midiKeyboardOctaveUp",
-    downAria: "Transpose keyboard down one octave",
-    upAria: "Transpose keyboard up one octave",
-    valueText: "+0",
-  });
-  const keyCount = createNodeGraphPlusMinusControl({
-    ariaLabel: "Number of keys",
-    downKey: "midiKeyboardKeyCountDown",
-    valueKey: "midiKeyboardKeyCountValue",
-    upKey: "midiKeyboardKeyCountUp",
-    downAria: "Show fewer keys",
-    upAria: "Show more keys",
-    valueText: "88",
-  });
+  // Key range (octave / semitone / keys at bottom / keys at top) lives in this
+  // module's Display Settings > Range, not on the face.
   const liveReadouts = document.createElement("span");
   liveReadouts.className = "node-midi-keyboard-live-readouts";
   liveReadouts.setAttribute("aria-live", "polite");
@@ -781,9 +765,9 @@ function createNodeGraphKeyboardControllerBody(node = null) {
   velMaxInput.value = "127";
   velMaxLabel.append(velMaxCaption, velMaxInput);
 
-  // Same row as Mode / octave / key-count: Mode, Min Vel, Max Vel, then -/+.
+  // One row: Mode, Min Vel, Max Vel, live readouts.
   // Overflow clips into the left module wall (CSS nowrap + overflow visible).
-  controls.append(modeLabel, velMinLabel, velMaxLabel, octave, keyCount, liveReadouts);
+  controls.append(modeLabel, velMinLabel, velMaxLabel, liveReadouts);
   heading.append(controls);
 
   const performance = document.createElement("div");

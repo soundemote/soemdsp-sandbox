@@ -9,7 +9,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/filter_breadboards/superlove_lp18_breadboard.json",
       "author": "Sandbox",
-      "tags": "filter,ladder,self-osc,breadboard",
       "emoji": "",
       "folder": "filter_breadboards"
     },
@@ -19,7 +18,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/filter_breadboards/superlove_lp24_breadboard.json",
       "author": "Sandbox",
-      "tags": "filter,ladder,self-osc,breadboard",
       "emoji": "",
       "folder": "filter_breadboards"
     },
@@ -29,7 +27,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/Alarm/Analog_Computer.json",
       "author": "Soundemote",
-      "tags": "",
       "emoji": "📺",
       "folder": "Alarm"
     },
@@ -39,7 +36,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/Alarm/callnow.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "Alarm"
     },
@@ -49,7 +45,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/demo_patches/analogdream.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "demo_patches"
     },
@@ -59,7 +54,15 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/demo_patches/analoghorror.json",
       "author": "",
-      "tags": "circle",
+      "emoji": "",
+      "folder": "demo_patches"
+    },
+    {
+      "slug": "demo_patches/death_whistle",
+      "label": "death_whistle",
+      "name": "",
+      "url": "/soemdsp-sandbox/patches/demo_patches/death_whistle.json",
+      "author": "",
       "emoji": "",
       "folder": "demo_patches"
     },
@@ -69,7 +72,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/demo_patches/journey_to_the_hypersaw.json",
       "author": "",
-      "tags": "init,default",
       "emoji": "",
       "folder": "demo_patches"
     },
@@ -79,7 +81,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/demo_patches/ping_vs_pluck.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "demo_patches"
     },
@@ -89,7 +90,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/demo_patches/tubesaturation.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "demo_patches"
     },
@@ -99,7 +99,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/foley/CALLNOW.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "foley"
     },
@@ -109,7 +108,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/guitar_pedals/chorus_vs_ensemble.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "guitar_pedals"
     },
@@ -119,7 +117,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/guitar_pedals/clean.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "guitar_pedals"
     },
@@ -129,7 +126,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/guitar_pedals/clean_chorus.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "guitar_pedals"
     },
@@ -139,7 +135,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/guitar_pedals/damaged_chorus.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "guitar_pedals"
     },
@@ -149,7 +144,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/guitar_pedals/dreamy_delay.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "guitar_pedals"
     },
@@ -159,7 +153,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/guitar_pedals/guitar_controlled_synth.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "guitar_pedals"
     },
@@ -169,7 +162,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/hyperpluck/acoustic_dispersion.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "hyperpluck"
     },
@@ -179,7 +171,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/modulator_breadboards/ping_envelope.json",
       "author": "",
-      "tags": "init,default",
       "emoji": "",
       "folder": "modulator_breadboards"
     },
@@ -189,7 +180,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/modulator_breadboards/pluck_envelope.json",
       "author": "",
-      "tags": "init,default",
       "emoji": "",
       "folder": "modulator_breadboards"
     },
@@ -199,7 +189,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/modulator_breadboards/vibrato_generator.json",
       "author": "Sandbox",
-      "tags": "filter,ladder,self-osc,breadboard",
       "emoji": "",
       "folder": "modulator_breadboards"
     },
@@ -209,7 +198,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/Soundemote_Softwave_prototypes/Soft_Asymmetrical_Sine.json",
       "author": "",
-      "tags": "init,default",
       "emoji": "",
       "folder": "Soundemote_Softwave_prototypes"
     },
@@ -219,7 +207,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/Soundemote_Softwave_prototypes/Soft_Triangle.json",
       "author": "",
-      "tags": "init,default",
       "emoji": "",
       "folder": "Soundemote_Softwave_prototypes"
     },
@@ -229,7 +216,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/voice_breadboards/hyperpluck_acoustic_diffusion.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "voice_breadboards"
     },
@@ -239,7 +225,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/voice_breadboards/hyperpluck_breadboard.json",
       "author": "",
-      "tags": "circle",
       "emoji": "",
       "folder": "voice_breadboards"
     },
@@ -249,7 +234,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/Alarm/callnow.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -258,7 +242,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/chaosfly_high_freq.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -267,7 +250,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/chaosfly_lowfreq.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -276,7 +258,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/chaosfly_lowfreq2.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -285,16 +266,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/crossover.json",
       "author": "",
-      "tags": "",
-      "emoji": ""
-    },
-    {
-      "slug": "deathwhistle",
-      "label": "deathwhistle",
-      "name": "",
-      "url": "/soemdsp-sandbox/patches/deathwhistle.json",
-      "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -303,7 +274,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/default.json",
       "author": "",
-      "tags": "init,default",
       "emoji": ""
     },
     {
@@ -312,7 +282,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/ditheredoscillator.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -321,7 +290,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/feedbackdetector.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -330,7 +298,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/filteredsawtooth.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -339,7 +306,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/flowerchild.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -348,7 +314,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/flowerchild-breadboard-clean.json",
       "author": "Sandbox",
-      "tags": "flowerchild,breadboard,graph",
       "emoji": ""
     },
     {
@@ -357,7 +322,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/flowerchildfilter.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -366,7 +330,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/frequencysweep.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -375,7 +338,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/init.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -384,7 +346,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/input-gain-output.json",
       "author": "Sandbox",
-      "tags": "filter,ladder,self-osc,breadboard",
       "emoji": ""
     },
     {
@@ -393,7 +354,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/journeytothehypersaw.json",
       "author": "",
-      "tags": "init,default",
       "emoji": ""
     },
     {
@@ -402,7 +362,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/kick_drum_attempt.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -411,7 +370,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/kick_drum_attempt_2.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -420,7 +378,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/lcd.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -429,7 +386,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/led.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -438,7 +394,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/light_kick_variation.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -447,7 +402,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/linear_env_vactrol.json",
       "author": "",
-      "tags": "init,default",
       "emoji": ""
     },
     {
@@ -456,7 +410,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/lpf.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -465,7 +418,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/marker.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -474,7 +426,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/meditation.json",
       "author": "",
-      "tags": "",
       "emoji": ""
     },
     {
@@ -483,7 +434,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/motm485.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -492,7 +442,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/musicalplayer.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -501,7 +450,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/musicaltapeplayer.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -510,7 +458,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/musicplayer.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -519,7 +466,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/noisealarm.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -528,7 +474,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/overdrive.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -537,7 +482,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/particle.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -546,7 +490,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/phonetone.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -555,7 +498,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/pixelgrid.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -564,7 +506,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/plucky_hypersupersaw.json",
       "author": "",
-      "tags": "init,default",
       "emoji": ""
     },
     {
@@ -573,7 +514,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/prettyscope.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -582,7 +522,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/raybouncer.json",
       "author": "",
-      "tags": "",
       "emoji": ""
     },
     {
@@ -591,7 +530,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/resonator.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -600,7 +538,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/reverb.json",
       "author": "",
-      "tags": "",
       "emoji": ""
     },
     {
@@ -609,7 +546,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/reverbinput.json",
       "author": "",
-      "tags": "",
       "emoji": ""
     },
     {
@@ -618,7 +554,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/rgb.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -627,7 +562,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/ringtone.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -636,7 +570,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/robot.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -645,7 +578,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/rubberband.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -654,7 +586,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/sabrina_realistic_reverb.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -663,7 +594,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/sabrina_witch_rhythm.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -672,7 +602,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/sawtoothalarm.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -681,7 +610,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/scanlines.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -690,7 +618,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/shapedresonator.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -699,7 +626,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/sinc.json",
       "author": "",
-      "tags": "",
       "emoji": ""
     },
     {
@@ -708,7 +634,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/sine_kick_attempt.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -717,7 +642,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/sine_kick_attempt_2.json",
       "author": "",
-      "tags": "init,default",
       "emoji": ""
     },
     {
@@ -726,7 +650,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/sinusoidalarm.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -735,7 +658,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/starwarsalarm.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -744,7 +666,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/starwarsalarm2.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -753,7 +674,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/starwarsalarm3.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -762,7 +682,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/superlove_hp6_breadboard.json",
       "author": "Sandbox",
-      "tags": "filter,ladder,self-osc,breadboard",
       "emoji": ""
     },
     {
@@ -771,7 +690,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/superlove_lp18_breadboard.json",
       "author": "Sandbox",
-      "tags": "filter,ladder,self-osc,breadboard",
       "emoji": ""
     },
     {
@@ -780,7 +698,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/synthlead.json",
       "author": "",
-      "tags": "init,default",
       "emoji": ""
     },
     {
@@ -789,7 +706,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/synthlead2_make_filters_track_better.json",
       "author": "",
-      "tags": "init,default",
       "emoji": ""
     },
     {
@@ -798,7 +714,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/tubesaturation.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     },
     {
@@ -807,7 +722,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/videoscope.json",
       "author": "",
-      "tags": "",
       "emoji": ""
     },
     {
@@ -816,7 +730,6 @@
       "name": "",
       "url": "/soemdsp-sandbox/patches/wip.json",
       "author": "",
-      "tags": "circle",
       "emoji": ""
     }
   ]

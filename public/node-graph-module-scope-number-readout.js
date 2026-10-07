@@ -552,6 +552,24 @@ function nodeGraphNumberReadoutDrawLcdInnerShadow(
   if (!context || !(width > 2) || !(height > 2)) {
     return;
   }
+  if (
+    typeof NumberReadoutGl !== "undefined"
+    && NumberReadoutGl
+    && typeof NumberReadoutGl.drawInnerShadow === "function"
+    && NumberReadoutGl.drawInnerShadow(
+      context,
+      left,
+      top,
+      width,
+      height,
+      distance01,
+      sharpness01,
+      offsetX01,
+      offsetY01,
+    )
+  ) {
+    return;
+  }
   const dist = clampNodeSliderValue(nodeGraphFiniteNumber(distance01), 0, 1);
   if (dist <= 0.001) {
     return;
@@ -1041,6 +1059,36 @@ function nodeGraphNumberReadoutPlainDecimalSource(value) {
 }
 
 /**
+ * Resolve showMinus / showPlus (+ reserve) from Value LED/LCD settings.
+ * Migrates legacy polarity: bipolar => showMinus only (old minus gutter, no plus).
+ */
+function nodeGraphNumberReadoutSignOptions(settings = null) {
+  const src = settings && typeof settings === "object" ? settings : {};
+  let showMinus;
+  let showPlus;
+  if (Object.hasOwn(src, "showMinus") || Object.hasOwn(src, "showPlus")) {
+    showMinus = Boolean(src.showMinus);
+    showPlus = Boolean(src.showPlus);
+  } else {
+    const raw = String(src.polarity || src.signMode || "").trim().toLowerCase();
+    if (raw === "unipolar" || raw === "uni" || raw === "unsigned"
+      || raw === "absolute" || raw === "abs") {
+      showMinus = false;
+      showPlus = false;
+    } else {
+      // Missing / bipolar / unknown: Show - on (fresh default + old bipolar).
+      showMinus = true;
+      showPlus = false;
+    }
+  }
+  return {
+    showMinus,
+    showPlus,
+    reserveSignSpace: showMinus || showPlus,
+  };
+}
+
+/**
  * Format a sample for Value LED / Value LCD digits.
  * Uses limit_decimals for digit/decimal economy (max digits, min/max places).
  *
@@ -1061,10 +1109,18 @@ function nodeGraphNumberReadoutPlainDecimalSource(value) {
  *   digits / maxDigits: total digit budget for limit_decimals (default 8).
  */
 function nodeGraphNumberReadoutFormatValue(sample, decimals, options = null) {
-  const value = Number(sample);
-  if (!Number.isFinite(value)) {
+  const rawValue = Number(sample);
+  if (!Number.isFinite(rawValue)) {
     return "--";
   }
+  // Resolve sign flags early so we can abs before any decimal string is built.
+  const hasShowFlags = Boolean(
+    options
+    && (Object.hasOwn(options, "showMinus") || Object.hasOwn(options, "showPlus")),
+  );
+  const showMinusEarly = hasShowFlags ? options.showMinus === true : true;
+  // When Show - is off, format |sample| so a minus never appears in the digit string.
+  const value = showMinusEarly ? rawValue : Math.abs(rawValue);
   const places = nodeGraphNumberReadoutSafeDecimals(decimals);
   const maxDigits = nodeGraphNumberReadoutSafeDigits(
     options?.digits ?? options?.maxDigits ?? 8,
@@ -1121,12 +1177,33 @@ function nodeGraphNumberReadoutFormatValue(sample, decimals, options = null) {
       fixed = (0).toFixed(places);
     }
   }
-  // Reserve a sign column so width stays stable across zero (DSEG space =
-  // colon advance — keshikan/DSEG usage notes). Opt out with reserveSignSpace:false.
-  if (options && options.reserveSignSpace === false) {
-    return fixed;
+  // Sign column: showMinus / showPlus (DSEG space = colon advance).
+  // Neither => no gutter (centered digits). Either => reserve so digits do not jump.
+  // hasShowFlags / showMinusEarly already resolved above (abs path).
+  const showMinus = showMinusEarly;
+  const showPlus = hasShowFlags ? options.showPlus === true : false;
+  let reserve;
+  if (options == null) {
+    reserve = true;
+  } else if (hasShowFlags) {
+    reserve = showMinus || showPlus;
+  } else if (options.reserveSignSpace === false) {
+    reserve = false;
+  } else {
+    reserve = true;
   }
-  return fixed.startsWith("-") ? fixed : ` ${fixed}`;
+  const neg = fixed.startsWith("-");
+  const body = neg ? fixed.slice(1) : fixed;
+  if (neg && showMinus) {
+    return `-${body}`;
+  }
+  if (!neg && showPlus) {
+    return `+${body}`;
+  }
+  if (reserve) {
+    return ` ${body}`;
+  }
+  return body;
 }
 
 
@@ -1142,12 +1219,24 @@ function nodeGraphNumberReadoutDsegWidthChars(text) {
  * @param {number} decimals fractional places
  * @param {number} digits total digit budget (whole + fractional)
  */
-function nodeGraphNumberReadoutBudgetFitText(decimals, digits = 8) {
+function nodeGraphNumberReadoutBudgetFitText(decimals, digits = 8, options = null) {
   const total = nodeGraphNumberReadoutSafeDigits(digits);
   const d = Math.min(nodeGraphNumberReadoutSafeDecimals(decimals), Math.max(0, total - 1));
   const ints = Math.max(1, total - d);
   const frac = d > 0 ? `.${"!".repeat(d)}` : "";
-  return ` ${"8".repeat(ints)}${frac}`;
+  let reserve;
+  if (options == null) {
+    reserve = true; // legacy callers: keep sign cell in the fit template
+  } else if (options.reserveSignSpace === false) {
+    reserve = false;
+  } else if (options.reserveSignSpace === true
+    || options.showMinus === true
+    || options.showPlus === true) {
+    reserve = true;
+  } else {
+    reserve = false;
+  }
+  return `${reserve ? " " : ""}${"8".repeat(ints)}${frac}`;
 }
 
 /**
@@ -1205,14 +1294,26 @@ function nodeGraphNumberReadoutPadValueToBins(valueText, digits, decimals, optio
   const total = nodeGraphNumberReadoutSafeDigits(digits);
   const d = Math.min(nodeGraphNumberReadoutSafeDecimals(decimals), Math.max(0, total - 1));
   const ints = Math.max(1, total - d);
-  const reserveSign = options?.reserveSignSpace !== false;
+  const showMinus = options?.showMinus === true;
+  const showPlus = options?.showPlus === true;
+  let reserveSign;
+  if (options == null) {
+    reserveSign = true;
+  } else if (Object.hasOwn(options, "showMinus") || Object.hasOwn(options, "showPlus")) {
+    reserveSign = showMinus || showPlus;
+  } else if (options.reserveSignSpace === false) {
+    reserveSign = false;
+  } else {
+    reserveSign = options.reserveSignSpace !== false;
+  }
   let raw = String(valueText ?? "");
   if (/^[!.\s—–-]+$/.test(raw.trim())) {
     const frac = d > 0 ? `.${"!".repeat(d)}` : "";
     return `${reserveSign ? " " : ""}${"!".repeat(ints)}${frac}`;
   }
-  const neg = raw.startsWith("-");
-  if (neg || raw.startsWith(" ")) {
+  let inSign = "";
+  if (raw.startsWith("-") || raw.startsWith("+") || raw.startsWith(" ")) {
+    inSign = raw[0];
     raw = raw.slice(1);
   }
   const dot = raw.indexOf(".");
@@ -1232,11 +1333,17 @@ function nodeGraphNumberReadoutPadValueToBins(valueText, digits, decimals, optio
     fracPart = "";
   }
   const body = d > 0 ? `${intPart}.${fracPart}` : intPart;
-  if (!reserveSign) {
-    return neg ? `-${body.replace(/^ /, "")}` : body;
+  // Preserve FormatValue's already-chosen sign glyph when present.
+  let outSign = "";
+  if (inSign === "-" || inSign === "+" || inSign === " ") {
+    outSign = reserveSign || inSign === "-" || inSign === "+" ? inSign : "";
+    if (!reserveSign && (inSign === " ")) outSign = "";
+  } else if (reserveSign) {
+    outSign = " ";
   }
-  return `${neg ? "-" : " "}${body}`;
+  return `${outSign}${body}`;
 }
+
 
 function nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings = null) {
   const budgetOn = nodeGraphNumberReadoutUsesFixedBudget(settings);
@@ -1250,17 +1357,21 @@ function nodeGraphNumberReadoutLayoutFitText(slot, valueText, decimals, settings
     ?? settings?.maxDigits
     ?? (slot?.type === "helmholtzPitch" ? 6 : 8),
   );
-  return nodeGraphNumberReadoutBudgetFitText(decimals, digits);
+  const signOpts = typeof nodeGraphNumberReadoutSignOptions === "function"
+    ? nodeGraphNumberReadoutSignOptions(settings)
+    : { reserveSignSpace: true };
+  return nodeGraphNumberReadoutBudgetFitText(decimals, digits, signOpts);
 }
 
 
 function nodeGraphNumberReadoutGhostPlateText(valueText) {
-  // Digits and unused bins ghost as a full 8. Sign cell is only the minus bar.
+  // Digits and unused bins ghost as a full 8. Sign cell is the minus bar
+  // (space / plus reserve the same DSEG middle-bar ghost).
   let s = String(valueText || "");
-  const sign = (s.startsWith("-") || s.startsWith(" ")) ? s[0] : "";
+  const sign = (s.startsWith("-") || s.startsWith(" ") || s.startsWith("+")) ? s[0] : "";
   const rest = sign ? s.slice(1) : s;
   const ghostRest = rest.replace(/[0-9! ]/g, "8");
-  if (sign === " ") {
+  if (sign === " " || sign === "+") {
     return `-${ghostRest}`;
   }
   return `${sign}${ghostRest}`;
@@ -1303,6 +1414,8 @@ function nodeGraphNumberReadoutSettingsSignature(settings) {
     settings.digitBins === false ? 0 : 1,
     settings.lightBlend,
     settings.facePadding,
+    settings.showMinus ? 1 : 0,
+    settings.showPlus ? 1 : 0,
     settings.backgroundBrightness,
     settings.backgroundSaturation,
     settings.dot1Saturation ?? settings.colorSaturation,
@@ -1696,6 +1809,28 @@ function nodeGraphNumberReadoutDrawDigits(context, {
   // Canvas composite for this draw (source-over default).
   composite = "source-over",
 }) {
+  if (
+    typeof NumberReadoutGl !== "undefined"
+    && NumberReadoutGl
+    && typeof NumberReadoutGl.drawDigits === "function"
+    && NumberReadoutGl.drawDigits(context, {
+      text,
+      centerX,
+      centerY,
+      fontFamily,
+      fontSize,
+      cellW: cellWIn,
+      rgb,
+      alpha,
+      glow,
+      softBlurPx,
+      plate,
+      energy,
+      composite,
+    })
+  ) {
+    return;
+  }
   const raw = String(text || "");
   const ink = energy ? [255, 255, 255] : rgb;
   context.save();
@@ -2105,10 +2240,13 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   // Honor Display Settings → Digits + Decimals (Pitch Detector Frequency LED too).
   const decimals = nodeGraphNumberReadoutSafeDecimals(settings.decimals);
   const digits = nodeGraphNumberReadoutSafeDigits(settings.digits);
+  const signOpts = nodeGraphNumberReadoutSignOptions(settings);
   const formatOptions = {
     digits,
     removeTrailingZeros: Boolean(settings.removeTrailingZeros),
-    reserveSignSpace: String(settings.polarity || "bipolar") === "bipolar",
+    showMinus: signOpts.showMinus,
+    showPlus: signOpts.showPlus,
+    reserveSignSpace: signOpts.reserveSignSpace,
     // Value LCD: settle on decimals+1 before visible budget (sign stability).
     ...(isLcd ? { guardExtraPlace: true } : null),
   };
@@ -2154,17 +2292,13 @@ function drawNodeGraphNumberReadoutItem(renderer, item, pixelRatio) {
   } else {
     liveValueText = hasSample
       ? nodeGraphNumberReadoutFormatValue(
-        (() => {
-          const raw = nodeGraphOscilloscopeLatestSample(item.buffer, 0);
-          const polarity = String(settings.polarity || "bipolar");
-          return polarity === "unipolar" || polarity === "absolute"
-            ? Math.abs(nodeGraphFiniteNumber(raw))
-            : raw;
-        })(),
+        nodeGraphOscilloscopeLatestSample(item.buffer, 0),
         decimals,
         formatOptions,
       )
-      : (decimals > 0 ? ` !.${"!".repeat(decimals)}` : " !");
+      : (decimals > 0
+        ? `${formatOptions.reserveSignSpace ? " " : ""}!.${"!".repeat(decimals)}`
+        : `${formatOptions.reserveSignSpace ? " " : ""}!`);
     if (nodeGraphNumberReadoutUsesDigitBins(settings)) {
       liveValueText = nodeGraphNumberReadoutPadValueToBins(
         liveValueText,

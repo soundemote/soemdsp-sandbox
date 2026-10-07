@@ -173,8 +173,16 @@ function drawNodeGraphVectorRgbFaceItem(_renderer, item, pixelRatio) {
     return;
   }
 
-  // Trail = hot wipe; Ghost = separate dim scorch (deposit/present after stamps).
-  if (typeof nodeGraphScopeDestFadeTowardPlate === "function") {
+  // RGB trails GL on shared picture device; Canvas2D DestFade fallback.
+  const trails = typeof TraceRgbTrailsGl !== "undefined" ? TraceRgbTrailsGl : null;
+  const useTrails = Boolean(
+    trails
+    && typeof trails.ensure === "function"
+    && trails.ensure(canvas, canvas.width, canvas.height)
+  );
+  if (useTrails) {
+    trails.stepFade(canvas, settings.trail, settings.ghost, bg);
+  } else if (typeof nodeGraphScopeDestFadeTowardPlate === "function") {
     nodeGraphScopeDestFadeTowardPlate(ctx, canvas, bg, settings.trail, settings.ghost);
   } else {
     const fade = Math.max(0.02, 1 - settings.trail * 0.97);
@@ -254,17 +262,22 @@ function drawNodeGraphVectorRgbFaceItem(_renderer, item, pixelRatio) {
       packed[o + 4] = b;
       count += 1;
     }
-    if (count <= 0) {
-      return;
-    }
-    const stamped = typeof TraceRgbPoints !== "undefined"
-      && typeof TraceRgbPoints.stamp === "function"
-      && TraceRgbPoints.stamp(ctx, packed, count, { sizePx: radius * 2 });
-    if (!stamped) {
-      nodeGraphVectorRgbStampArcs(ctx, packed, count, radius);
+    if (count > 0) {
+      if (useTrails && typeof trails.stampPoints === "function") {
+        trails.stampPoints(canvas, packed, count, radius * 2);
+      } else {
+        const stamped = typeof TraceRgbPoints !== "undefined"
+          && typeof TraceRgbPoints.stamp === "function"
+          && TraceRgbPoints.stamp(ctx, packed, count, { sizePx: radius * 2 });
+        if (!stamped) {
+          nodeGraphVectorRgbStampArcs(ctx, packed, count, radius);
+        }
+      }
     }
   } finally {
-    if (typeof nodeGraphScopeDestFadeGhostAfterStamps === "function") {
+    if (useTrails && typeof trails.presentTo === "function") {
+      trails.presentTo(canvas, ctx, bg);
+    } else if (typeof nodeGraphScopeDestFadeGhostAfterStamps === "function") {
       nodeGraphScopeDestFadeGhostAfterStamps(ctx, canvas);
     }
   }

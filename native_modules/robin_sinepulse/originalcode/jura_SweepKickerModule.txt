@@ -1,0 +1,194 @@
+Excerpt from RS-MET (Robin Schmidt), branch work:
+Libraries/RobsJuceModules/jura_processors/generators/jura_VariousGenerators.h / .cpp
+https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/jura_processors/generators/jura_VariousGenerators.cpp
+SweepKickerModule (the ToolChain wrapper): class declaration and createParameters()
+(parameter names, ranges, defaults, scaling), copied unmodified.
+Used with Robin's permission (2026-10-06, docs/KICK_PLAN.md). Reference only.
+
+===== jura_VariousGenerators.h =====
+
+  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FlatZapperModule)
+};
+
+
+//=================================================================================================
+
+/** A module the produces bassdrum (aka kickdrum) sounds via downward sweeps. */
+
+class JUCE_API SweepKickerModule : public jura::AudioModuleWithMidiIn
+{
+
+public:
+
+  SweepKickerModule(CriticalSection *lockToUse,
+    MetaParameterManager* metaManagerToUse = nullptr, ModulationManager* modManagerToUse = nullptr);
+
+  virtual void createParameters();
+
+  // Overriden from AudioModule baseclass:
+  //virtual void processBlock(double **inOutBuffer, int numChannels, int numSamples) override;
+  virtual void processStereoFrame(double* left, double* right) override;
+  virtual void setSampleRate(double newRate) override { core.setSampleRate(newRate); }
+  virtual void reset()                       override { core.reset();                }
+  virtual void noteOn( int key, int vel)     override { core.noteOn(key, vel);       }
+  virtual void noteOff(int key)              override { core.noteOff(key);           }
+
+  // Parameter callback targets:
+  void setAmplitude(           double newAmp) { amplitude      = newAmp; }
+  void setPassThroughAmplitude(double newAmp) { passThroughAmp = newAmp; }
+
+
+protected:
+
+  rosic::rsSweepKicker core;
+
+  double passThroughAmp = 0.0;
+  double amplitude = 1.0; 
+
+  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SweepKickerModule)
+};
+
+
+===== jura_VariousGenerators.cpp =====
+
+//=================================================================================================
+
+SweepKickerModule::SweepKickerModule(CriticalSection *lockToUse, 
+  MetaParameterManager* metaManagerToUse, ModulationManager* modManagerToUse)
+  : AudioModuleWithMidiIn(lockToUse, metaManagerToUse, modManagerToUse)
+{
+  ScopedLock scopedLock(*lock);
+  setModuleTypeName("SweepKicker");
+  createParameters();
+}
+
+void SweepKickerModule::createParameters()
+{
+  ScopedLock scopedLock(*lock);
+
+  using SK     = rosic::rsSweepKicker;
+  using SKM    = jura::SweepKickerModule;
+  using FixPar = jura::Parameter;
+  //using AutPar = jura::AutomatableParameter;
+  using ModPar = jura::ModulatableParameter;
+  // In the framework, we have 3 types of parameters with an incremental feature set:
+  // fixed, automatable, modulatable. 
+
+  FixPar* fp;
+  //AutPar* ap;
+  ModPar* mp;
+
+  // Amplitude parameters:
+  mp = new ModPar("Amplitude", -1.0, +1.0, 1.0, Parameter::LINEAR);
+  addObservedParameter(mp);
+  mp->setValueChangeCallback<SKM>(this, &SKM::setAmplitude);
+  // Modulatable to get away without having a built-in amp-env. The idea to modulate this with an
+  // amp-env is also the reason why we have a raw amplitude parameter rather than a "Level" or 
+  // "Volume" parameter in dB. This would not make for a good modulation target. Maybe we could 
+  // have such a volume parameter in addition though. That would be a bit redundant but perhaps 
+  // also convenient.
+
+  fp = new FixPar("FadeOut", 0.0, 500.0, 100.0, Parameter::LINEAR);
+  addObservedParameter(fp);
+  fp->setValueChangeCallback<SK>(&core, &SK::setFadeOutTimeMs);
+
+  fp = new FixPar("PassThrough", -1.0, +1.0, 0.0, Parameter::LINEAR);
+  addObservedParameter(fp);
+  fp->setValueChangeCallback<SKM>(this, &SKM::setPassThroughAmplitude);
+  // ToDo: Replace this with a (gated) dB-scaled "ThruVolume" parameter like we have in 
+  // LibertyAudioModule.
+
+
+  // Frequency parameters. We use them as is when the incoming note is on the reference key (which
+  // is A4 = 69). But they both respond to the midi-key with 100% (i.e. 1 oct/oct) keytracking:
+
+  fp = new FixPar("FreqHigh", 500.0, 20000.0, 10000.0, Parameter::EXPONENTIAL);
+  addObservedParameter(fp);
+  fp->setValueChangeCallback<SK>(&core, &SK::setHighFreq);
+
+  fp = new FixPar("FreqLow", 0.0, 400.0, 0.0, Parameter::LINEAR);
+  addObservedParameter(fp);
+  fp->setValueChangeCallback<SK>(&core, &SK::setLowFreq);
+  // I tried negative values for the minimum but the results were not so good, so 0 seems suitable.
+
+
+  // Freq envelope parameters:
+
+  fp = new FixPar("SweepTime", 50.0, 500.0, 200.0, Parameter::EXPONENTIAL); // In milliseconds
+  addObservedParameter(fp);
+  fp->setValueChangeCallback<SK>(&core, &SK::setSweepTimeInMs);
+
+  fp = new FixPar("Chirp", -1.0, +1.0, 0.0, Parameter::LINEAR);
+  addObservedParameter(fp);
+  fp->setValueChangeCallback<SK>(&core, &SK::setChirpAmount);
+
+  fp = new FixPar("ChirpShape", -1.0, +1.0, 0.0, Parameter::LINEAR);
+  addObservedParameter(fp);
+  fp->setValueChangeCallback<SK>(&core, &SK::setChirpShape);
+
+
+  // Oscillator parameters:
+
+  mp = new ModPar("Phase", -180.0, +180.0, 0.0, Parameter::LINEAR);
+  addObservedParameter(mp);
+  mp->setValueChangeCallback<SK>(&core, &SK::setStartPhase);
+
+  mp = new ModPar("PhaseStereoShift", -180.0, +180.0, 0.0, Parameter::LINEAR);
+  addObservedParameter(mp);
+  mp->setValueChangeCallback<SK>(&core, &SK::setStereoPhaseShift);
+  // It is interesting to compare the stereo phase shift dialed in here to the same value with the
+  // PhaseStereoizer as post processing effect. It does indeed sound different
+
+
+  // Experimental:
+  //fp = new FixPar("FeedbackPhaseMod", -1.0, +1.0, 0.0, Parameter::LINEAR);
+  //addObservedParameter(fp);
+  //fp->setValueChangeCallback<SK>(&core, &SK::setFeedbackPhaseMod);
+  // OK - it does something- but not what I expected. I expected a sin-to-saw transformation like 
+  // in zeroDelayFeedbackFM experiment. Instead, it seems to shorten one half-cycle and lengthen 
+  // the other. But it seems, the overall cycle-length is also affected. I guess that's the effect
+  // of the unit delay. Also, it is strange how small the amount needs to be. Ah - OK - there in
+  // zeroDelayFeedbackPhaseMod, I don't apply the feedback-FM to the accumulator but to the phase
+  // as used. I guess, trying to include feedback phase-mod was not a good idea and this feature 
+  // should be thrown out
+
+
+  fp = new FixPar("WaveShape", 0.0, 3.0, 0.0, Parameter::STRING);
+  fp->addStringValue("Sine");
+  fp->addStringValue("SinFatSaw");
+  fp->addStringValue("TriSaw");
+  //fp->addStringValue("PhaseShapePow");  // may be added later (core needs to uncomment code, too)
+  addObservedParameter(fp);
+  fp->setValueChangeCallback<SK>(&core, &SK::setWaveForm);
+
+  mp = new ModPar("WaveShapeParam", -1.0, +1.0, 0.0, Parameter::LINEAR);
+  addObservedParameter(mp);
+  mp->setValueChangeCallback<SK>(&core, &SK::setWaveFormParameter);
+
+
+  // ToDo:
+  // -Add FreqHighByVel, FreqScale (modulatable), ChirpByVel, Formula (maybe - let the use choose 
+  //  different formulas for freq-env), SinToSaw/PhaseShape/WarpHalf (see Straighliner's oscs),
+  //  Detune (maybe - but would be somewhat redundant with FreqScale - but may respond differently
+  //  to modulation - linear vs exponential FM - so it might be worthwhile - but we could also 
+  //  modulate a single FreqScale parameter with different modes, I guess - and also: for linear FM
+  //  it would have to be an additive offset parameter, I think)
+  // -Add descriptions for the parameters
+  // -Maybe have two loFreq parameters - one used during sustain and one during release. It may 
+  //  make sense to drop the freq further after releasing the note
+  // -Maybe allow negative lowFreq - OK - tried it - doesn't give good results.
+  // -Maybe use the function from the LinFracInterpolator for phase-shaping. But how should it be
+  //  parameterized? In the interpolation context, each segment has 3 parameters: SlopeAt0, 
+  //  SlopeAt1 and Shape. These need to be translated to menaingful user parameters. But how?
+  // -I think, we should probably not try to use feedback-FM or phase-shaping to try to achieve
+  //  different waveforms but instead use a wavetable. See how Surge or Vital do this. Until that
+  //  is in place, keep the sine wave.
+}
+
+void SweepKickerModule::processStereoFrame(double* left, double* right)
+{
+  double tmpL, tmpR;
+  core.getSampleFrameStereo(&tmpL, &tmpR);
+  *left  = passThroughAmp * *left   +  amplitude * tmpL;
+  *right = passThroughAmp * *right  +  amplitude * tmpR;
+}

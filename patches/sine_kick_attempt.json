@@ -71,8 +71,7 @@
     "bankName": "basic",
     "category": "",
     "description": "",
-    "program": 0,
-    "tags": "circle"
+    "program": 0
   },
   "masterSeed": 1504646757,
   "modularOnlyControlsVisible": false,

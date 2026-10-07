@@ -1562,6 +1562,32 @@
       "wasmAvailable": true
     },
     {
+      "name": "robin_sinepulse",
+      "label": "Robin Sinepulse",
+      "targetType": "robinSinepulse",
+      "kind": "drum",
+      "source": "native_modules/robin_sinepulse/robin_sinepulse.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_sinepulse/robin_sinepulse.cpp",
+      "localSourceUrl": "/native_modules/robin_sinepulse/robin_sinepulse.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/unfinished/rosic_MiscUnfinished.h",
+      "wasm": "native_modules/robin_sinepulse/robin_sinepulse.wasm",
+      "wasmUrl": "native_modules/robin_sinepulse/robin_sinepulse.wasm",
+      "wasmAvailable": false
+    },
+    {
+      "name": "robin_sinepulse_allpass",
+      "label": "Robin Sinepulse Allpass",
+      "targetType": "robinSinepulseAllpass",
+      "kind": "drum",
+      "source": "native_modules/robin_sinepulse_allpass/robin_sinepulse_allpass.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_sinepulse_allpass/robin_sinepulse_allpass.cpp",
+      "localSourceUrl": "/native_modules/robin_sinepulse_allpass/robin_sinepulse_allpass.cpp",
+      "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/unfinished/rosic_MiscUnfinished.h",
+      "wasm": "native_modules/robin_sinepulse_allpass/robin_sinepulse_allpass.wasm",
+      "wasmUrl": "native_modules/robin_sinepulse_allpass/robin_sinepulse_allpass.wasm",
+      "wasmAvailable": false
+    },
+    {
       "name": "robin_sinusoid",
       "label": "RobinSinusoid",
       "targetType": "robinSinusoid",

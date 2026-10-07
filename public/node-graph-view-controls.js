@@ -1839,7 +1839,8 @@ const nodeGraphMidiKeyboardBlackPitchClasses = Object.freeze(new Set([1, 3, 6, 8
 const nodeGraphMidiKeyboardDefaultKeyCount = 25;
 
 // Every Keyboard / Grid Keyboard owns all of its state. Saved state lives on
-// its own patch node (node.traceDisplaySettings: mode, octave, keyCount,
+// its own patch node (node.traceDisplaySettings: mode, lowMidi + keyCount
+// (piano range; legacy octave), octave (grid),
 // velMin/velMax, keyLabels, arpKeys, lastSignal, ...); wheels are the node's
 // own params. Playing-only state (current signal, pointer holds, previous
 // gate, VoiceManager blue note, face transmit registers) lives in a runtime
@@ -1938,16 +1939,93 @@ function nodeGraphMidiKeyboardKeyCount(value) {
 }
 
 function nodeGraphKeyboardKeyCountFor(nodeId) {
-  return nodeGraphMidiKeyboardKeyCount(nodeGraphKeyboardSettings(nodeId).keyCount);
+  return nodeGraphKeyboardRangeFor(nodeId).count;
 }
 
+/**
+ * Octave readout / signal octave. Grid Keyboard: its saved octave (-4..4).
+ * Piano Keyboard: whole octaves its lowest key sits from the default C0
+ * (MIDI 24), clamped to the same -4..4 the signal carries.
+ */
 function nodeGraphKeyboardOctaveFor(nodeId) {
+  if (nodeGraphKeyboardPatchNode(nodeId)?.type === "keyboard") {
+    return nodeGraphMidiKeyboardOctaveOffset(nodeGraphKeyboardRangeOffsets(nodeGraphKeyboardRangeFor(nodeId)).octave);
+  }
   return nodeGraphMidiKeyboardOctaveOffset(nodeGraphKeyboardSettings(nodeId).octave);
 }
 
 /** First visible MIDI note of this keyboard's window. */
 function nodeGraphKeyboardViewStartMidiFor(nodeId) {
-  return nodeGraphMidiKeyboardViewStartMidi(nodeGraphKeyboardOctaveFor(nodeId), nodeGraphKeyboardKeyCountFor(nodeId));
+  return nodeGraphKeyboardRangeFor(nodeId).low;
+}
+
+// Piano Keyboard key range = lowest MIDI note + key count, saved on the node
+// as traceDisplaySettings.lowMidi + keyCount (Display Settings > Range
+// steppers). Patches saved before lowMidi existed carry octave (-4..4) +
+// keyCount; with no lowMidi the window start is derived from those with the
+// exact old math (nodeGraphMidiKeyboardViewStartMidi), so they load with the
+// same keys. The first range edit writes lowMidi. Grid Keyboard never writes
+// lowMidi and keeps using octave.
+function nodeGraphMidiKeyboardNormalizeRange(lowMidi, keyCount) {
+  const count = nodeGraphMidiKeyboardKeyCount(keyCount);
+  const raw = Math.round(Number(lowMidi));
+  const low = Number.isFinite(raw) ? raw : nodeGraphMidiKeyboardStartMidi;
+  return { low: Math.max(0, Math.min(128 - count, low)), count };
+}
+
+/** { low, count } from a keyboard settings bag (lowMidi, else legacy octave). */
+function nodeGraphKeyboardRangeFromSettings(bag) {
+  const source = bag && typeof bag === "object" ? bag : {};
+  const count = nodeGraphMidiKeyboardKeyCount(source.keyCount);
+  const savedLow = source.lowMidi;
+  if (savedLow !== undefined && savedLow !== null && savedLow !== "" && Number.isFinite(Number(savedLow))) {
+    return nodeGraphMidiKeyboardNormalizeRange(savedLow, count);
+  }
+  return {
+    low: nodeGraphMidiKeyboardViewStartMidi(nodeGraphMidiKeyboardOctaveOffset(source.octave), count),
+    count,
+  };
+}
+
+function nodeGraphKeyboardRangeFor(nodeId) {
+  return nodeGraphKeyboardRangeFromSettings(nodeGraphKeyboardSettings(nodeId));
+}
+
+/** Lowest key vs the default C0 (MIDI 24): whole octaves + leftover semitones (same sign). */
+function nodeGraphKeyboardRangeOffsets(range) {
+  const total = Math.round(Number(range?.low)) - nodeGraphMidiKeyboardStartMidi;
+  const octave = Math.trunc(total / 12) || 0;
+  return { total, octave, semitone: total - octave * 12 };
+}
+
+/**
+ * One Range stepper press. Returns the next { low, count } or null when the
+ * step would cross MIDI 0 / 127 or the key-count limits (never a partial
+ * shift, so the range is never distorted).
+ *   octave / semitone: every key +-12 / +-1, count unchanged.
+ *   bottom: + adds a key below the lowest, - drops the lowest (top stays).
+ *   top:    + adds a key above the highest, - drops the highest (bottom stays).
+ */
+function nodeGraphMidiKeyboardRangeStep(range, action, direction) {
+  const low = Math.round(Number(range?.low));
+  const count = Math.round(Number(range?.count));
+  if (!Number.isFinite(low) || !Number.isFinite(count)) return null;
+  const up = Number(direction) > 0;
+  const minCount = nodeGraphMidiKeyboardMinKeyCount;
+  const maxCount = nodeGraphMidiKeyboardMaxKeyCount;
+  if (action === "octave" || action === "semitone") {
+    const next = low + (up ? 1 : -1) * (action === "octave" ? 12 : 1);
+    return next >= 0 && next + count <= 128 ? { low: next, count } : null;
+  }
+  if (action === "bottom") {
+    if (up) return low > 0 && count < maxCount ? { low: low - 1, count: count + 1 } : null;
+    return count > minCount ? { low: low + 1, count: count - 1 } : null;
+  }
+  if (action === "top") {
+    if (up) return low + count < 128 && count < maxCount ? { low, count: count + 1 } : null;
+    return count > minCount ? { low, count: count - 1 } : null;
+  }
+  return null;
 }
 
 /** Every rendered face (module, mirrors, canvas tiles) of one Keyboard / Grid Keyboard. */
@@ -1988,12 +2066,19 @@ function nodeGraphMidiKeyboardGenerateKeys(startMidi, keyCount) {
     }
   }
   const totalWhite = whiteKeys.length;
+  // A window that starts / ends on a black key gets half a white key of empty
+  // bed past that edge, so the edge black key keeps its normal joint position
+  // instead of being hidden or squeezed. Widths are in white-key units.
+  const lastIndex = whiteKeys.length + blackKeys.length - 1;
+  const leadPad = blackKeys.length > 0 && blackKeys[0].index === 0 ? 0.5 : 0;
+  const trailPad = blackKeys.length > 0 && blackKeys[blackKeys.length - 1].index === lastIndex ? 0.5 : 0;
+  const totalUnits = totalWhite + leadPad + trailPad;
   for (const key of blackKeys) {
-    key.leftPercent = totalWhite > 0 && key.leftWhiteIndex >= 0
-      ? ((key.leftWhiteIndex + 0.65) / totalWhite) * 100
+    key.leftPercent = totalUnits > 0
+      ? ((key.leftWhiteIndex + leadPad + 0.65) / totalUnits) * 100
       : 0;
   }
-  return { whiteKeys, blackKeys, totalWhite };
+  return { whiteKeys, blackKeys, totalWhite, leadPad, trailPad, totalUnits };
 }
 
 // Rebuilds each rendered keyboard surface's white/black key DOM from its own
@@ -2342,9 +2427,58 @@ function renderNodeGraphMidiKeyboardKeyCountControl() {
   document.querySelectorAll("[data-midi-keyboard-key-count-up]").forEach((button) => {
     button.disabled = countFor(button) >= nodeGraphMidiKeyboardMaxKeyCount;
   });
+  if (typeof syncNodeGraphKeyboardRangeDisplaySettings === "function") {
+    syncNodeGraphKeyboardRangeDisplaySettings();
+  }
+}
+
+/**
+ * Apply one Range stepper press to a piano Keyboard (undoable edit).
+ * Bottom / top edits keep the last / held note on the same MIDI note (its key
+ * index is re-based on the new lowest key); octave / semitone move it with
+ * the keys, like the old face octave buttons did.
+ */
+function changeNodeGraphMidiKeyboardRange(nodeId, action, direction) {
+  const node = nodeGraphKeyboardPatchNode(nodeId);
+  if (!node || node.type !== "keyboard") return false;
+  const range = nodeGraphKeyboardRangeFor(nodeId);
+  const next = nodeGraphMidiKeyboardRangeStep(range, action, direction);
+  if (!next) return false;
+  const rebase = action === "bottom" || action === "top";
+  const shift = range.low - next.low;
+  const rebaseSignal = (signal) => {
+    if (!rebase || !signal || typeof signal !== "object" || !Number.isFinite(Number(signal.keyIndex))) return signal;
+    const out = {
+      ...signal,
+      keyIndex: Math.max(0, Math.min(next.count - 1, Math.round(Number(signal.keyIndex)) + shift)),
+    };
+    delete out.keyQuantized;
+    return out;
+  };
+  const fields = { lowMidi: next.low, keyCount: next.count };
+  const savedLast = nodeGraphKeyboardSettings(nodeId).lastSignal;
+  if (rebase && savedLast) fields.lastSignal = rebaseSignal(savedLast);
+  const rt = nodeGraphKeyboardRuntime(nodeId);
+  if (!writeNodeGraphKeyboardSettings(nodeId, fields)) return false;
+  if (rebase) {
+    rt.signal = rebaseSignal(rt.signal);
+    rt.pointerHeldSignal = rebaseSignal(rt.pointerHeldSignal);
+    const saved = nodeGraphKeyboardSettings(nodeId).lastSignal;
+    rt.savedSignalKey = saved ? JSON.stringify(saved) : "";
+  }
+  renderNodeGraphMidiKeyboardKeys();
+  renderNodeGraphMidiKeyboardKeyCountControl();
+  renderNodeGraphMidiKeyboardOctaveControl();
+  renderNodeGraphMidiKeyboardInputControls();
+  return true;
 }
 
 function changeNodeGraphMidiKeyboardKeyCount(nodeId, delta) {
+  if (nodeGraphKeyboardPatchNode(nodeId)?.type === "keyboard") {
+    // Piano range is lowMidi + keyCount: a bare count change grows / shrinks the top.
+    changeNodeGraphMidiKeyboardRange(nodeId, "top", delta);
+    return;
+  }
   const current = nodeGraphKeyboardKeyCountFor(nodeId);
   const keyCount = nodeGraphMidiKeyboardKeyCount(current + delta);
   if (keyCount === current || !writeNodeGraphKeyboardSettings(nodeId, { keyCount })) return;
@@ -2456,6 +2590,10 @@ function normalizeNodeGraphKeyboardControllerFaceSettings(raw) {
   }
   if (has("octave") && typeof nodeGraphMidiKeyboardOctaveOffset === "function") {
     out.octave = nodeGraphMidiKeyboardOctaveOffset(source.octave);
+  }
+  // Piano Keyboard lowest key (MIDI). Range vs keyCount is clamped on read.
+  if (has("lowMidi") && source.lowMidi !== null && source.lowMidi !== "" && Number.isFinite(Number(source.lowMidi))) {
+    out.lowMidi = Math.max(0, Math.min(127, Math.round(Number(source.lowMidi))));
   }
   if (has("mode") && typeof nodeGraphMidiKeyboardMode === "function") {
     out.mode = nodeGraphMidiKeyboardMode(source.mode);
@@ -3083,7 +3221,7 @@ function nodeGraphMidiKeyboardSoundingSignalForOctave(nodeId, signal) {
       0,
       Math.min(keyCount - 1, Math.round(Number(signal.keyIndex))),
     );
-    sounding = nodeGraphMidiKeyboardViewStartMidi(octave, keyCount) + keyIndex;
+    sounding = nodeGraphKeyboardViewStartMidiFor(nodeId) + keyIndex;
   }
   if (!Number.isFinite(sounding)) {
     return signal;
@@ -3383,6 +3521,10 @@ function bindNodeGraphMidiKeyboardScrubControls() {
 }
 
 function changeNodeGraphMidiKeyboardOctave(nodeId, delta) {
+  if (nodeGraphKeyboardPatchNode(nodeId)?.type === "keyboard") {
+    changeNodeGraphMidiKeyboardRange(nodeId, "octave", delta);
+    return;
+  }
   const current = nodeGraphKeyboardOctaveFor(nodeId);
   const octave = nodeGraphMidiKeyboardOctaveOffset(current + delta);
   if (octave === current || !writeNodeGraphKeyboardSettings(nodeId, { octave })) return;

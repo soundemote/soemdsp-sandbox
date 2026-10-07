@@ -77,7 +77,12 @@
     }
   `;
 
-  // Same Meet as TraceStroke.drawStereo: overlap = complement (red+blue→green).
+  // Meet maths come from the shared lib (trace-meet-glsl.js, loaded first):
+  // 2 layers: overlap = complement (red+blue→green).
+  // 3 layers: exclusive + pairwise meet + triple screen.
+  // Missing lib → the Meet programs fail to link and presentMeet* return false.
+  const MEET_GLSL = global.TraceMeetGlsl?.MEET_GLSL || "";
+
   const MEET_FRAG = `
     precision mediump float;
     varying vec2 vUv;
@@ -86,15 +91,13 @@
     uniform vec3 uLeftColor;
     uniform vec3 uRightColor;
     uniform vec3 uMeetColor;
+    ${MEET_GLSL}
     void main() {
       vec4 lt = texture2D(uLeft, vUv);
       vec4 rt = texture2D(uRight, vUv);
       float L = max(lt.r, max(lt.g, lt.b));
       float R = max(rt.r, max(rt.g, rt.b));
-      float m = min(L, R);
-      vec3 c = (L - m) * uLeftColor + (R - m) * uRightColor + m * uMeetColor;
-      float a = max(L, R);
-      gl_FragColor = vec4(c, a);
+      gl_FragColor = traceMeet2(L, R, uLeftColor, uRightColor, uMeetColor);
     }
   `;
 
@@ -174,24 +177,14 @@
     uniform vec3 uMeetAC;
     uniform vec3 uMeetBC;
     uniform vec3 uMeetAll;
+    ${MEET_GLSL}
     float cov(vec4 t) { return max(t.r, max(t.g, t.b)); }
     void main() {
-      float a = cov(texture2D(uA, vUv));
-      float b = cov(texture2D(uB, vUv));
-      float c = cov(texture2D(uC, vUv));
-      float ab = min(a, b);
-      float ac = min(a, c);
-      float bc = min(b, c);
-      float t = min(ab, c);
-      float onlyA = a - ab - ac + t;
-      float onlyB = b - ab - bc + t;
-      float onlyC = c - ac - bc + t;
-      vec3 rgb = onlyA * uColorA + onlyB * uColorB + onlyC * uColorC
-        + (ab - t) * uMeetAB + (ac - t) * uMeetAC + (bc - t) * uMeetBC
-        + t * uMeetAll;
-      float alpha = max(a, max(b, c));
-      if (alpha <= 0.001) discard;
-      gl_FragColor = vec4(rgb, alpha);
+      vec4 o = traceMeet3(
+        cov(texture2D(uA, vUv)), cov(texture2D(uB, vUv)), cov(texture2D(uC, vUv)),
+        uColorA, uColorB, uColorC, uMeetAB, uMeetAC, uMeetBC, uMeetAll);
+      if (o.a <= 0.001) discard;
+      gl_FragColor = o;
     }
   `;
 

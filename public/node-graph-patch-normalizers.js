@@ -50,7 +50,6 @@ function normalizeNodeGraphPatchInfo(info = {}) {
     description: String(info.description ?? "").trim(),
     emoji: nodeGraphOneLineText(info.emoji),
     program: Number.isFinite(program) ? Math.max(0, Math.min(127, program)) : 0,
-    tags: nodeGraphOneLineText(info.tags),
   };
 }
 

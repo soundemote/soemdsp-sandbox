@@ -17,6 +17,7 @@
   const MAX_DIM = 4096;
   const KEY = "_imageBurnGl";
 
+  const IMAGE_BURN_GL_REV = 2;
   let sharedDevice = null;
 
   function clamp01(v, fallback = 0) {
@@ -188,10 +189,26 @@
 
   // Present residual. Linear at ≤1 so Hang matches flash brightness;
   // soft-film only compresses HDR accumulate above 1.
+  // Present residual + optional dry flash (contrast in shader — no getImageData).
   const PRESENT_FRAG = `
     precision highp float;
     varying vec2 vUv;
     uniform sampler2D uResidual;
+    uniform sampler2D uDry;
+    uniform vec4 uDryRect;
+    uniform float uDryGain;
+    uniform float uDryContrast;
+    uniform float uUseDry;
+    vec3 applyContrast(vec3 c, float contrast) {
+      float amt = clamp(contrast, 0.0, 2.0) * 0.5;
+      if (amt < 1e-6) return c;
+      float luma = max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.0);
+      if (luma < 1e-6) return vec3(0.0);
+      float protect = smoothstep(0.28, 0.83, luma);
+      float crushed = pow(luma, 1.0 + amt * 4.5);
+      float newL = mix(crushed, luma, protect * protect);
+      return c * (newL / luma);
+    }
     void main() {
       vec3 raw = max(texture2D(uResidual, vUv).rgb, 0.0);
       vec3 outC = vec3(
@@ -199,6 +216,16 @@
         raw.g <= 1.0 ? raw.g : 1.0 + (raw.g - 1.0) / (1.0 + (raw.g - 1.0) * 0.35),
         raw.b <= 1.0 ? raw.b : 1.0 + (raw.b - 1.0) / (1.0 + (raw.b - 1.0) * 0.35)
       );
+      outC = clamp(outC, 0.0, 1.0);
+      if (uUseDry > 0.5 && uDryGain > 1e-5) {
+        vec2 local = (vUv - uDryRect.xy) / max(uDryRect.zw, vec2(1e-5));
+        if (local.x >= 0.0 && local.x <= 1.0 && local.y >= 0.0 && local.y <= 1.0) {
+          vec4 tex = texture2D(uDry, local);
+          vec3 dry = applyContrast(tex.rgb * tex.a, uDryContrast) * clamp(uDryGain, 0.0, 1.0);
+          // Screen composite (matches DrawDry composite "screen")
+          outC = 1.0 - (1.0 - outC) * (1.0 - dry);
+        }
+      }
       float a = clamp(max(max(outC.r, outC.g), outC.b), 0.0, 1.0);
       gl_FragColor = vec4(clamp(outC, 0.0, 1.0), a);
     }
@@ -340,7 +367,7 @@
   }
 
   function getSharedDevice() {
-    if (sharedDevice?.gl && !sharedDevice.gl.isContextLost()) {
+    if (sharedDevice?.gl && !sharedDevice.gl.isContextLost() && sharedDevice.rev === IMAGE_BURN_GL_REV) {
       return sharedDevice;
     }
     sharedDevice = null;
@@ -393,7 +420,13 @@
         program: presentProgram,
         aPos: gl.getAttribLocation(presentProgram, "aPos"),
         uResidual: gl.getUniformLocation(presentProgram, "uResidual"),
+        uDry: gl.getUniformLocation(presentProgram, "uDry"),
+        uDryRect: gl.getUniformLocation(presentProgram, "uDryRect"),
+        uDryGain: gl.getUniformLocation(presentProgram, "uDryGain"),
+        uDryContrast: gl.getUniformLocation(presentProgram, "uDryContrast"),
+        uUseDry: gl.getUniformLocation(presentProgram, "uUseDry"),
       },
+      rev: IMAGE_BURN_GL_REV,
       copy: {
         program: copyProgram,
         aPos: gl.getAttribLocation(copyProgram, "aPos"),
@@ -732,7 +765,7 @@
     return true;
   }
 
-  function presentTo(host, destCtx, width, height) {
+  function presentTo(host, destCtx, width, height, dryOpts = null) {
     const renderer = host?.[KEY];
     if (!renderer?.alive || !destCtx) return false;
     const { gl, device } = renderer;
@@ -740,6 +773,19 @@
     const destH = Math.max(1, Math.round(height) || renderer.height);
     const rw = renderer.width;
     const rh = renderer.height;
+
+    const dry = dryOpts && typeof dryOpts === "object" ? dryOpts : null;
+    const useDry = Boolean(
+      dry
+      && dry.gain > 1e-5
+      && (dry.texture || (dry.image && uploadImage(renderer, dry.image, dry.dataUrl || dry.image.src)))
+    );
+    if (useDry && dry.texture) {
+      renderer.imageNatW = Math.max(1, dry.width | 0 || renderer.imageNatW || 1);
+      renderer.imageNatH = Math.max(1, dry.height | 0 || renderer.imageNatH || 1);
+    }
+    const dryRect = useDry ? imageRectUv(renderer, dry.imageSize) : [0, 0, 1, 1];
+    const dryTex = useDry ? (dry.texture || renderer.imageTexture) : null;
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, rw, rh);
@@ -753,6 +799,14 @@
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, renderer.read.texture);
     gl.uniform1i(device.present.uResidual, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, dryTex || renderer.read.texture);
+    gl.uniform1i(device.present.uDry, 1);
+    gl.uniform4f(device.present.uDryRect, dryRect[0], dryRect[1], dryRect[2], dryRect[3]);
+    gl.uniform1f(device.present.uDryGain, useDry ? Math.max(0, Number(dry.gain) || 0) : 0);
+    const dc = Number(dry && dry.contrast);
+    gl.uniform1f(device.present.uDryContrast, Number.isFinite(dc) ? Math.max(0, Math.min(2, dc)) : 0);
+    gl.uniform1f(device.present.uUseDry, useDry ? 1 : 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     gl.disable(gl.SCISSOR_TEST);
 

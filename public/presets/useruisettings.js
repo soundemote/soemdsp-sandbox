@@ -161,7 +161,7 @@
       "ram": false,
       "gpu": false
     },
-    "tooltipEmbedded": false,
+    "tooltipEmbedded": true,
     "tooltipEmbedHeight": 61,
     "moduleButtonsVisible": false,
     "appChromeBarsVisible": true,

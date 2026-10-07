@@ -138,8 +138,6 @@ function syncNodeGraphSettingsView() {
   setNodeGraphSettingsField("nodePatchDefaultsAuthor", info.author);
   setNodeGraphSettingsField("patchEmojiValue", info.emoji);
   setNodeGraphSettingsField("nodePatchDefaultsEmoji", info.emoji);
-  setNodeGraphSettingsField("patchTagsValue", info.tags);
-  setNodeGraphSettingsField("nodePatchDefaultsTags", info.tags);
   setNodeGraphSettingsField("patchDescriptionValue", info.description);
   setNodeGraphSettingsField("nodePatchDefaultsDescription", info.description);
   if (typeof applyNodeGraphPatchFaceDisplay === "function") {
@@ -175,7 +173,6 @@ function readNodeGraphSettingsView() {
     description: nodeGraphPatchInfoFieldValue("description", "nodePatchDefaultsDescription", "patchDescriptionValue"),
     emoji: nodeGraphPatchInfoFieldValue("emoji", "nodePatchDefaultsEmoji", "patchEmojiValue"),
     program: nodeGraphPatchInfoFieldValue("program", "nodePatchDefaultsProgram", "patchProgramValue"),
-    tags: nodeGraphPatchInfoFieldValue("tags", "nodePatchDefaultsTags", "patchTagsValue"),
   });
 }
 

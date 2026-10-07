@@ -140,7 +140,9 @@ static double segment_value(
   } else if (shape == kShapeLog) {
     shaped = logarithmic_curve(p, contour);
   } else if (shape == kShapeHold) {
-    shaped = p >= 1.0 ? 1.0 : 0.0;
+    // Skew >= 0: hold left.y, jump at segment end (across x, then y).
+    // Skew < 0: jump to right.y at segment start, then hold (y, then across x).
+    shaped = contour < 0.0 ? (p > 0.0 ? 1.0 : 0.0) : (p >= 1.0 ? 1.0 : 0.0);
   } else if (shape == kShapeSmoothstep) {
     shaped = smoothstep_curve(p);
   } else if (shape == kShapeLinear) {
@@ -252,5 +254,5 @@ extern "C" double soemdsp_step_graph_sample(
 }
 
 extern "C" int soemdsp_step_graph_version() {
-  return 1;
+  return 2;
 }

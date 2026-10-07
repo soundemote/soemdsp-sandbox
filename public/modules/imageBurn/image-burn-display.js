@@ -496,7 +496,20 @@ function nodeGraphImageBurnDrawGl(face, ctx, w, h, opts) {
     nodeId: opts.nodeId,
     paused: opts.paused,
   });
-  return nodeGraphImageBurnGlPresentTo(face, ctx, w, h);
+  // Dry flash + contrast in present shader (no getImageData on hot path).
+  const dryOpts = opts.drawDry
+    ? {
+      image: opts.img,
+      texture: opts.textureIn?.texture || null,
+      width: opts.textureIn?.width,
+      height: opts.textureIn?.height,
+      dataUrl: opts.dataUrl,
+      imageSize: opts.imageSize,
+      gain: opts.lit,
+      contrast: opts.contrast,
+    }
+    : null;
+  return nodeGraphImageBurnGlPresentTo(face, ctx, w, h, dryOpts);
 }
 
 /** Fade buffer toward black by (1 - keep). keep 0 = wipe, 1 = freeze. */
@@ -956,6 +969,10 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
 
   // Residual via GL; dry flash screened in 2D after (Brightness never hides burn).
   const stampReady = imageReady || Boolean(textureIn?.texture);
+  // Always draw dry for current In energy so the face tracks the wire / Output
+  // in time. Hang residual is the trailing ghost underneath (Feedback path).
+  const drawDry = imageReady && lit > 1e-4;
+
   const usedGl = nodeGraphImageBurnDrawGl(face, ctx, w, h, {
     hang,
     burn,
@@ -970,23 +987,11 @@ function drawNodeGraphImageBurnFaceItem(renderer, item, pixelRatio) {
     dataUrl: settings.dataUrl,
     nodeId: slot.nodeId,
     paused,
+    drawDry,
   });
 
-  // Always draw dry for current In energy so the face tracks the wire / Output
-  // in time. Hang residual is the trailing ghost underneath (Feedback path).
-  const drawDry = imageReady && lit > 1e-4;
-
   if (usedGl) {
-    if (drawDry) {
-      nodeGraphImageBurnDrawDry(
-        ctx,
-        img,
-        size,
-        lit,
-        "screen",
-        contrast,
-      );
-    }
+    // Dry flash composited in GL present (contrast included).
   } else {
     const buf = nodeGraphImageBurnBuffers(face, w, h);
     const colorCtx = buf.color.getContext("2d");

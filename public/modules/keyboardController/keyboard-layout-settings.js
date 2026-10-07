@@ -61,8 +61,11 @@ function nodeGraphMidiKeyboardLayoutHostWidth(surface) {
   return Math.max(0, surface?.parentElement?.clientWidth || 0);
 }
 
-function nodeGraphPositionMidiKeyboardBlackKeys(surface, blackByIndex, totalWhite, blackW, whiteW, blackH, blackKeyHeightPercent, inModuleFace) {
-  const nW = Math.max(1, totalWhite);
+function nodeGraphPositionMidiKeyboardBlackKeys(surface, blackByIndex, totalWhite, blackW, whiteW, blackH, blackKeyHeightPercent, inModuleFace, pads = null) {
+  // pads: half-white beds past an edge black key (range starts / ends on black).
+  const leadPad = Math.max(0, Number(pads?.leadPad) || 0);
+  const trailPad = Math.max(0, Number(pads?.trailPad) || 0);
+  const nW = Math.max(1, totalWhite + leadPad + trailPad);
   const widthPct = Math.min(90 / nW, (blackW / Math.max(1, whiteW)) * (100 / nW));
   const halfPct = widthPct * 0.5;
   const widthText = `${widthPct}%`;
@@ -72,13 +75,13 @@ function nodeGraphPositionMidiKeyboardBlackKeys(surface, blackByIndex, totalWhit
       return;
     }
     const leftIdx = Number(key.leftWhiteIndex);
-    if (!(leftIdx >= 0)) {
+    if (!(leftIdx >= 0 || (leftIdx === -1 && leadPad > 0))) {
       if (span.style.display !== "none") {
         span.style.display = "none";
       }
       return;
     }
-    let centerPct = ((leftIdx + 1) / nW) * 100;
+    let centerPct = ((leftIdx + 1 + leadPad) / nW) * 100;
     centerPct = Math.max(halfPct, Math.min(100 - halfPct, centerPct));
     const leftText = `${centerPct}%`;
     if (span.style.display === "none") {
@@ -146,10 +149,12 @@ function applyNodeGraphMidiKeyboardLayoutBody() {
       ? nodeGraphMidiKeyboardGenerateKeys(nodeGraphKeyboardViewStartMidiFor(nodeId), nodeGraphKeyboardKeyCountFor(nodeId))
       : { blackKeys: [], totalWhite: 0 };
     const totalWhite = generated.totalWhite || 0;
+    const pads = { leadPad: generated.leadPad || 0, trailPad: generated.trailPad || 0 };
+    const totalUnits = totalWhite + pads.leadPad + pads.trailPad;
     const blackByIndex = new Map((generated.blackKeys || []).map((key) => [key.index, key]));
     const s = nodeGraphMidiKeyboardLayoutForSurface(surface);
     const available = nodeGraphMidiKeyboardLayoutHostWidth(surface);
-    const desired = totalWhite * s.whiteKeyWidth;
+    const desired = totalUnits * s.whiteKeyWidth;
     const inModuleFace = Boolean(surface.closest(
       ".dsp-node.keyboard-layout, .node-layout-canvas-tile, .node-screen-solo-stage, .node-metamodule-canvas-stage",
     ));
@@ -160,7 +165,7 @@ function applyNodeGraphMidiKeyboardLayoutBody() {
     const blackW = Math.max(1, Math.min(s.blackKeyWidth * scale, whiteW * 0.92));
     const pianoW = inModuleFace && available > 0
       ? available
-      : Math.max(0, totalWhite * whiteW);
+      : Math.max(0, totalUnits * whiteW);
     const surfaceH = Math.max(0, surface.clientHeight || 0);
     const layoutSig = [
       s.whiteKeyWidth,
@@ -173,6 +178,8 @@ function applyNodeGraphMidiKeyboardLayoutBody() {
       Math.round(available),
       Math.round(surfaceH),
       totalWhite,
+      pads.leadPad,
+      pads.trailPad,
     ].join(":");
     if (surface.dataset.midiLayoutSig === layoutSig) {
       const blackH = nodeGraphMidiKeyboardBlackKeyHeightPx(surfaceH, s.blackKeyHeight);
@@ -185,6 +192,7 @@ function applyNodeGraphMidiKeyboardLayoutBody() {
         blackH,
         s.blackKeyHeight,
         inModuleFace,
+        pads,
       );
       return;
     }
@@ -228,6 +236,10 @@ function applyNodeGraphMidiKeyboardLayoutBody() {
       whiteRow.style.gridTemplateColumns = totalWhite > 0
         ? (inModuleFace ? `repeat(${totalWhite}, minmax(0, 1fr))` : `repeat(${totalWhite}, ${whiteW}px)`)
         : "";
+      // Empty half-white bed before / after an edge black key (% of surface width).
+      const unitPct = totalUnits > 0 ? 100 / totalUnits : 0;
+      whiteRow.style.paddingLeft = pads.leadPad > 0 ? `${pads.leadPad * unitPct}%` : "";
+      whiteRow.style.paddingRight = pads.trailPad > 0 ? `${pads.trailPad * unitPct}%` : "";
     }
     // Black keys: geometry from key count only (not DOM measure, not octave).
     // N whites fill 100% width. Black sits on the joint after white[leftWhiteIndex],
@@ -246,6 +258,7 @@ function applyNodeGraphMidiKeyboardLayoutBody() {
       blackH,
       s.blackKeyHeight,
       inModuleFace,
+      pads,
     );
     const module = surface.closest(".node-midi-keyboard-module");
     if (module) {
@@ -297,6 +310,115 @@ function installNodeGraphMidiKeyboardLayoutResizeObserver() {
   });
 }
 
+// Display Settings > Range (piano Keyboard only): four Label [-][+] value
+// steppers in the app's shared GU stepper row (.scene-context-width-controls,
+// same as Module Settings Width). The keys' MIDI notes come from
+// lowMidi + keyCount (node-graph-view-controls.js); a step that would cross
+// MIDI 0 / 127 or the key-count limits is disabled, never half-applied.
+const nodeGraphKeyboardRangeRowSpecs = Object.freeze([
+  Object.freeze({ action: "octave", label: "Octave", downAria: "Shift all keys down one octave", upAria: "Shift all keys up one octave" }),
+  Object.freeze({ action: "semitone", label: "Semitone", downAria: "Shift all keys down one semitone", upAria: "Shift all keys up one semitone" }),
+  Object.freeze({ action: "bottom", label: "Keys at bottom", downAria: "Remove the lowest key", upAria: "Add a key below the lowest key" }),
+  Object.freeze({ action: "top", label: "Keys at top", downAria: "Remove the highest key", upAria: "Add a key above the highest key" }),
+]);
+
+function nodeGraphKeyboardRangeEscapeAttr(value) {
+  return String(value ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Values + enabled steps for one piano Keyboard's Range section (null = not a piano Keyboard). */
+function nodeGraphKeyboardRangeDisplayState(nodeId) {
+  const id = String(nodeId || "").trim();
+  const node = id && typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+  if (!node || node.type !== "keyboard"
+    || typeof nodeGraphKeyboardRangeFor !== "function"
+    || typeof nodeGraphMidiKeyboardRangeStep !== "function") {
+    return null;
+  }
+  const range = nodeGraphKeyboardRangeFor(id);
+  const high = range.low + range.count - 1;
+  const offsets = typeof nodeGraphKeyboardRangeOffsets === "function"
+    ? nodeGraphKeyboardRangeOffsets(range)
+    : { octave: 0, semitone: 0 };
+  const signed = (n) => `${n >= 0 ? "+" : "-"}${Math.abs(n)}`;
+  const name = (midi) => (typeof nodeGraphMidiKeyboardPitchLabel === "function" ? nodeGraphMidiKeyboardPitchLabel(midi) : String(midi));
+  const can = (action, direction) => Boolean(nodeGraphMidiKeyboardRangeStep(range, action, direction));
+  const offsetTitle = `Lowest key ${name(range.low)} (MIDI ${range.low}); offsets are from the default C0 (MIDI 24)`;
+  const row = (action, value, title) => ({ value, title, down: can(action, -1), up: can(action, 1) });
+  return {
+    nodeId: id,
+    summary: `Range \u00b7 ${range.count} keys \u00b7 MIDI ${range.low}\u2013${high}`,
+    rows: {
+      octave: row("octave", signed(offsets.octave), offsetTitle),
+      semitone: row("semitone", signed(offsets.semitone), offsetTitle),
+      bottom: row("bottom", name(range.low), `Lowest key ${name(range.low)} (MIDI ${range.low})`),
+      top: row("top", name(high), `Highest key ${name(high)} (MIDI ${high})`),
+    },
+  };
+}
+
+function buildNodeGraphKeyboardRangeDisplaySettingsHtml(nodeId) {
+  const state = nodeGraphKeyboardRangeDisplayState(nodeId);
+  if (!state) {
+    return "";
+  }
+  const esc = nodeGraphKeyboardRangeEscapeAttr;
+  const rows = nodeGraphKeyboardRangeRowSpecs.map((spec) => {
+    const r = state.rows[spec.action];
+    return `
+      <div class="scene-context-width-controls" data-midi-key-range-row="${spec.action}">
+        <span class="scene-context-gu-label">${esc(spec.label)}</span>
+        <button type="button" data-midi-key-range-step="${spec.action}" data-midi-key-range-dir="-1" aria-label="${esc(spec.downAria)}"${r.down ? "" : " disabled"}>-</button>
+        <button type="button" data-midi-key-range-step="${spec.action}" data-midi-key-range-dir="1" aria-label="${esc(spec.upAria)}"${r.up ? "" : " disabled"}>+</button>
+        <span class="scene-context-gu-value" data-midi-key-range-value="${spec.action}" title="${esc(r.title)}" aria-live="polite">${esc(r.value)}</span>
+      </div>`;
+  }).join("");
+  return `
+    <div class="metadata-field-section" data-midi-keyboard-range-settings data-midi-keyboard-range-node="${esc(state.nodeId)}">
+      <div class="metadata-section-title" data-midi-key-range-summary>${esc(state.summary)}</div>${rows}
+    </div>`;
+}
+
+function nodeGraphKeyboardRangeSectionNodeId(section) {
+  return String(
+    section?.closest?.("[data-display-settings-target-node]")?.dataset?.displaySettingsTargetNode
+    || section?.dataset?.midiKeyboardRangeNode
+    || "",
+  ).trim();
+}
+
+/** Refresh every open Range section (values, disabled limits) from its node. */
+function syncNodeGraphKeyboardRangeDisplaySettings(root = null) {
+  const scope = root && typeof root.querySelectorAll === "function"
+    ? root
+    : (typeof document !== "undefined" ? document : null);
+  if (!scope) {
+    return;
+  }
+  scope.querySelectorAll("[data-midi-keyboard-range-settings]").forEach((section) => {
+    const state = nodeGraphKeyboardRangeDisplayState(nodeGraphKeyboardRangeSectionNodeId(section));
+    if (!state) {
+      return;
+    }
+    const summary = section.querySelector("[data-midi-key-range-summary]");
+    if (summary && summary.textContent !== state.summary) {
+      summary.textContent = state.summary;
+    }
+    for (const spec of nodeGraphKeyboardRangeRowSpecs) {
+      const r = state.rows[spec.action];
+      const value = section.querySelector(`[data-midi-key-range-value="${spec.action}"]`);
+      if (value) {
+        if (value.textContent !== r.value) value.textContent = r.value;
+        if (value.getAttribute("title") !== r.title) value.setAttribute("title", r.title);
+      }
+      section.querySelectorAll(`[data-midi-key-range-step="${spec.action}"]`).forEach((button) => {
+        const allowed = Number(button.dataset.midiKeyRangeDir) > 0 ? r.up : r.down;
+        if (button.disabled === allowed) button.disabled = !allowed;
+      });
+    }
+  });
+}
+
 function buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml() {
   const nodeId = typeof nodeGraphMvp !== "undefined"
     ? String(nodeGraphMvp?.traceDisplaySettingsTargetNode || "").trim()
@@ -312,7 +434,7 @@ function buildNodeGraphKeyboardControllerFaceDisplaySettingsBodyHtml() {
   });
   // Module size is Width/Height in Module Settings (and Shift+arrows).
   // White width / keyboard height layout sliders removed — they no longer drive the face.
-  return `
+  return `${buildNodeGraphKeyboardRangeDisplaySettingsHtml(nodeId)}
     <div class="metadata-field-section" data-midi-keyboard-layout-settings>
       <div class="metadata-section-title">Keys</div>
       <label class="metadata-checkbox-label">
@@ -390,6 +512,22 @@ function bindNodeGraphKeyboardControllerFaceDisplaySettingsBody(host) {
       setNodeGraphPatchDirtyState("edited");
     }
   };
+  // Range steppers write lowMidi / keyCount straight onto the node (undoable)
+  // and re-render the keys; the form read above never touches them.
+  host.addEventListener("click", (event) => {
+    const button = event.target?.closest?.("[data-midi-key-range-step]");
+    if (!button || !host.contains(button) || button.disabled) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const section = button.closest("[data-midi-keyboard-range-settings]");
+    const nodeId = nodeGraphKeyboardRangeSectionNodeId(section);
+    if (nodeId && typeof changeNodeGraphMidiKeyboardRange === "function") {
+      changeNodeGraphMidiKeyboardRange(nodeId, button.dataset.midiKeyRangeStep, Number(button.dataset.midiKeyRangeDir));
+    }
+    syncNodeGraphKeyboardRangeDisplaySettings(host);
+  });
   host.addEventListener("input", (event) => {
     if (event.target?.matches?.("[data-midi-key-layout]")) {
       commit(false);

@@ -187,25 +187,25 @@ docs/ACID_SEQUENCER_PLAN.md
 
 ## Kick (SweepKicker)
 
-**Status:** planned, not started. Plan in `docs/KICK_PLAN.md` (2026-10-06, owner SandyModules). Do not build until Argi says go.
+**Status:** built as **Robin Sinepulse** (`robinSinepulse`, graph type 205, `native_modules/robin_sinepulse/`), local and uncommitted (Argi, 2026-10-06: "add SweepKicker as Robin Sinepulse"). Plan in `docs/KICK_PLAN.md` (2026-10-06, owner SandyModules). Trigger only, no Reset: Trigger hard-resets the phase and restarts the sweep and envelope (Argi, 2026-10-06).
 
-**Direction:** New drum module **Kick** (`kick`) built on Robin Schmidt's SweepKicker (RS-MET `rosic::rsSweepKicker`), used with Robin's permission (2026-10-06, quoted in the plan). One oscillator whose frequency falls along Robin's rational sweep law (High Freq → Low Freq, Sweep Time, Chirp, Chirp Shape), with Robin's Wave / Wave Shape / Phase. Trigger ⎍ and Reset ↺ in; Kick and Env out. Decay (T60) is a sandbox addition (SweepKicker has no amp envelope), kept by Argi on 2026-10-06; it drives Env and the Kick amplitude. Trigger restarts the sweep and envelope without zeroing the oscillator phase; only Reset ↺ resets the phase (Argi, 2026-10-06). Parity test against Robin's own class. Robin's FlatZapper (allpass-chain "zap") is not part of the Kick; it has its own seed (§Flat Zapper). Native C++/WASM only, no JS DSP, no shims.
+**Direction:** New drum module **Robin Sinepulse** (`robinSinepulse`; planned as Kick) built on Robin Schmidt's SweepKicker (RS-MET `rosic::rsSweepKicker`), used with Robin's permission (2026-10-06, quoted in the plan). One oscillator whose frequency falls along Robin's rational sweep law (High Freq → Low Freq, Sweep Time, Chirp, Chirp Shape), with Robin's Wave / Wave Shape / Phase. Trigger ⎍ in; Kick and Env out. Decay (T60) is a sandbox addition (SweepKicker has no amp envelope), kept by Argi on 2026-10-06; it drives Env and the Kick amplitude. Trigger hard-resets the oscillator phase and restarts the sweep and envelope; no Reset (Argi, 2026-10-06). Parity test against Robin's own class. Robin's FlatZapper (allpass-chain "zap") is not part of the Kick; it has its own seed (§Flat Zapper). Native C++/WASM only, no JS DSP, no shims.
 
 **Removal (done 2026-10-06):** Sinepulse, Sine Kick, Kick Envelope, the `electroSnare` placeholder and `electroKick` were removed (`docs/BUG_PLAN.md` C-002; file list in `docs/KICK_PLAN.md` → Removal). Local, uncommitted.
 
-**Decided (Argi, 2026-10-06):** Decay kept; Trigger keeps the phase and Reset ↺ is the only phase reset; Kick and Electro Kick are separate modules; Flat Zapper is its own seed.
+**Decided (Argi, 2026-10-06):** Decay kept; Trigger only (hard-resets the phase), no Reset; Kick and Electro Kick are separate modules; Flat Zapper is its own module (Robin Sinepulse Allpass).
 
 **Still open:** permission scope, latching, velocity, units, stereo. See the plan's Open questions.
 
 ## Flat Zapper
 
-**Status:** seed only (Argi, 2026-10-06). Details, proposed params and measured cost in `docs/KICK_PLAN.md` → Flat Zapper module (seed). Do not build until Argi says go.
+**Status:** built as **Robin Sinepulse Allpass** (`robinSinepulseAllpass`, graph type 206, `native_modules/robin_sinepulse_allpass/`), local and uncommitted (Argi, 2026-10-06: "add module rsFlatZapper as Robin Sinepulse Allpass"). A separate module (Phase Disperse unchanged), no Reset jack, no brown post-filter in v1, default 50 stages. Details and measured cost in `docs/KICK_PLAN.md` → Flat Zapper module (seed).
 
 **Direction:** A module built on Robin Schmidt's `rsFlatZapper` (RS-MET, used with his permission): a chain of 0–256 allpass stages (one-pole or biquad) tuned from Low Freq to High Freq along a shape curve. **Trigger ⎍** fires an internal impulse, which comes out as a flat-spectrum (white) falling zap. An **audio input** feeds anything through the same dispersion chain (a disperser / smear). Out = Amplitude × (Mix × chain + (1 − Mix) × dry). Proposed params: Stages, Mode (`onePole` / `biquad`, stored by name), Low Freq, High Freq, Freq Shape, Low Q, High Q, Q Shape, Impulse, Input, Mix, Amplitude. Native C++/WASM only, no JS DSP, no shims.
 
 **Cost (measured on the box, native clang -O2):** the serial chain costs ≈ 2.3–2.7 ns per stage per sample in either mode (latency-bound). 50 biquad stages ≈ 110 ns/sample (≈ 1.25 × a SweepKicker voice at ≈ 90 ns); 256 stages ≈ 640–690 ns (≈ 7 ×); ≈ 300 ns at 256 stages with stage-major block processing.
 
-**Still open:** a separate module (proposed) or a mode / input of the shipped Phase Disperse (up to 64 identical biquads, one Frequency + Pinch, no Trigger); Robin's brown post-filter as a Tone choice; a Reset jack; default stage count (proposed 50).
+**Still open:** Robin's brown post-filter as a Tone choice (left out of v1).
 
 ## Electro Kick
 
@@ -225,7 +225,7 @@ docs/ACID_SEQUENCER_PLAN.md
 
 Not added: an FM kick (no single documented reference design) and the 909's sampled cousins (LinnDrum / DMX kicks are samples).
 
-**Decided (Argi, 2026-10-06): Electro Kick and Kick (SweepKicker) are separate modules.** Kick keeps Robin's full parameter set (`docs/KICK_PLAN.md`); SweepKicker is not an Electro Kick algorithm. Electro Kick covers the classic machines.
+**Decided (Argi, 2026-10-06): Electro Kick and Kick (SweepKicker) are separate modules.** Kick keeps Robin's full parameter set (`docs/KICK_PLAN.md`); SweepKicker is not an Electro Kick algorithm. Electro Kick will be our common kick algorithms (Argi, 2026-10-06): the classic machines.
 
 **Still open:** final param list (is Bend Time shared or fixed per algorithm, like the snare's bend time?), default algorithm, Click on 808 (stock has none beyond the pulse), velocity (the 808 Service Notes tie the attack jump to accent; height is velocity, proposed), Env definition (proposed: overall amp envelope, as Electro Snare).
 

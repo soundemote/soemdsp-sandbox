@@ -26,7 +26,7 @@
 
   const STORAGE_KEY = "soemdsp-sandbox.roomDimmer.v1";
   const MAX_RECTS = 128;
-  const SHADER_REV = 15;
+  const SHADER_REV = 16;
   // Inset punch by this many CSS px so 1px borders / AA don't open chrome.
   const PUNCH_INSET_CSS = 1.25;
 
@@ -60,15 +60,14 @@ precision mediump float;
 uniform float uDim;
 uniform vec2 uCanvasPx;
 uniform int uRectCount;
-uniform vec4 uRect[${MAX_RECTS}];
-uniform float uRectStr[${MAX_RECTS}];
-// Soft edge / corner radius in CSS pixels (isotropic). 0 ≈ 0.6px AA.
-uniform float uRectSoft[${MAX_RECTS}];
-uniform float uRectRound[${MAX_RECTS}];
+// Packed light rects: row0 = xywh (UV), row1 = strength/soft/round/pad.
+// Avoids ~512 uniforms that fail to link on low-end / mobile GPUs.
+uniform sampler2D uRectTex;
+uniform float uRectTexSize; // = MAX_RECTS
+uniform float uBytePack; // 1 = RGBA8 soft/round decode (value/128)
 
 varying vec2 vUv;
 
-// Rounded box SDF in CSS-pixel space (r = xy min, zw size in UV).
 float roundedBoxSdfPx(vec2 pPx, vec4 rUv, float rrPx) {
   vec2 scale = max(uCanvasPx, vec2(1.0));
   vec4 r = vec4(rUv.xy * scale, rUv.zw * scale);
@@ -79,22 +78,33 @@ float roundedBoxSdfPx(vec2 pPx, vec4 rUv, float rrPx) {
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rad;
 }
 
+vec4 rectAt(int i) {
+  float u = (float(i) + 0.5) / max(uRectTexSize, 1.0);
+  return texture2D(uRectTex, vec2(u, 0.25));
+}
+
+vec4 metaAt(int i) {
+  float u = (float(i) + 0.5) / max(uRectTexSize, 1.0);
+  return texture2D(uRectTex, vec2(u, 0.75));
+}
+
 void main() {
-  // Dim is a true 0…1 gain: 0 = no veil, 1 = pure black outside holes.
   float veil = clamp(uDim, 0.0, 1.0);
   vec2 pPx = vUv * max(uCanvasPx, vec2(1.0));
 
-  // open = 1 → full hole (nothing of the veil over this pixel).
   float open = 0.0;
   for (int i = 0; i < ${MAX_RECTS}; i++) {
     if (i >= uRectCount) break;
-    float s = clamp(uRectStr[i], 0.0, 1.0);
+    vec4 meta = metaAt(i);
+    float s = clamp(meta.x, 0.0, 1.0);
     if (s < 0.001) continue;
-    float d = roundedBoxSdfPx(pPx, uRect[i], uRectRound[i]);
-    float soft = uRectSoft[i];
+    vec4 rUv = rectAt(i);
+    // Float pack: soft/round raw CSS px. Byte pack: stored as value/128.
+    float soft = uBytePack > 0.5 ? meta.y * 128.0 : meta.y;
+    float rr = uBytePack > 0.5 ? meta.z * 128.0 : meta.z;
+    float d = roundedBoxSdfPx(pPx, rUv, rr);
     float inside;
     if (soft < 0.0) {
-      // Screen: fully open on the glass (d<=0). Smoothstep *outward* only.
       float bloom = max(-soft, 1.0);
       float t = clamp(max(d, 0.0) / bloom, 0.0, 1.0);
       float s1 = t * t * (3.0 - 2.0 * t);
@@ -109,8 +119,6 @@ void main() {
   }
   open = clamp(open, 0.0, 1.0);
 
-  // Full range: veil=1 and open=0 → alpha 1 (pure darkness).
-  // veil=1 and open=1 → alpha 0 (screen fully visible).
   float roomA = veil * (1.0 - open);
   gl_FragColor = vec4(0.0, 0.0, 0.0, roomA);
 }
@@ -123,6 +131,9 @@ void main() {
     programRev: 0,
     buffer: null,
     locs: null,
+    rectTex: null,
+    rectTexData: null,
+    floatTex: false,
     raf: 0,
     drag: null,
     persistTimer: 0,
@@ -329,19 +340,42 @@ void main() {
     state.gl = gl;
     state.program = prog;
     state.programRev = SHADER_REV;
+    // Prefer float rect texture (exact UV). Fall back to RGBA8 encode if needed.
+    const floatExt = gl.getExtension("OES_texture_float");
+    state.floatTex = Boolean(floatExt);
+    if (state.rectTex) {
+      try { gl.deleteTexture(state.rectTex); } catch { /* ignore */ }
+      state.rectTex = null;
+    }
+    const rectTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, rectTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (state.floatTex) {
+      state.rectTexData = new Float32Array(MAX_RECTS * 2 * 4);
+      gl.texImage2D(
+        gl.TEXTURE_2D, 0, gl.RGBA, MAX_RECTS, 2, 0,
+        gl.RGBA, gl.FLOAT, state.rectTexData,
+      );
+    } else {
+      state.rectTexData = new Uint8Array(MAX_RECTS * 2 * 4);
+      gl.texImage2D(
+        gl.TEXTURE_2D, 0, gl.RGBA, MAX_RECTS, 2, 0,
+        gl.RGBA, gl.UNSIGNED_BYTE, state.rectTexData,
+      );
+    }
+    state.rectTex = rectTex;
+
     state.locs = {
       aPos: gl.getAttribLocation(prog, "aPos"),
       uDim: gl.getUniformLocation(prog, "uDim"),
       uCanvasPx: gl.getUniformLocation(prog, "uCanvasPx"),
       uRectCount: gl.getUniformLocation(prog, "uRectCount"),
-      uRect: Array.from({ length: MAX_RECTS }, (_, i) =>
-        gl.getUniformLocation(prog, `uRect[${i}]`)),
-      uRectStr: Array.from({ length: MAX_RECTS }, (_, i) =>
-        gl.getUniformLocation(prog, `uRectStr[${i}]`)),
-      uRectSoft: Array.from({ length: MAX_RECTS }, (_, i) =>
-        gl.getUniformLocation(prog, `uRectSoft[${i}]`)),
-      uRectRound: Array.from({ length: MAX_RECTS }, (_, i) =>
-        gl.getUniformLocation(prog, `uRectRound[${i}]`)),
+      uRectTex: gl.getUniformLocation(prog, "uRectTex"),
+      uRectTexSize: gl.getUniformLocation(prog, "uRectTexSize"),
+      uBytePack: gl.getUniformLocation(prog, "uBytePack"),
     };
     return gl;
   }
@@ -706,13 +740,61 @@ void main() {
       gl.uniform2f(locs.uCanvasPx, Math.max(1, cr.width || canvas.width), Math.max(1, cr.height || canvas.height));
     }
     gl.uniform1i(locs.uRectCount, rects.length);
+    if (locs.uRectTexSize) gl.uniform1f(locs.uRectTexSize, MAX_RECTS);
+    if (locs.uBytePack) gl.uniform1f(locs.uBytePack, state.floatTex ? 0.0 : 1.0);
 
-    for (let i = 0; i < MAX_RECTS; i += 1) {
-      const r = rects[i] || [0, 0, 0, 0];
-      if (locs.uRect[i]) gl.uniform4f(locs.uRect[i], r[0], r[1], r[2], r[3]);
-      if (locs.uRectStr[i]) gl.uniform1f(locs.uRectStr[i], rectStr[i] || 0);
-      if (locs.uRectSoft?.[i]) gl.uniform1f(locs.uRectSoft[i], rectSoft?.[i] || 0);
-      if (locs.uRectRound?.[i]) gl.uniform1f(locs.uRectRound[i], rectRound?.[i] || 0);
+    // Pack rects into data texture (row0 xywh UV, row1 strength/soft/round).
+    const data = state.rectTexData;
+    if (data && state.rectTex) {
+      if (state.floatTex) {
+        data.fill(0);
+        for (let i = 0; i < MAX_RECTS; i += 1) {
+          const r = rects[i] || [0, 0, 0, 0];
+          const o0 = i * 4;
+          data[o0] = r[0] || 0;
+          data[o0 + 1] = r[1] || 0;
+          data[o0 + 2] = r[2] || 0;
+          data[o0 + 3] = r[3] || 0;
+          const o1 = (MAX_RECTS + i) * 4;
+          data[o1] = rectStr[i] || 0;
+          data[o1 + 1] = rectSoft?.[i] || 0;
+          data[o1 + 2] = rectRound?.[i] || 0;
+          data[o1 + 3] = 0;
+        }
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, state.rectTex);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        gl.texSubImage2D(
+          gl.TEXTURE_2D, 0, 0, 0, MAX_RECTS, 2,
+          gl.RGBA, gl.FLOAT, data,
+        );
+      } else {
+        // RGBA8 fallback: UV 0..1; soft/round CSS px as v/128.
+        data.fill(0);
+        const enc01 = (v) => Math.max(0, Math.min(255, Math.round((Number(v) || 0) * 255)));
+        const encPx128 = (v) => Math.max(0, Math.min(255, Math.round((Number(v) || 0) / 128 * 255)));
+        for (let i = 0; i < MAX_RECTS; i += 1) {
+          const r = rects[i] || [0, 0, 0, 0];
+          const o0 = i * 4;
+          data[o0] = enc01(r[0]);
+          data[o0 + 1] = enc01(r[1]);
+          data[o0 + 2] = enc01(r[2]);
+          data[o0 + 3] = enc01(r[3]);
+          const o1 = (MAX_RECTS + i) * 4;
+          data[o1] = enc01(rectStr[i]);
+          data[o1 + 1] = encPx128(rectSoft?.[i]);
+          data[o1 + 2] = encPx128(rectRound?.[i]);
+          data[o1 + 3] = 0;
+        }
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, state.rectTex);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        gl.texSubImage2D(
+          gl.TEXTURE_2D, 0, 0, 0, MAX_RECTS, 2,
+          gl.RGBA, gl.UNSIGNED_BYTE, data,
+        );
+      }
+      if (locs.uRectTex) gl.uniform1i(locs.uRectTex, 0);
     }
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);

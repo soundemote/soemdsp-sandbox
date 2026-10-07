@@ -152,6 +152,8 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_TYPE_IDS = Object.freeze({
   linearAttackRelease: 164,
   pingEnvelope: 165,
   powerDecay: 204,
+  robinSinepulse: 205,
+  robinSinepulseAllpass: 206,
   curveAttackRelease: 166,
   pluckEnvelope: 198,
   acidSequencer: 199,
@@ -637,6 +639,11 @@ NodeLiveAudioProcessor.prototype.mapNativeGraphSrcPortId = function mapNativeGra
     if (p === "mix") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
     if (p === "out1") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
     if (p === "out2") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_RIGHT;
+  }
+  // Robin Sinepulse: Kick audio on Mono, Env (Decay envelope) on Left.
+  if (t === "robinSinepulse") {
+    if (p === "kick") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_MONO;
+    if (p === "env") return NodeLiveAudioProcessor.NATIVE_GRAPH_PORT_LEFT;
   }
   // Yellow Graph chunk — never collapse to Mono.
   if (p === "graph") {
@@ -2591,6 +2598,7 @@ NodeLiveAudioProcessor.NATIVE_GRAPH_DISCRETE_PARAMS = Object.freeze({
   delayMode: true,
   stepLength: true,
   semitoneOffset: true,
+  wave: true, // Robin Sinepulse Wave (choiceId)
 });
 
 /**
@@ -5404,6 +5412,42 @@ NodeLiveAudioProcessor.prototype.syncNativeGraphParams = function syncNativeGrap
       // timeDenominator=decayTime s, shape=power, amplitude.
       push("decayTime", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("decayTime", 1));
       push("power", P.NATIVE_GRAPH_PARAM_SHAPE, cont("power", 2));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "robinSinepulse") {
+      // Robin Schmidt's SweepKicker: frequency=highFreq, center=lowFreq,
+      // timeNumerator=sweepTime, shape=chirp, width=chirpShape, mix=waveShape,
+      // phase=phase (cycles), timeDenominator=decay, amplitude.
+      // waveform = Wave choiceId (0 sine / 1 sinFatSaw / 2 triSaw); main thread resolves choiceKeys.
+      push("highFreq", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("highFreq", 10000));
+      push("lowFreq", P.NATIVE_GRAPH_PARAM_CENTER, cont("lowFreq", 0));
+      push("sweepTime", P.NATIVE_GRAPH_PARAM_TIME_NUMERATOR, cont("sweepTime", 0.2));
+      push("chirp", P.NATIVE_GRAPH_PARAM_SHAPE, cont("chirp", 0));
+      push("chirpShape", P.NATIVE_GRAPH_PARAM_WIDTH, cont("chirpShape", 0));
+      push("wave", P.NATIVE_GRAPH_PARAM_WAVEFORM, disc("wave", 0));
+      push("waveShape", P.NATIVE_GRAPH_PARAM_MIX, cont("waveShape", 0));
+      push("phase", P.NATIVE_GRAPH_PARAM_PHASE, cont("phase", 0));
+      push("decay", P.NATIVE_GRAPH_PARAM_TIME_DENOMINATOR, cont("decay", 0.5));
+      push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
+      continue;
+    }
+    if (type === "robinSinepulseAllpass") {
+      // Robin Schmidt's rsFlatZapper: stages, mode = choiceId (0 onePole /
+      // 1 biquad; main thread resolves choiceKeys), center=lowFreq,
+      // frequency=highFreq, shape=freqShape, resonance=lowQ, width=highQ,
+      // offset=qShape, level=impulse, feedback=input, mix, amplitude.
+      push("stages", P.NATIVE_GRAPH_PARAM_STAGES, cont("stages", 50));
+      push("mode", P.NATIVE_GRAPH_PARAM_MODE, disc("mode", 1));
+      push("lowFreq", P.NATIVE_GRAPH_PARAM_CENTER, cont("lowFreq", 15));
+      push("highFreq", P.NATIVE_GRAPH_PARAM_FREQUENCY, cont("highFreq", 8000));
+      push("freqShape", P.NATIVE_GRAPH_PARAM_SHAPE, cont("freqShape", 0));
+      push("lowQ", P.NATIVE_GRAPH_PARAM_RESONANCE, cont("lowQ", 1));
+      push("highQ", P.NATIVE_GRAPH_PARAM_WIDTH, cont("highQ", 1));
+      push("qShape", P.NATIVE_GRAPH_PARAM_ATT_OFFSET, cont("qShape", 0));
+      push("impulse", P.NATIVE_GRAPH_PARAM_LEVEL, cont("impulse", 1));
+      push("input", P.NATIVE_GRAPH_PARAM_FEEDBACK, cont("input", 1));
+      push("mix", P.NATIVE_GRAPH_PARAM_MIX, cont("mix", 1));
       push("amplitude", P.NATIVE_GRAPH_PARAM_AMPLITUDE, cont("amplitude", 1));
       continue;
     }
@@ -8305,10 +8349,12 @@ NodeLiveAudioProcessor.prototype.nativeGraphPortNames = function nativeGraphPort
     if (type === "xyPad") return ["X", "Out", "Mono"];
     if (type === "theremin") return ["Wave", "Out", "Mono"];
     if (type === "vibratoGenerator") return ["Wave", "Out", "Mono"];
+    if (type === "robinSinepulse") return ["Kick"];
     return ["Out", "Mono", "In"];
   }
   if (portId === P.NATIVE_GRAPH_PORT_LEFT) {
     if (type === "acidSequencer") return ["Trigger"];
+    if (type === "robinSinepulse") return ["Env"];
     if (type === "sampleHold") return ["Left"];
     if (type === "rasterRgb") return ["G"];
     if (type === "fractalBrownianNoise") {

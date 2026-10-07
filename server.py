@@ -745,7 +745,6 @@ class SandboxServer(BaseHTTPRequestHandler):
                         "bankName": str(info.get("bankName") or ""),
                         "name": str(info.get("name") or path.stem),
                         "program": program,
-                        "tags": str(info.get("tags") or ""),
                         "bytes": stat.st_size,
                         "modifiedUtc": datetime.fromtimestamp(
                             stat.st_mtime,
@@ -790,8 +789,7 @@ class SandboxServer(BaseHTTPRequestHandler):
         info["program"] = program
         payload["info"] = info
         title = str(info.get("name") or "soemdsp-patch")
-        tag = str(info.get("tags") or "").strip()
-        safe_title = self.safe_filename_part("-".join(part for part in (title, tag) if part))
+        safe_title = self.safe_filename_part(title)
         filename = f"bank{bank:03d}-program{program:03d}-{safe_title or 'soemdsp-patch'}.json"
         try:
             SAVED_PATCHES.mkdir(parents=True, exist_ok=True)

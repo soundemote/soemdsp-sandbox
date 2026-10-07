@@ -839,6 +839,16 @@ export class SoundColorWidget {
     }
     const w = Math.max(2, Math.round(plane.clientWidth || 1));
     const h = Math.max(2, Math.round(plane.clientHeight || 1));
+    const hue = this.channels === "bw" ? 0 : this.color.h;
+    // Shared picture-device fullscreen quad (HSL/HSV from UV + hue). Canvas2D fallback below.
+    if (
+      typeof globalThis !== "undefined"
+      && globalThis.ColorWidgetPlaneGl
+      && typeof globalThis.ColorWidgetPlaneGl.paint === "function"
+      && globalThis.ColorWidgetPlaneGl.paint(canvas, w, h, hue, this.channels)
+    ) {
+      return;
+    }
     if (canvas.width !== w) canvas.width = w;
     if (canvas.height !== h) canvas.height = h;
     const ctx = canvas.getContext("2d");
@@ -847,7 +857,6 @@ export class SoundColorWidget {
     }
     const img = ctx.createImageData(w, h);
     const data = img.data;
-    const hue = this.channels === "bw" ? 0 : this.color.h;
     for (let y = 0; y < h; y += 1) {
       const v = 1 - y / Math.max(1, h - 1);
       for (let x = 0; x < w; x += 1) {

@@ -616,6 +616,24 @@ function nodeGraphWaterfallStampColumnFills(canvas, x, spans, mode, stampComposi
   }
   const left = spans[0];
   const right = spans[1];
+  // Both channels: one GPU draw, the meet colour picked per pixel by the
+  // shared Meet GLSL (trace-meet-glsl.js). The stamps below stay as the
+  // path when that shader is missing.
+  if (left.ys && right.ys && typeof nodeGraphWaterfallGlStampMeetColumn === "function") {
+    const meetParts = nodeGraphWaterfallRightOnlySpans(left.ys, right.ys);
+    if (nodeGraphWaterfallGlStampMeetColumn(
+      canvas,
+      x,
+      left.ys,
+      left.prevEdge,
+      meetParts,
+      left.rgb,
+      right.rgb,
+      nodeGraphWaterfallMeetRgb(left.rgb, right.rgb),
+    )) {
+      return;
+    }
+  }
   if (left.ys) {
     nodeGraphWaterfallStampFilledSpan(canvas, x, left.ys, left.prevEdge, true, left.rgb, "source-over");
   }

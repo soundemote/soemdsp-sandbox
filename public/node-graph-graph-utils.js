@@ -923,7 +923,8 @@ function nodeGraphGraphLegacySegmentShape(p, right, options = {}) {
     return nodeGraphGraphLogarithmicCurve(p, contour);
   }
   if (shape === "hold") {
-    return p >= 1 ? 1 : 0;
+    // Skew < 0 mirrors hold: jump to right.y at segment start, then hold.
+    return contour < 0 ? (p > 0 ? 1 : 0) : (p >= 1 ? 1 : 0);
   }
   if (shape === "smoothstep" || shape === "smooth") {
     return nodeGraphGraphSmoothCurve(p);

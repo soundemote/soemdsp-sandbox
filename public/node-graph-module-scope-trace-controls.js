@@ -228,6 +228,8 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "digitBins",
     "decimalBudget",
     "removeTrailingZeros",
+    "showMinus",
+    "showPlus",
     "squareRatio",
     "rotate90",
     "sliderShowLabel",
@@ -524,7 +526,14 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     ]),
     colors: Object.freeze(["backgroundColor", "dot1Color"]),
     // GROW: live resize vs fixed Digits+Decimals bins (stored as !decimalBudget).
-    toggles: Object.freeze(["digitBins", "decimalBudget", "removeTrailingZeros"]),
+    // showMinus / showPlus replace the old polarity bipolar/unipolar choice.
+    toggles: Object.freeze([
+      "digitBins",
+      "decimalBudget",
+      "removeTrailingZeros",
+      "showMinus",
+      "showPlus",
+    ]),
     choices: Object.freeze([]),
   }),
   // LED lamp: same shared display inspector as other faces (not a separate window).
@@ -902,7 +911,6 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "showProgram",
       "showBankName",
       "showCategory",
-      "showTags",
       "showAuthor",
       "showDescription",
     ]),
@@ -1047,6 +1055,8 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "digitBins",
       "decimalBudget",
       "removeTrailingZeros",
+      "showMinus",
+      "showPlus",
       "rotate90",
       "squareRatio",
     ]),
@@ -1835,11 +1845,6 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     id: "nodeTraceDisplayShowPatchCategory",
     title: "Show the patch category on the Patch plate.",
   }),
-  showTags: Object.freeze({
-    label: "Tags",
-    id: "nodeTraceDisplayShowPatchTags",
-    title: "Show tags on the Patch plate.",
-  }),
   showAuthor: Object.freeze({
     label: "Author",
     id: "nodeTraceDisplayShowPatchAuthor",
@@ -1868,6 +1873,16 @@ const nodeGraphDisplaySettingsToggleMeta = Object.freeze({
     label: "No pad 0",
     id: "nodeTraceDisplayRemoveTrailingZeros",
     title: "When on, do not zero-pad the fractional part (1.5 stays 1.5, not 1.50).",
+  }),
+  showMinus: Object.freeze({
+    label: "Show −",
+    id: "nodeTraceDisplayShowMinus",
+    title: "Show a minus for negative values. With Show + or alone, reserves a sign column so digits do not jump.",
+  }),
+  showPlus: Object.freeze({
+    label: "Show +",
+    id: "nodeTraceDisplayShowPlus",
+    title: "Show a plus for positive values. With Show − or alone, reserves a sign column so digits do not jump. Neither checked = no sign gutter, centered digits.",
   }),
 });
 

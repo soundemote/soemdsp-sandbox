@@ -3,7 +3,6 @@ const nodeGraphPatchFaceFieldKeys = Object.freeze([
   "program",
   "bankName",
   "category",
-  "tags",
   "author",
   "description",
 ]);
@@ -13,7 +12,6 @@ const nodeGraphPatchFaceDisplaySettingsDefaults = Object.freeze({
   showProgram: true,
   showBankName: true,
   showCategory: true,
-  showTags: true,
   showAuthor: true,
   showDescription: true,
   background: "#0a0c0e",
@@ -50,7 +48,6 @@ function normalizeNodeGraphPatchFaceDisplaySettings(settings = {}) {
     showProgram: flag("showProgram"),
     showBankName: flag("showBankName"),
     showCategory: flag("showCategory"),
-    showTags: flag("showTags"),
     showAuthor: flag("showAuthor"),
     showDescription: flag("showDescription"),
     background,
@@ -71,7 +68,6 @@ function nodeGraphPatchInfoFieldVisibility(settings) {
     program: s.showProgram,
     bankName: s.showBankName,
     category: s.showCategory,
-    tags: s.showTags,
     author: s.showAuthor,
     description: s.showDescription,
   };
@@ -137,10 +133,6 @@ function createNodeGraphPatchFace(node, type) {
         <label class="node-patch-field node-patch-field-span-2">
           <span>Category</span>
           <input id="patchCategoryValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field="category" placeholder="Category">
-        </label>
-        <label class="node-patch-field node-patch-field-span-2">
-          <span>Tags</span>
-          <input id="patchTagsValue" type="text" autocomplete="off" spellcheck="false" data-patch-info-field="tags" placeholder="tag1, tag2">
         </label>
         <label class="node-patch-field node-patch-field-span-2">
           <span>Author</span>

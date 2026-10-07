@@ -117,7 +117,6 @@ async function loadNodeGraphPagePatchCatalog() {
             folder,
             url: String(entry?.url || nodeGraphPagesPatchFileUrl(slug, base)),
             author: String(entry?.author || "").trim(),
-            tags: String(entry?.tags || "").trim(),
             emoji: String(entry?.emoji || "").trim(),
           };
         })
@@ -257,22 +256,13 @@ async function renderNodeGraphPagesList() {
     title.textContent = (emoji ? `${emoji} ` : "") + label;
     main.append(title);
     const author = String(entry.author || "").trim();
-    const tags = String(entry.tags || "").trim();
-    if (author || tags) {
+    if (author) {
       const meta = document.createElement("span");
       meta.className = "node-pages-entry-meta";
-      if (author) {
-        const authorEl = document.createElement("span");
-        authorEl.className = "node-pages-entry-author";
-        authorEl.textContent = author;
-        meta.append(authorEl);
-      }
-      if (tags) {
-        const tagsEl = document.createElement("span");
-        tagsEl.className = "node-pages-entry-tags";
-        tagsEl.textContent = tags;
-        meta.append(tagsEl);
-      }
+      const authorEl = document.createElement("span");
+      authorEl.className = "node-pages-entry-author";
+      authorEl.textContent = author;
+      meta.append(authorEl);
       main.append(meta);
     }
     button.append(main);

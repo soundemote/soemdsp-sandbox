@@ -618,6 +618,160 @@ function nodeGraphWaterfallGlStampBar(canvas, x, spanW, ys, prevEdge, connect, r
   return true;
 }
 
+// R+B=G column (blend "combine", two channels) in one draw. The per-pixel
+// colour is the shared Meet GLSL (public/lib/trace/trace-meet-glsl.js);
+// JS only passes the spans and colours. uFormula 0 = the waterfall span
+// variant (same result as the old L / R-only / overlap bar stamps).
+// uFormula 1 = Trace's coverage mix (traceMeet2), kept as a switch only.
+function nodeGraphWaterfallGlMeetFrag(spanGlsl, meetGlsl) {
+  return `
+precision mediump float;
+uniform vec2 uSize;
+uniform vec2 uSpan;
+uniform vec4 uEdgeL;
+uniform vec2 uRa;
+uniform vec2 uRb;
+uniform vec2 uO;
+uniform vec3 uColorL;
+uniform vec3 uColorR;
+uniform vec3 uColorM;
+uniform float uFormula;
+${spanGlsl}
+${meetGlsl}
+void main() {
+  // Canvas Y, top-down, as the bar shader. L may join the previous column
+  // (uEdgeL = top0, top1, bot0, bot1); the R-only parts and L∩R are flat.
+  float y = uSize.y - gl_FragCoord.y;
+  float span = max(uSpan.y - uSpan.x, 1e-4);
+  float t = clamp((gl_FragCoord.x - uSpan.x) / span, 0.0, 1.0);
+  float yTop = mix(uEdgeL.x, uEdgeL.y, t);
+  float yBot = mix(uEdgeL.z, uEdgeL.w, t);
+  float cL = traceBoxCover(y, min(yTop, yBot), max(yTop, yBot));
+  float cRa = traceBoxCover(y, uRa.x, uRa.y);
+  float cRb = traceBoxCover(y, uRb.x, uRb.y);
+  float cO = traceBoxCover(y, uO.x, uO.y);
+  vec4 o = uFormula > 0.5
+    ? traceMeet2(cL, min(cRa + cRb + cO, 1.0), uColorL, uColorR, uColorM)
+    : traceMeetSpan2(cL, cRa, cRb, cO, uColorL, uColorR, uColorM);
+  if (o.a <= 0.0) discard;
+  gl_FragColor = o;
+}
+`;
+}
+
+function nodeGraphWaterfallGlEnsureMeet(s) {
+  if (s.meetProg !== undefined) return s.meetProg;
+  const lib = typeof TraceMeetGlsl !== "undefined" ? TraceMeetGlsl : null;
+  if (!lib || typeof lib.MEET_SPAN_GLSL !== "string" || typeof lib.MEET_GLSL !== "string") return null;
+  const gl = s.gl;
+  const prog = nodeGraphWaterfallGlProgram(
+    gl,
+    NODE_GRAPH_WF_GL_VERT,
+    nodeGraphWaterfallGlMeetFrag(lib.MEET_SPAN_GLSL, lib.MEET_GLSL),
+  );
+  s.meetProg = prog;
+  if (prog) {
+    const u = (name) => gl.getUniformLocation(prog, name);
+    s.meetLoc = {
+      pos: gl.getAttribLocation(prog, "aPos"),
+      uv: gl.getAttribLocation(prog, "aUv"),
+      size: u("uSize"),
+      span: u("uSpan"),
+      edgeL: u("uEdgeL"),
+      ra: u("uRa"),
+      rb: u("uRb"),
+      o: u("uO"),
+      colorL: u("uColorL"),
+      colorR: u("uColorR"),
+      colorM: u("uColorM"),
+      formula: u("uFormula"),
+    };
+  }
+  return prog;
+}
+
+/**
+ * One 1px column of a two-channel Meet. leftYs / leftPrevEdge as
+ * nodeGraphWaterfallGlStampBar gets them for L; parts =
+ * nodeGraphWaterfallRightOnlySpans(leftYs, rightYs); colours 0…255.
+ * Returns false (caller stamps the bars instead) when the shared GLSL or
+ * the session is missing.
+ */
+function nodeGraphWaterfallGlStampMeetColumn(canvas, x, leftYs, leftPrevEdge, parts, rgbL, rgbR, rgbM, formula = 0) {
+  const s = canvas && canvas._wfGlSession;
+  if (!s || !s.gl || s.gl.isContextLost() || !s.read || !leftYs || !parts) return false;
+  if (!Number.isFinite(leftYs.y0) || !Number.isFinite(leftYs.y1)) return false;
+  const prog = nodeGraphWaterfallGlEnsureMeet(s);
+  if (!prog) return false;
+  const gl = s.gl;
+  const loc = s.meetLoc;
+  const x0 = Number(x) || 0;
+  const x1 = x0 + 1;
+  const yTop = Math.min(leftYs.y0, leftYs.y1);
+  const yBot = Math.max(leftYs.y0, leftYs.y1);
+  let top0 = yTop;
+  let bot0 = yBot;
+  if (leftPrevEdge && Number.isFinite(leftPrevEdge.y0) && Number.isFinite(leftPrevEdge.y1)) {
+    top0 = Math.min(leftPrevEdge.y0, leftPrevEdge.y1);
+    bot0 = Math.max(leftPrevEdge.y0, leftPrevEdge.y1);
+  }
+  const only = Array.isArray(parts.only) ? parts.only : [];
+  const flat = (span) => (span && Number.isFinite(span.y0) && Number.isFinite(span.y1)
+    ? [Math.min(span.y0, span.y1), Math.max(span.y0, span.y1)]
+    : [0, 0]);
+  const ra = flat(only[0]);
+  const rb = flat(only[1]);
+  const ov = flat(parts.overlap);
+  const c255 = (rgb) => [
+    Math.max(0, Math.min(255, Number(rgb?.[0]) || 0)) / 255,
+    Math.max(0, Math.min(255, Number(rgb?.[1]) || 0)) / 255,
+    Math.max(0, Math.min(255, Number(rgb?.[2]) || 0)) / 255,
+  ];
+  const cl = c255(rgbL);
+  const cr = c255(rgbR);
+  const cm = c255(rgbM);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, s.read.fbo);
+  gl.viewport(0, 0, s.w, s.h);
+  gl.disable(gl.SCISSOR_TEST);
+  nodeGraphWaterfallGlApplyBlend(gl, "source-over");
+  gl.useProgram(prog);
+  if (loc.uv >= 0) gl.disableVertexAttribArray(loc.uv);
+  // Quad = the rows any span can touch (+1px), like the bar stamps' fringe.
+  let lo = Math.min(top0, yTop);
+  let hi = Math.max(bot0, yBot);
+  for (const span of [ra, rb, ov]) {
+    if (span[1] > span[0]) {
+      lo = Math.min(lo, span[0]);
+      hi = Math.max(hi, span[1]);
+    }
+  }
+  lo = Math.max(-1, lo - 1);
+  hi = Math.min(s.h + 1, hi + 1);
+  const clip = (px, py) => nodeGraphWaterfallGlClip(px, py, s.w, s.h);
+  const a = clip(x0, lo);
+  const b = clip(x1, lo);
+  const c = clip(x0, hi);
+  const d = clip(x1, hi);
+  gl.bindBuffer(gl.ARRAY_BUFFER, s.barBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    a[0], a[1], b[0], b[1], c[0], c[1], c[0], c[1], b[0], b[1], d[0], d[1],
+  ]), gl.DYNAMIC_DRAW);
+  gl.enableVertexAttribArray(loc.pos);
+  gl.vertexAttribPointer(loc.pos, 2, gl.FLOAT, false, 8, 0);
+  gl.uniform2f(loc.size, s.w, s.h);
+  gl.uniform2f(loc.span, x0, x1);
+  gl.uniform4f(loc.edgeL, top0, yTop, bot0, yBot);
+  gl.uniform2f(loc.ra, ra[0], ra[1]);
+  gl.uniform2f(loc.rb, rb[0], rb[1]);
+  gl.uniform2f(loc.o, ov[0], ov[1]);
+  gl.uniform3f(loc.colorL, cl[0], cl[1], cl[2]);
+  gl.uniform3f(loc.colorR, cr[0], cr[1], cr[2]);
+  gl.uniform3f(loc.colorM, cm[0], cm[1], cm[2]);
+  gl.uniform1f(loc.formula, Number(formula) > 0.5 ? 1 : 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+  return true;
+}
+
 function nodeGraphOnsetGlPositionLine(canvas, x) {
   const s = canvas && canvas._wfGlSession;
   if (!s || !s.gl) return;

@@ -366,7 +366,6 @@ function nodeGraphBlankStartupPatch() {
       description: "",
       emoji: "",
       name: "",
-      tags: "",
     },
     visual: {
       background: { h: 210, l: 5, s: 0 },
@@ -432,7 +431,6 @@ const nodeGraphDefaultPatch = Object.freeze({
     description: "Offline fallback — live Init is patches/init.json",
     emoji: "",
     name: "Init",
-    tags: "init,default",
   },
   visual: {
     background: {

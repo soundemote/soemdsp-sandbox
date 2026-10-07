@@ -114,8 +114,7 @@
     "category": "",
     "description": "",
     "emoji": "",
-    "program": 0,
-    "tags": "circle"
+    "program": 0
   },
   "masterSeed": 29063448,
   "modularOnlyControlsVisible": false,
@@ -130,8 +129,8 @@
   ],
   "nodes": [
     {
-      "gx": -20,
-      "gy": -15,
+      "gx": 18,
+      "gy": 4,
       "id": "output",
       "paramMeta": {
         "volume": {
@@ -273,8 +272,8 @@
       }
     },
     {
-      "gx": -28,
-      "gy": -15,
+      "gx": 10,
+      "gy": 4,
       "id": "ellipsoidOsc-1",
       "paramMeta": {
         "antialias": {
@@ -582,8 +581,8 @@
       }
     },
     {
-      "gx": -54,
-      "gy": -5,
+      "gx": -16,
+      "gy": 14,
       "id": "ampCurve-1",
       "paramMeta": {
         "mode": {
@@ -650,8 +649,8 @@
       }
     },
     {
-      "gx": -54,
-      "gy": -15,
+      "gx": -16,
+      "gy": 4,
       "id": "pluckEnvelope-1",
       "paramMeta": {
         "softenAttack": {
@@ -866,8 +865,8 @@
       }
     },
     {
-      "gx": -31,
-      "gy": -4,
+      "gx": 7,
+      "gy": 12,
       "id": "2t-1",
       "paramMeta": {},
       "params": {},
@@ -881,9 +880,8 @@
         "backgroundColor": "#0000ff",
         "brightness": 0.72,
         "dot1Brightness": 0.72,
-        "burn": 0,
+        "residualSchema": 4,
         "burnAmount": 1,
-        "residualSchema": 3,
         "capEnabled": true,
         "capLength": 0.16,
         "capPadding": 0,
@@ -918,8 +916,8 @@
       }
     },
     {
-      "gx": -38,
-      "gy": -15,
+      "gx": 0,
+      "gy": 4,
       "id": "toggleButton-1",
       "paramMeta": {
         "offset": {
@@ -1049,8 +1047,8 @@
       }
     },
     {
-      "gx": -38,
-      "gy": -10,
+      "gx": 0,
+      "gy": 9,
       "id": "momentaryButton-1",
       "paramMeta": {
         "offset": {
@@ -1180,10 +1178,49 @@
       }
     },
     {
-      "gx": -46,
-      "gy": -15,
+      "gx": -8,
+      "gy": 3,
       "id": "pingEnvelope-1",
       "paramMeta": {
+        "model": {
+          "alias": "",
+          "choices": [
+            "for Lin Amp",
+            "for Exp Amp"
+          ],
+          "choiceOriginMin": 0,
+          "curveAmount": 0,
+          "def": 0,
+          "displayChoices": true,
+          "divideChoicesVisibly": true,
+          "kind": "choice",
+          "bipolar": false,
+          "max": 1,
+          "maxDigits": 3,
+          "mid": 0,
+          "min": 0,
+          "reverse": false,
+          "nonlinearSlider": false,
+          "sliderCurve": "linear",
+          "showSign": false,
+          "removeTrailingZeros": false,
+          "smoothingMode": "global",
+          "smoothingSeconds": null,
+          "smoothingType": "none",
+          "step": 1,
+          "tooltip": "for Lin Amp = current sandbox ping (fb x0.7718, 0-1000 Hz, amp on inertial target). for Exp Amp = soundemote.io / old pluck3 (0-10 Hz, amp on output). Default for Lin Amp (key Long, choiceId 1).",
+          "modClamp": true,
+          "hardClamp": false,
+          "modMultiply": false,
+          "vca": false,
+          "constraint": "",
+          "unit": "",
+          "wraparound": false,
+          "visible": true,
+          "linearSmoothing": false,
+          "outputDomain": false,
+          "domainOffset": 0
+        },
         "recalculateOnTrigger": {
           "alias": "",
           "choices": [
@@ -1330,6 +1367,7 @@
         }
       },
       "params": {
+        "model": "Short",
         "recalculateOnTrigger": 1,
         "attack": 0,
         "decay": 1,
@@ -1400,8 +1438,8 @@
       }
     },
     {
-      "gx": -54,
-      "gy": -33,
+      "gx": -16,
+      "gy": -14,
       "id": "waterfallStereo-1",
       "paramMeta": {},
       "params": {},
@@ -1469,8 +1507,8 @@
       }
     },
     {
-      "gx": -46,
-      "gy": -5,
+      "gx": -8,
+      "gy": 14,
       "id": "ampCurve-2",
       "paramMeta": {
         "mode": {
@@ -1514,7 +1552,7 @@
         }
       },
       "params": {
-        "mode": 0
+        "mode": 1
       },
       "type": "ampCurve",
       "alias": "Out → amplitude",
@@ -1572,7 +1610,7 @@
   "view": {
     "heightGu": 24,
     "widthGu": 47,
-    "zoom": 0.7433603665346978,
+    "zoom": 0.7541942255251732,
     "gridVisible": true,
     "gridLightVisible": true,
     "wireLengthsVisible": true,

@@ -157,8 +157,7 @@
     "category": "",
     "description": "Init — PolyBLEP into Output (same as patches/init.json)",
     "emoji": "",
-    "program": 0,
-    "tags": "init,default"
+    "program": 0
   },
   "masterSeed": 1828976675,
   "modularOnlyControlsVisible": false,

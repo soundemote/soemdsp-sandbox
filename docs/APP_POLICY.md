@@ -186,6 +186,8 @@ Only these live-audio types exist in the efficient build:
 | `crossover4` | Stereo Linkwitzâ€“Riley 4-way crossover |
 | `crossover5` | Stereo Linkwitzâ€“Riley 5-way crossover |
 | `crossover6` | Stereo Linkwitzâ€“Riley 6-way crossover |
+| `robinSinepulse` | Robin Sinepulse: sweep kick (port of Robin Schmidt's SweepKicker, RS-MET; Trigger → Kick / Env) |
+| `robinSinepulseAllpass` | Robin Sinepulse Allpass: 0–256 allpass zap / disperser (port of Robin Schmidt's FlatZapper, RS-MET; Trigger + In → Out) |
 | `output` | Sink (singleton â€” unique, undeleteable) |
 | `audioInput` | Live mic/line Input (singleton â€” unique, undeleteable; host capture bus TBD) |
 

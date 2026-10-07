@@ -2026,9 +2026,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         "lineThickness",
         "shapeParam",
         "backgroundBrightness",
-        "backgroundSaturation",
+        // Sat lives on the shared hue-title color row (not a duplicate stepper).
         "dot1Brightness",
-        "dot1Saturation",
         "unlitSegments",
         "innerShadowDistance",
         "innerShadowSharpness",
@@ -2051,9 +2050,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           "decimals",
           "facePadding",
           "backgroundBrightness",
-          "backgroundSaturation",
+          // Sat lives on the shared hue-title color row (not a duplicate stepper).
           "dot1Brightness",
-          "dot1Saturation",
           "unlitSegments",
           ...(nrNodeType === "helmholtzPitch" ? ["centsBand"] : []),
           "innerShadowDistance",
@@ -2061,7 +2059,8 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           "innerShadowOffsetX",
           "innerShadowOffsetY",
         ].filter((key) => activeFields.has(key));
-        choiceKeys = ["polarity"].filter((key) => activeChoices.has(key));
+        // Sign UI is showMinus / showPlus toggles (not polarity choice).
+        choiceKeys = [];
         colorKeys = [];
       } else {
         // Value LED: Digits -> Decimals -> Padding -> Bright -> Ghost -> Trail -> Burn x.
@@ -2070,15 +2069,15 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           "decimals",
           "facePadding",
           "dot1Brightness",
-          "dot1Saturation",
+          // Sat lives on the shared hue-title LED color row (not a duplicate stepper).
           "ghost",
           "trail",
           "burnAmount",
         ].filter((key) => activeFields.has(key));
         colorKeys = ["backgroundColor"]
           .filter((key) => activeColors.has(key));
-        choiceKeys = ["polarity"]
-          .filter((key) => activeChoices.has(key));
+        // Sign UI is showMinus / showPlus toggles (not polarity choice).
+        choiceKeys = [];
       }
     }
     // syncChannel / stereoBlend live in activeChoices but are listed under
@@ -2180,6 +2179,11 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       rows.push(nodeGraphDisplaySettingsBuildToggleRowHtml(key));
     }
     for (const key of fieldKeys) {
+      // Individual Sat steppers are redundant — hue-title row already has Sat.
+      if ((type === "numberReadout" || type === "lcdDot")
+        && (key === "backgroundSaturation" || key === "dot1Saturation" || key === "colorSaturation")) {
+        continue;
+      }
       if (type === "numberReadout" && key === "backgroundBrightness") {
         rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: "Background",

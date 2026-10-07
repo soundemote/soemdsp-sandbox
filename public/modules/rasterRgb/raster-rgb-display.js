@@ -818,45 +818,52 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
       : Math.floor(lastAbs) + take;
   }
   const gradeKey = `${grade.invert}|${grade.contrast}|${grade.brightness}|${grade.hue}|${grade.blur}|${grade.glow}|${grid.width}x${grid.height}|${bufW}x${bufH}|${wired ? captured.length : 0}`;
-  const graded = nodeGraphRasterRgbApplyGrade(state, grade);
   canvas.style.imageRendering = "pixelated";
   ctx.imageSmoothingEnabled = false;
+  let dw = cw;
+  let dh = ch;
+  let dx = 0;
+  let dy = 0;
+  if (settings.squareRatio) {
+    // Logical (fractional) size drives on-screen cell size so fine Width/Height
+    // nudges are visible between whole-pixel buffer snaps.
+    const scale = Math.min(cw / grid.width, ch / grid.height);
+    dw = Math.max(1, Math.floor(grid.width * scale));
+    dh = Math.max(1, Math.floor(grid.height * scale));
+    dx = Math.floor((cw - dw) * 0.5);
+    dy = Math.floor((ch - dh) * 0.5);
+  }
+  const span = Math.max(2, Math.min(dw, dh));
+  const blurPx = grade.blur * span * 0.045;
+  const glowPx = Math.max(blurPx, grade.glow * span * 0.07) * 1.6;
+  // GPU first (DISPLAY_SHADER_PLAN M3, raster-rgb-gl.js): raw buffer texture,
+  // grade LUT + hue + separable blur / glow in shaders on the shared picture
+  // device. Canvas2D below is the fallback (no GL / lost context).
+  const gpuDrawn = typeof nodeGraphRasterRgbGlPresent === "function"
+    && nodeGraphRasterRgbGlPresent(state, grade, ctx, { cw, ch, dx, dy, dw, dh, blurPx, glowPx, plate });
+  const graded = gpuDrawn ? null : nodeGraphRasterRgbApplyGrade(state, grade);
   try {
-    const image = nodeGraphRasterRgbPresentImage(state, graded);
-    let tile = state.tileCanvas;
-    if (!tile || tile.width !== state.width || tile.height !== state.height) {
-      tile = document.createElement("canvas");
-      tile.width = state.width;
-      tile.height = state.height;
-      state.tileCanvas = tile;
-    }
-    const tileCtx = tile.getContext("2d");
-    tileCtx.putImageData(image, 0, 0);
-    let dw = cw;
-    let dh = ch;
-    let dx = 0;
-    let dy = 0;
-    if (settings.squareRatio) {
-      // Logical (fractional) size drives on-screen cell size so fine Width/Height
-      // nudges are visible between whole-pixel buffer snaps.
-      const scale = Math.min(cw / grid.width, ch / grid.height);
-      dw = Math.max(1, Math.floor(grid.width * scale));
-      dh = Math.max(1, Math.floor(grid.height * scale));
-      dx = Math.floor((cw - dw) * 0.5);
-      dy = Math.floor((ch - dh) * 0.5);
-    }
-    const span = Math.max(2, Math.min(dw, dh));
-    const blurPx = grade.blur * span * 0.045;
-    const glowPx = Math.max(blurPx, grade.glow * span * 0.07) * 1.6;
-    ctx.filter = blurPx > 0.05 ? `blur(${blurPx.toFixed(2)}px)` : "none";
-    ctx.drawImage(tile, 0, 0, state.width, state.height, dx, dy, dw, dh);
-    if (grade.glow > 0.001 && glowPx > 0.05) {
-      ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = grade.glow;
-      ctx.filter = `blur(${glowPx.toFixed(2)}px)`;
+    if (!gpuDrawn) {
+      const image = nodeGraphRasterRgbPresentImage(state, graded);
+      let tile = state.tileCanvas;
+      if (!tile || tile.width !== state.width || tile.height !== state.height) {
+        tile = document.createElement("canvas");
+        tile.width = state.width;
+        tile.height = state.height;
+        state.tileCanvas = tile;
+      }
+      const tileCtx = tile.getContext("2d");
+      tileCtx.putImageData(image, 0, 0);
+      ctx.filter = blurPx > 0.05 ? `blur(${blurPx.toFixed(2)}px)` : "none";
       ctx.drawImage(tile, 0, 0, state.width, state.height, dx, dy, dw, dh);
-      ctx.globalCompositeOperation = "source-over";
-      ctx.globalAlpha = 1;
+      if (grade.glow > 0.001 && glowPx > 0.05) {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = grade.glow;
+        ctx.filter = `blur(${glowPx.toFixed(2)}px)`;
+        ctx.drawImage(tile, 0, 0, state.width, state.height, dx, dy, dw, dh);
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      }
     }
     ctx.filter = "none";
   } catch (_err) {

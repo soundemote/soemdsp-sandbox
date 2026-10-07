@@ -93,8 +93,7 @@
     "category": "filter",
     "description": "Clean self-oscillating Ladder LP24. Cutoff: Knob→Pitch Range→Pitch↔Hz→Frequency. Resonance: Knob→Graph→Ladder Resonance (no Range→Range, no external feedback loop). Noise exciter; raise Resonance toward 1 to self-oscillate.",
     "emoji": "",
-    "program": 0,
-    "tags": "filter,ladder,self-osc,breadboard"
+    "program": 0
   },
   "masterSeed": 3297079700,
   "modularOnlyControlsVisible": false,

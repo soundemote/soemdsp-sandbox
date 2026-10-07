@@ -84,8 +84,7 @@
     "bankName": "",
     "category": "",
     "description": "Init — PolyBLEP into Output (same as patches/init.json)",
-    "program": 0,
-    "tags": "init,default"
+    "program": 0
   },
   "masterSeed": 151351826,
   "modularOnlyControlsVisible": true,

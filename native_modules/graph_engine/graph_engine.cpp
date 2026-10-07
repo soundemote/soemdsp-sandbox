@@ -1097,6 +1097,31 @@ extern "C" double soemdsp_power_decay_sample(
   double amplitude, double sampleRate
 );
 
+extern "C" int soemdsp_robin_sinepulse_create();
+extern "C" void soemdsp_robin_sinepulse_destroy(int handle);
+extern "C" int soemdsp_robin_sinepulse_is_idle(int handle);
+extern "C" double soemdsp_robin_sinepulse_env(int handle);
+extern "C" double soemdsp_robin_sinepulse_sample(
+  int handle, double trigger, double highFreq, double lowFreq,
+  double sweepTime, double chirp, double chirpShape, double wave, double waveShape,
+  double phase, double decay, double amplitude, double sampleRate
+);
+
+extern "C" int soemdsp_robin_sinepulse_allpass_create();
+extern "C" void soemdsp_robin_sinepulse_allpass_destroy(int handle);
+extern "C" int soemdsp_robin_sinepulse_allpass_set_params(
+  int handle, double stages, double mode, double lowFreq, double highFreq,
+  double freqShape, double lowQ, double highQ, double qShape, double sampleRate
+);
+extern "C" double soemdsp_robin_sinepulse_allpass_dry(
+  int handle, double trigger, double in, double impulse, double input
+);
+extern "C" void soemdsp_robin_sinepulse_allpass_process_chain(int handle, double* io, int frames);
+extern "C" double soemdsp_robin_sinepulse_allpass_out(
+  double dry, double wet, double mix, double amplitude
+);
+extern "C" int soemdsp_robin_sinepulse_allpass_is_idle(int handle);
+
 extern "C" int soemdsp_basic_shape_create();
 extern "C" void soemdsp_basic_shape_destroy(int handle);
 extern "C" double soemdsp_basic_shape_sample(
@@ -1896,6 +1921,8 @@ static const int kTypeChaosfly = 161;
 static const int kTypeLinearAttackRelease = 164;
 static const int kTypePingEnvelope = 165;
 static const int kTypePowerDecay = 204; // PowerDecay: height * amp * pow(1 - t/decay, power)
+static const int kTypeRobinSinepulse = 205; // Robin Sinepulse: Robin Schmidt's SweepKicker (RS-MET) + Decay T60 env
+static const int kTypeRobinSinepulseAllpass = 206; // Robin Sinepulse Allpass: Robin Schmidt's rsFlatZapper (RS-MET)
 static const int kTypeCurveAttackRelease = 166;
 // 167 retired (thumpEnvelope).
 static const int kTypePluckEnvelopeFb = 198;
@@ -2571,6 +2598,10 @@ static void destroy_native_kind_handle(int kind, int handle) {
     soemdsp_ping_envelope_destroy(handle);
   } else if (kind == kTypePowerDecay) {
     soemdsp_power_decay_destroy(handle);
+  } else if (kind == kTypeRobinSinepulse) {
+    soemdsp_robin_sinepulse_destroy(handle);
+  } else if (kind == kTypeRobinSinepulseAllpass) {
+    soemdsp_robin_sinepulse_allpass_destroy(handle);
   } else if (kind == kTypeFlowerChildEnvelopeFollower) {
     soemdsp_flower_child_envelope_follower_destroy(handle);
   } else if (kind == kTypeDelayEffect) {
@@ -2922,6 +2953,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeModeResonator) ? 440.0
       : (typeId == kTypeCombResonator) ? 110.0
       : (typeId == kTypeInertialFilter) ? 20000.0 // attack Hz
+      : (typeId == kTypeRobinSinepulse) ? 10000.0 // highFreq Hz
+      : (typeId == kTypeRobinSinepulseAllpass) ? 8000.0 // highFreq Hz
       : (typeId == kTypeRobinSupersaw || typeId == kTypeHyperpluck) ? 100.0
       : (typeId == kTypeRobinSinusoid) ? 440.0
       : (typeId == kTypeRobinOscillator) ? 100.0
@@ -3057,6 +3090,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeExpAdsr || typeId == kTypeCurveAttackRelease) ? 0.0 // attackShape (bipolar; 0=linear)
       : (typeId == kTypePluckEnvelopeFb) ? -0.07 // attackShape (breadboard)
       : (typeId == kTypePowerDecay) ? 2.0 // power
+      : (typeId == kTypeRobinSinepulse) ? 0.0 // chirp
+      : (typeId == kTypeRobinSinepulseAllpass) ? 0.0 // freqShape
       : (typeId == kTypeAttackDecay) ? 1.0 // curve Î³
       : (typeId == kTypeLorenzAttractor) ? 10.0 // sigma
       : (typeId == kTypeLogisticMap) ? 3.9 // r
@@ -3102,6 +3137,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeGraphicEq) ? 4.32 // 1/3-octave graphic band
       : (typeId == kTypeCookbookFilter || typeId == kTypeBandpass || typeId == kTypePhaser) ? 1.0 // Q
       : (typeId == kTypePhaseDisperse) ? 0.5 // pinch 0..1
+      : (typeId == kTypeRobinSinepulseAllpass) ? 1.0 // lowQ
       : (typeId == kTypeTb303Filter) ? 0.0 // %
       : (typeId == kTypeSoemReverb) ? 1.0 // bandQ
       : (typeId == kTypeLorenzAttractor) ? 28.0 // rho
@@ -3191,6 +3227,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeChordPad || typeId == kTypeNoteTranspose) ? 0.0 // degree / semis
       : (typeId == kTypeSmoothGraph) ? 1.0 // smoothingMode Catmull
       : (typeId == kTypePhaseDisperse) ? 32.0 // cascade depth
+      : (typeId == kTypeRobinSinepulseAllpass) ? 50.0 // allpass stages
       : (typeId == kTypeCookbookFilter) ? 2.0 // RS-MET default stages
       : (typeId == kTypePhaser) ? 4.0 // bands
       : (typeId == kTypeChorus || typeId == kTypeEnsemble) ? 7.0 // voices
@@ -3235,6 +3272,7 @@ static void init_node_defaults(Node& n, int typeId) {
     n.center,
     (typeId == kTypeFm) ? 0.0 // cents
       : (typeId == kTypeHypersaw2) ? 2.0 // jitterDistance
+      : (typeId == kTypeRobinSinepulseAllpass) ? 15.0 // lowFreq Hz
       : (typeId == kTypeVactrol) ? 0.0 // lightOffset
       : (typeId == kTypeWowAndFlutter) ? 1.0 // flutterAmp
       : (typeId == kTypeExpAdsr || typeId == kTypeCurveAttackRelease) ? 0.0 // releaseShape (bipolar; 0=linear)
@@ -3325,6 +3363,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeTubeSaturation) ? 0.5 // Load
       : (typeId == kTypeSoftClipper) ? 0.5 // knee
       : (typeId == kTypeRobinOscillator) ? 0.5 // morph (WIDTH slot)
+      : (typeId == kTypeRobinSinepulse) ? 0.0 // chirpShape
+      : (typeId == kTypeRobinSinepulseAllpass) ? 1.0 // highQ
       : 2.0,
     false
   );
@@ -3352,6 +3392,8 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeBradley2a) ? 0.0 // interfLevel
       : (typeId == kTypeExpAdsr || typeId == kTypeLinearEnvelope || typeId == kTypeWavetableAdsr) ? 0.55 // sustain
       : (typeId == kTypeVactrol) ? 0.0 // darkCurrent
+      : (typeId == kTypeRobinSinepulse) ? 0.0 // waveShape
+      : (typeId == kTypeRobinSinepulseAllpass) ? 1.0 // mix (wet)
       : (typeId == kTypeLorenzAttractor) ? 0.4 // zDepth
       : (typeId == kTypeHenonMap) ? 0.1 // seedY
       : (typeId == kTypeChuaAttractor) ? -0.714 // m1
@@ -3443,6 +3485,7 @@ static void init_node_defaults(Node& n, int typeId) {
   init_control(
     n.feedback,
     (typeId == kTypePhaser) ? 0.3
+      : (typeId == kTypeRobinSinepulseAllpass) ? 1.0 // input gain
       : (typeId == kTypeFlanger) ? 0.5
       : (typeId == kTypeChorus) ? 0.0
       : (typeId == kTypeBradley2a) ? 1.0 // hitRate
@@ -3491,6 +3534,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypeSpeakerProtector2) ? 0.008 // dropSeconds
       : (typeId == kTypeRobinSupersaw) ? 0.0 // portaTimeMin s
       : (typeId == kTypeAcidSequencer) ? 0.06 // slide time s
+      : (typeId == kTypeRobinSinepulse) ? 0.2 // sweepTime s
       : 1.0,
     false
   );
@@ -3507,6 +3551,7 @@ static void init_node_defaults(Node& n, int typeId) {
       : (typeId == kTypePluckEnvelopeFb) ? 0.0 // attack
       : (typeId == kTypePingEnvelope) ? 0.0 // attack s
       : (typeId == kTypePowerDecay) ? 1.0 // decayTime s
+      : (typeId == kTypeRobinSinepulse) ? 0.5 // decay s (T60)
       : (typeId == kTypeFlowerChildEnvelopeFollower) ? 0.001 // hold
       : (typeId == kTypeVactrol) ? 0.1 // release
       : (typeId == kTypeLinearAttackRelease) ? 0.25 // release
@@ -4481,6 +4526,8 @@ static int create_native_for_type(int typeId, float sampleRate) {
   if (typeId == kTypePluckEnvelopeFb) return soemdsp_pluck_envelope_fb_create();
   if (typeId == kTypePingEnvelope) return soemdsp_ping_envelope_create();
   if (typeId == kTypePowerDecay) return soemdsp_power_decay_create();
+  if (typeId == kTypeRobinSinepulse) return soemdsp_robin_sinepulse_create();
+  if (typeId == kTypeRobinSinepulseAllpass) return soemdsp_robin_sinepulse_allpass_create();
   if (typeId == kTypeFlowerChildEnvelopeFollower) {
     return soemdsp_flower_child_envelope_follower_create();
   }
@@ -9147,6 +9194,103 @@ static void process_power_decay(Circuit& g, Node& node, int frames) {
   }
 }
 
+// Robin Sinepulse (robinSinepulse): Robin Schmidt's SweepKicker (RS-MET
+// rsSweepKicker / rsFreqSweeper) plus a Decay T60 envelope. Trigger only
+// (height = velocity) latches High Freq / Low Freq / Sweep Time, zeroes the
+// phase (Robin's hard-reset noteOn), and restarts sweep + envelope. No Reset port.
+// Controls: frequency=highFreq, center=lowFreq, timeNumerator=sweepTime,
+// shape=chirp, width=chirpShape, waveform=wave (choiceId), mix=waveShape,
+// phaseParam=phase (cycles), timeDenominator=decay s, amplitude.
+// Out: Kick -> Mono, Env -> Left.
+static void process_robin_sinepulse(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    const double out = soemdsp_robin_sinepulse_sample(
+      node.nativeHandle,
+      hasTrig ? g.mixTrigger[f] : 0.0,
+      control_audio(g, node.frequency, f),
+      control_audio(g, node.center, f),
+      control_audio(g, node.timeNumerator, f),
+      control_audio(g, node.shape, f),
+      control_audio(g, node.width, f),
+      control_audio(g, node.waveform, f),
+      control_audio(g, node.mix, f),
+      control_audio(g, node.phaseParam, f),
+      control_audio(g, node.timeDenominator, f),
+      control_audio(g, node.amplitude, f),
+      sr
+    );
+    node.buf[kPortMono][f] = out;
+    node.buf[kPortLeft][f] = soemdsp_robin_sinepulse_env(node.nativeHandle);
+    node.buf[kPortRight][f] = 0.0;
+    node.buf[kPortIsIdle][f] = soemdsp_robin_sinepulse_is_idle(node.nativeHandle) ? 1.0 : 0.0;
+  }
+}
+
+// Robin Sinepulse Allpass (robinSinepulseAllpass): Robin Schmidt's rsFlatZapper
+// (RS-MET), a chain of 0..256 allpass stages tuned from Low Freq to High Freq.
+// Trigger (height = velocity) adds one impulse of |height| x Impulse; In x Input
+// feeds the same chain. Out = Amplitude x (Mix x chain + (1 - Mix) x dry).
+// Controls: stages, mode (choiceId 0 onePole / 1 biquad), center=lowFreq,
+// frequency=highFreq, shape=freqShape, resonance=lowQ, width=highQ,
+// offset=qShape, level=impulse, feedback=input, mix, amplitude.
+// The chain params go to set_params once per 32-frame sub-block; the native
+// side recomputes coefficients only when one of them changed.
+// Out -> Mono, IsIdle.
+static const int kRobinSinepulseAllpassSubBlock = 32;
+static void process_robin_sinepulse_allpass(Circuit& g, Node& node, int frames) {
+  if (node.nativeHandle <= 0) return;
+  mix_node_inputs(g, node, frames);
+  const bool hasTrig = mix_live_port(g, node, kPortTrigger, frames, g.mixTrigger);
+  const double sr = g.sampleRate < 1.0f ? 44100.0 : (double)g.sampleRate;
+  const int h = node.nativeHandle;
+  double dry[kMaxBlockFrames];
+  double wet[kMaxBlockFrames];
+  double mixAmt[kMaxBlockFrames];
+  double amp[kMaxBlockFrames];
+  int start = 0;
+  for (int f = 0; f < frames; f++) {
+    control_frame(g, node, f);
+    if (f == start) {
+      soemdsp_robin_sinepulse_allpass_set_params(
+        h,
+        control_audio(g, node.stages, f),
+        control_audio(g, node.mode, f),
+        control_audio(g, node.center, f),
+        control_audio(g, node.frequency, f),
+        control_audio(g, node.shape, f),
+        control_audio(g, node.resonance, f),
+        control_audio(g, node.width, f),
+        control_audio(g, node.offset, f),
+        sr
+      );
+    }
+    const double in = g.mixMono[f] + g.mixLeft[f] + g.mixRight[f];
+    dry[f] = soemdsp_robin_sinepulse_allpass_dry(
+      h,
+      hasTrig ? g.mixTrigger[f] : 0.0,
+      in,
+      control_audio(g, node.level, f),
+      control_audio(g, node.feedback, f)
+    );
+    wet[f] = dry[f];
+    mixAmt[f] = control_audio(g, node.mix, f);
+    amp[f] = control_audio(g, node.amplitude, f);
+    if (f + 1 - start == kRobinSinepulseAllpassSubBlock || f + 1 == frames) {
+      soemdsp_robin_sinepulse_allpass_process_chain(h, wet + start, f + 1 - start);
+      const double idle = soemdsp_robin_sinepulse_allpass_is_idle(h) ? 1.0 : 0.0;
+      for (int k = start; k <= f; k++) {
+        node.buf[kPortMono][k] = soemdsp_robin_sinepulse_allpass_out(dry[k], wet[k], mixAmt[k], amp[k]);
+        node.buf[kPortIsIdle][k] = idle;
+      }
+      start = f + 1;
+    }
+  }
+}
+
 // BasicShape naive LFO: mode=motion, shape=morph, center=polarity (0 bi / 1 uni).
 // Waveform order: Sine Tri Saw Ramp Trisaw Square CenterSquare.
 // Taps: Sine/Tri/Saw/Ramp/Square + Trisaw(8) + Center Square(9).
@@ -12712,6 +12856,8 @@ extern "C" int soemdsp_graph_add_node(int handle, unsigned int nodeIdHash, int t
     || typeId == kTypePluckEnvelopeFb
     || typeId == kTypePingEnvelope
     || typeId == kTypePowerDecay
+    || typeId == kTypeRobinSinepulse
+    || typeId == kTypeRobinSinepulseAllpass
     || typeId == kTypeFlowerChildEnvelopeFollower
     || typeId == kTypeDelayEffect
     || typeId == kTypeSoemReverb
@@ -14119,6 +14265,14 @@ static void dispatch_process_node(Circuit& g, Node& node, int frames) {
       process_power_decay(g, node, frames);
       return;
     }
+    if (node.typeId == kTypeRobinSinepulse) {
+      process_robin_sinepulse(g, node, frames);
+      return;
+    }
+    if (node.typeId == kTypeRobinSinepulseAllpass) {
+      process_robin_sinepulse_allpass(g, node, frames);
+      return;
+    }
     if (node.typeId == kTypeFlowerChildEnvelopeFollower) {
       process_flower_child_envelope_follower(g, node, frames);
       return;
@@ -14715,5 +14869,7 @@ extern "C" int soemdsp_graph_version() {
   // 156: B-082 unit-band MOD always clamps to domain min/max
   // 157: PowerDecay (type 204)
   // 158: Vactrol Model (ModelA / ModelB)
-  return 159; // Ellipsoid osc AA Dither (Robin cycle-length phasor)
+  // 159: Ellipsoid osc AA Dither (Robin cycle-length phasor)
+  // 161: Robin Sinepulse (205) Trigger-only hard reset (no Reset port)
+  return 162; // Robin Sinepulse (205, renamed) + Robin Sinepulse Allpass (206)
 }

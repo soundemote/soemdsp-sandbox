@@ -146,7 +146,44 @@ function smokeOne(typeId, label) {
 
 const smoothPeak = smokeOne(TYPE_SMOOTH, "smoothGraph");
 const stepPeak = smokeOne(TYPE_STEP, "stepGraph");
+
+// Step Graph Hold (shape 5) + Skew: skew >= 0 holds left.y then jumps at the
+// segment end; skew < 0 jumps to right.y at the segment start, then holds.
+function holdSkewChecks() {
+  const SHAPE_HOLD = 5;
+  const h = must("soemdsp_step_graph_create")() | 0;
+  if (!(h > 0)) throw new Error("step_graph create");
+  try {
+    uploadRamp(
+      must("soemdsp_step_graph_set_points"),
+      must("soemdsp_step_graph_points_x_ptr"),
+      must("soemdsp_step_graph_points_y_ptr"),
+      h,
+      must("soemdsp_step_graph_points_c_ptr"),
+      must("soemdsp_step_graph_points_shape_ptr"),
+    );
+    const sample = must("soemdsp_step_graph_sample");
+    const cases = [
+      [0.5, 0, 0],
+      [0.5, 0.5, 0],
+      [0.5, -0.5, 1],
+      [0, -1, 0],
+      [1, -1, 1],
+    ];
+    for (const [x, skew, want] of cases) {
+      const got = sample(h, x, SHAPE_HOLD, skew);
+      if (got !== want) {
+        throw new Error(`stepGraph hold x=${x} skew=${skew}: got ${got}, want ${want}`);
+      }
+    }
+    return cases.length;
+  } finally {
+    must("soemdsp_step_graph_destroy")(h);
+  }
+}
+const holdCases = holdSkewChecks();
 console.log(
   `ok smoothGraph type=${TYPE_SMOOTH} peak=${smoothPeak.toFixed(4)} `
-  + `stepGraph type=${TYPE_STEP} peak=${stepPeak.toFixed(4)} version=${ver}`,
+  + `stepGraph type=${TYPE_STEP} peak=${stepPeak.toFixed(4)} version=${ver} `
+  + `holdSkew=${holdCases}/5`,
 );

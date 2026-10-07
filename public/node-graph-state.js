@@ -379,7 +379,6 @@ var nodeGraphMvp = {
   savedPatchUserPath: "",
   savedPatchGridColumns: 3,
   selectedSavedPatchProgram: 0,
-  savedPatchTagFilters: [],
   savedPatchEntries: [],
   scopeContextDragging: null,
   scopeContextTargetNode: null,

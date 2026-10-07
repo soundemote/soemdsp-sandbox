@@ -1219,13 +1219,60 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
       true,
     ),
     decimals: normalizeNodeGraphTraceDisplayNumber(source.decimals, defaults.decimals, 0, 8, true),
+    // Sign display: showMinus / showPlus. Migrate legacy polarity/signMode on load.
+    // Fresh default / bipolar = showMinus. Old unipolar/absolute = neither (abs in formatter).
+    showMinus: (() => {
+      if (Object.hasOwn(source, "showMinus")) {
+        const raw = source.showMinus;
+        if (raw === true || raw === "true" || raw === 1 || raw === "1") return true;
+        if (raw === false || raw === "false" || raw === 0 || raw === "0") return false;
+        return Boolean(raw);
+      }
+      if (Object.hasOwn(source, "showPlus")) {
+        return false;
+      }
+      if (Object.hasOwn(source, "polarity") || Object.hasOwn(source, "signMode")) {
+        const raw = String(source.polarity ?? source.signMode).trim().toLowerCase();
+        if (raw === "unipolar" || raw === "uni" || raw === "unsigned"
+          || raw === "absolute" || raw === "abs") {
+          return false;
+        }
+        return true; // bipolar (and aliases)
+      }
+      return Boolean(defaults.showMinus);
+    })(),
+    showPlus: (() => {
+      if (Object.hasOwn(source, "showPlus")) {
+        const raw = source.showPlus;
+        if (raw === true || raw === "true" || raw === 1 || raw === "1") return true;
+        if (raw === false || raw === "false" || raw === 0 || raw === "0") return false;
+        return Boolean(raw);
+      }
+      if (Object.hasOwn(source, "showMinus")
+        || Object.hasOwn(source, "polarity")
+        || Object.hasOwn(source, "signMode")) {
+        // Old bipolar never drew "+"; only explicit showPlus turns it on.
+        return false;
+      }
+      return Boolean(defaults.showPlus);
+    })(),
+    // Legacy alias for older readers: any sign reserved => bipolar, else unipolar.
     polarity: (() => {
-      const raw = String(source.polarity ?? source.signMode ?? defaults.polarity ?? "bipolar")
+      if (Object.hasOwn(source, "showMinus") || Object.hasOwn(source, "showPlus")) {
+        const minus = source.showMinus === true || source.showMinus === "true"
+          || source.showMinus === 1 || source.showMinus === "1";
+        const plus = source.showPlus === true || source.showPlus === "true"
+          || source.showPlus === 1 || source.showPlus === "1";
+        return (minus || plus) ? "bipolar" : "unipolar";
+      }
+      const raw = String(source.polarity ?? source.signMode ?? defaults.polarity ?? "unipolar")
         .trim()
         .toLowerCase();
       if (raw === "unipolar" || raw === "uni" || raw === "unsigned") return "unipolar";
       if (raw === "absolute" || raw === "abs") return "absolute";
-      return "bipolar";
+      if (raw === "bipolar" || raw === "bi" || raw === "signed") return "bipolar";
+      // No legacy polarity on disk and new defaults are neither-checked.
+      return (defaults.showMinus || defaults.showPlus) ? "bipolar" : "unipolar";
     })(),
     removeTrailingZeros: (() => {
       const raw = source.removeTrailingZeros ?? source.stripTrailingZeros ?? defaults.removeTrailingZeros;

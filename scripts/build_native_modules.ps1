@@ -150,6 +150,8 @@ $modules = @(
   @{ Name = "pluck_envelope_fb"; Simd = $false; Exports = @("soemdsp_pluck_envelope_fb_create", "soemdsp_pluck_envelope_fb_destroy", "soemdsp_pluck_envelope_fb_sample", "soemdsp_pluck_envelope_fb_version", "soemdsp_pluck_envelope_fb_metadata_json", "soemdsp_pluck_envelope_fb_metadata_json_size") }
   @{ Name = "ping_envelope"; Simd = $false; Exports = @("soemdsp_ping_envelope_create", "soemdsp_ping_envelope_destroy", "soemdsp_ping_envelope_sample", "soemdsp_ping_envelope_is_idle", "soemdsp_ping_envelope_version", "soemdsp_ping_envelope_metadata_json", "soemdsp_ping_envelope_metadata_json_size") }
   @{ Name = "power_decay"; Simd = $false; Exports = @("soemdsp_power_decay_create", "soemdsp_power_decay_destroy", "soemdsp_power_decay_sample", "soemdsp_power_decay_is_idle", "soemdsp_power_decay_version", "soemdsp_power_decay_metadata_json", "soemdsp_power_decay_metadata_json_size") }
+  @{ Name = "robin_sinepulse"; Simd = $false; Exports = @("soemdsp_robin_sinepulse_create", "soemdsp_robin_sinepulse_destroy", "soemdsp_robin_sinepulse_sample", "soemdsp_robin_sinepulse_env", "soemdsp_robin_sinepulse_is_idle", "soemdsp_robin_sinepulse_version", "soemdsp_robin_sinepulse_metadata_json", "soemdsp_robin_sinepulse_metadata_json_size") }
+  @{ Name = "robin_sinepulse_allpass"; Simd = $false; Exports = @("soemdsp_robin_sinepulse_allpass_create", "soemdsp_robin_sinepulse_allpass_destroy", "soemdsp_robin_sinepulse_allpass_set_params", "soemdsp_robin_sinepulse_allpass_process_chain", "soemdsp_robin_sinepulse_allpass_dry", "soemdsp_robin_sinepulse_allpass_out", "soemdsp_robin_sinepulse_allpass_sample", "soemdsp_robin_sinepulse_allpass_is_idle", "soemdsp_robin_sinepulse_allpass_num_stages", "soemdsp_robin_sinepulse_allpass_update_count", "soemdsp_robin_sinepulse_allpass_version", "soemdsp_robin_sinepulse_allpass_metadata_json", "soemdsp_robin_sinepulse_allpass_metadata_json_size") }
   @{ Name = "vactrol_envelope"; Simd = $false; Exports = @("soemdsp_vactrol_envelope_create", "soemdsp_vactrol_envelope_destroy", "soemdsp_vactrol_envelope_sample", "soemdsp_vactrol_envelope_version", "soemdsp_vactrol_envelope_metadata_json", "soemdsp_vactrol_envelope_metadata_json_size") }
   @{ Name = "exp_adsr"; Simd = $false; Exports = @("soemdsp_exp_adsr_create", "soemdsp_exp_adsr_destroy", "soemdsp_exp_adsr_sample", "soemdsp_exp_adsr_is_idle", "soemdsp_exp_adsr_version", "soemdsp_exp_adsr_metadata_json", "soemdsp_exp_adsr_metadata_json_size") }
   @{ Name = "wavetable_adsr"; Simd = $false; Exports = @("soemdsp_wavetable_adsr_create", "soemdsp_wavetable_adsr_destroy", "soemdsp_wavetable_adsr_sample", "soemdsp_wavetable_adsr_is_idle", "soemdsp_wavetable_adsr_version", "soemdsp_wavetable_adsr_metadata_json", "soemdsp_wavetable_adsr_metadata_json_size") }
@@ -685,6 +687,16 @@ if ($node) {
   & $node.Source "$root\scripts\smoke_remove_node_preserves_state.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: remove_node preserves state smoke FAILED"
+  }
+  # Robin Sinepulse (Robin Schmidt's SweepKicker): direct export + graph Trigger/Env.
+  & $node.Source "$root\scripts\smoke_graph_robin_sinepulse.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: Robin Sinepulse smoke FAILED"
+  }
+  # Robin Sinepulse Allpass (Robin Schmidt's FlatZapper): direct export + graph Trigger/In/Out.
+  & $node.Source "$root\scripts\smoke_graph_robin_sinepulse_allpass.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: Robin Sinepulse Allpass smoke FAILED"
   }
 } else {
   Write-Warning "node not found -- combined wasm smoke test SKIPPED. Install Node.js to enable it."

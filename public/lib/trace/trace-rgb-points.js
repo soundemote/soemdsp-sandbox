@@ -37,7 +37,8 @@ void main() {
 }
 `;
 
-  let device = null;
+  /** @type {WeakMap<HTMLCanvasElement, object>} */
+  const devices = new WeakMap();
 
   function compile(gl, type, src) {
     const sh = gl.createShader(type);
@@ -51,10 +52,11 @@ void main() {
   }
 
   function ensure(canvas) {
-    if (device && device.canvas === canvas && device.gl && !device.gl.isContextLost()) {
+    let device = devices.get(canvas);
+    if (device && device.gl && !device.gl.isContextLost()) {
       return device;
     }
-    device = null;
+    devices.delete(canvas);
     const gl = canvas.getContext("webgl", {
       alpha: true,
       antialias: false,
@@ -93,6 +95,7 @@ void main() {
         uSize: gl.getUniformLocation(prog, "uSize"),
       },
     };
+    devices.set(canvas, device);
     return device;
   }
 
@@ -108,11 +111,11 @@ void main() {
     }
     let off = dest._traceRgbPointsOffscreen;
     if (!off || off.width !== dest.width || off.height !== dest.height) {
+      if (off) devices.delete(off);
       off = document.createElement("canvas");
       off.width = dest.width;
       off.height = dest.height;
       dest._traceRgbPointsOffscreen = off;
-      device = null;
     }
     const d = ensure(off);
     if (!d) {

@@ -465,11 +465,7 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
   const { gridW, gridH } = nodeGraphFbmFieldResolveGridSize(face, maxW, maxH);
   if (!syncNodeGraphFbmFieldCanvas1to1(canvas, face, gridW, gridH)) return false;
 
-  if (typeof nodeGraphFbmFieldFillGrid !== "function") {
-    return nodeGraphFbmFieldFillBlack(canvas, face);
-  }
-
-  const grid = nodeGraphFbmFieldFillGrid({
+  const fieldParams = {
     width: gridW,
     height: gridH,
     domainTime: face._fbmFieldTime,
@@ -484,28 +480,45 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
     scale: nodeGraphFbmFieldReadParam(nodeId, "scale", 1),
     smoothness: nodeGraphFbmFieldReadParam(nodeId, "smoothness", 0.55),
     contrast: nodeGraphFbmFieldReadParam(nodeId, "contrast", 1),
-    // 0 Scroll · 1 Volume — same mapping as X/Y/Z probes
+    // 0 Scroll · 1 Volume — same mapping as X/Y/Z probes (audio stays in C++)
     motion: nodeGraphFbmFieldReadParam(nodeId, "motion", 1),
     brightness: nodeGraphFbmFieldReadParam(nodeId, "brightness", 1),
-  });
-
-  if (!grid?.mono || grid.width !== gridW || grid.height !== gridH) {
-    if (!face._fbmFieldHasFrame) return nodeGraphFbmFieldFillBlack(canvas, face);
-    return true;
-  }
+  };
 
   const patchNode = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(nodeId) : null;
   const settings = nodeGraphFbmFieldSettingsForNode(patchNode);
 
-  if (typeof nodeGraphFbmFieldGlPresent !== "function") {
-    return nodeGraphFbmFieldFillBlack(canvas, face);
+  // Prefer GLSL field (no per-texel WASM). Canvas2D + fill_grid only if GL fails.
+  let ok = false;
+  if (typeof nodeGraphFbmFieldGlPresentParams === "function") {
+    ok = nodeGraphFbmFieldGlPresentParams(canvas, {
+      ...fieldParams,
+      gradientStops: settings.gradientStops,
+      background: settings.background,
+      nodeId,
+    });
   }
-
-  const ok = nodeGraphFbmFieldGlPresent(canvas, grid.mono, grid.width, grid.height, {
-    gradientStops: settings.gradientStops,
-    background: settings.background,
-    nodeId,
-  });
+  if (!ok && typeof nodeGraphFbmFieldFillGrid === "function") {
+    const grid = nodeGraphFbmFieldFillGrid(fieldParams);
+    if (grid?.mono && grid.width === gridW && grid.height === gridH) {
+      if (typeof nodeGraphFbmFieldPresentCanvas2d === "function") {
+        ok = nodeGraphFbmFieldPresentCanvas2d(canvas, grid.mono, grid.width, grid.height, {
+          gradientStops: settings.gradientStops,
+          background: settings.background,
+        });
+      } else if (typeof nodeGraphFbmFieldGlPresent === "function") {
+        ok = nodeGraphFbmFieldGlPresent(canvas, grid.mono, grid.width, grid.height, {
+          gradientStops: settings.gradientStops,
+          background: settings.background,
+          nodeId,
+        });
+      }
+    }
+  }
+  if (!ok) {
+    if (!face._fbmFieldHasFrame) return nodeGraphFbmFieldFillBlack(canvas, face);
+    return true;
+  }
   if (ok) {
     if (face.dataset) face.dataset.lightStrength = "1";
     face._fbmFieldHasFrame = true;

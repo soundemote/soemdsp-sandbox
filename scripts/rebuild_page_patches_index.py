@@ -42,7 +42,6 @@ def catalog_entry(path: Path, *, slug: str, folder: str | None, url: str) -> dic
         "name": name,
         "url": url,
         "author": str(info.get("author") or "").strip(),
-        "tags": str(info.get("tags") or "").strip(),
         "emoji": str(info.get("emoji") or "").strip(),
     }
     if folder:
@@ -63,7 +62,6 @@ def alias_entry(slug: str, rel_path: str) -> dict:
         "name": str(info.get("name") or "").strip(),
         "url": url,
         "author": str(info.get("author") or "").strip(),
-        "tags": str(info.get("tags") or "").strip(),
         "emoji": str(info.get("emoji") or "").strip(),
     }
 

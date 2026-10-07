@@ -48,7 +48,6 @@ function nodeGraphPatchWithLiveHeaderInfo(patch = nodeGraphMvp.patch) {
     description: field("description", "nodePatchDefaultsDescription", "patchDescriptionValue")
       || nextPatch.info?.description,
     program,
-    tags: field("tags", "nodePatchDefaultsTags", "patchTagsValue") || nextPatch.info?.tags,
     author: field("author", "nodePatchDefaultsAuthor", "patchAuthorValue") || nextPatch.info?.author,
     emoji: field("emoji", "nodePatchDefaultsEmoji", "patchEmojiValue") || nextPatch.info?.emoji,
     category: field("category", "nodePatchDefaultsCategory", "patchCategoryValue") || nextPatch.info?.category,
@@ -252,51 +251,6 @@ function syncNodeGraphCurrentSavedPatchHeader() {
   if (saveBtn) {
     saveBtn.classList.toggle("is-unsaved", dirtyState === "edited");
   }
-}
-
-function normalizeNodeGraphSavedPatchTag(tag) {
-  return String(tag || "")
-    .trim()
-    .replace(/^#+/, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function nodeGraphSavedPatchTagSet(patch = {}) {
-  const text = [
-    patch.tags,
-    patch.name,
-    patch.filename,
-  ].filter(Boolean).join(" ");
-  return new Set(String(text)
-    .split(/[,\s#]+/g)
-    .map(normalizeNodeGraphSavedPatchTag)
-    .filter(Boolean));
-}
-
-function nodeGraphSavedPatchTagLabelList(patch = null) {
-  const activeFilters = Array.isArray(nodeGraphMvp.savedPatchTagFilters)
-    ? nodeGraphMvp.savedPatchTagFilters
-    : [];
-  const patchTags = patch
-    ? String(patch.tags || "")
-      .split(/[,\s#]+/g)
-      .map(normalizeNodeGraphSavedPatchTag)
-      .filter(Boolean)
-    : [];
-  const availableTags = !patch && Array.isArray(nodeGraphMvp.savedPatchEntries)
-    ? nodeGraphMvp.savedPatchEntries
-      .flatMap((entry) => String(entry?.tags || "").split(/[,\s#]+/g))
-      .map(normalizeNodeGraphSavedPatchTag)
-      .filter(Boolean)
-    : [];
-  const tags = [...new Set(patchTags.length ? patchTags : activeFilters.length ? activeFilters : availableTags)]
-    .slice(0, 12);
-  if (tags.length) {
-    return tags.map((tag) => `#${tag}`).join(" ");
-  }
-  return patch ? "#untagged" : "no tags yet";
 }
 
 function nodeGraphSavedPatchBankLabel(patch = null) {
@@ -1180,7 +1134,6 @@ async function saveNodeGraphScript() {
       status: `patch saved: ${filename}`,
     });
     setNodeGraphCurrentSavedPatch(filename);
-    clearNodeGraphSavedPatchTagFilters();
     await renderNodeGraphDemoPatchList();
     setNodeGraphCurrentSavedPatch(filename);
     const listed = (nodeGraphMvp.savedPatchEntries || []).some((entry) => entry?.filename === filename);

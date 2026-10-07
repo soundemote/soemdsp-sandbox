@@ -1,9 +1,9 @@
 # Kick — SweepKicker percussion module plan
 
-**Status:** planned, not started. Plan only. Do not build until Argi says go.
+**Status:** built as **Robin Sinepulse** (`robinSinepulse`, graph type 205, `native_modules/robin_sinepulse/`), local and uncommitted (Argi, 2026-10-06: "add SweepKicker as Robin Sinepulse"). "Kick" in this plan means that module. Trigger only, no Reset: Trigger hard-resets the phase and restarts the sweep and envelope (Argi, 2026-10-06). Flat Zapper is built as **Robin Sinepulse Allpass** (see **Flat Zapper module (seed)**). Change to done only after Argi tests.
 **Date:** 2026-10-06.
 **Owner:** SandyModules (Sandbox build agent).
-**Decided (Argi, 2026-10-06):** keep the added Decay envelope; Trigger restarts the sweep and envelope without zeroing the phase (only Reset ↺ resets the phase); Kick and Electro Kick stay separate modules; FlatZapper gets its own seed with an audio input. See **Decisions**. **Still under discussion:** velocity, latching, units, stereo, and whether Flat Zapper is a new module or a mode of Phase Disperse.
+**Decided (Argi, 2026-10-06):** keep the added Decay envelope; Trigger only, no Reset ↺: Trigger hard-resets the phase and restarts the sweep and envelope (this replaced the earlier keep-phase rule the same day); Kick and Electro Kick stay separate modules; FlatZapper gets its own seed with an audio input. See **Decisions**. **Still under discussion:** velocity, latching, units, stereo, and whether Flat Zapper is a new module or a mode of Phase Disperse.
 
 **Algorithm source:** Robin Schmidt (RS-MET), `rosic::rsSweepKicker`, with permission (see Credit). FlatZapper (`rosic::rsFlatZapper`) is not part of the Kick; it is seeded as its own module (see **Flat Zapper module (seed)**).
 
@@ -55,7 +55,7 @@ Native C++/WASM DSP only. JS covers the definitions, params and the optional fac
 ## Decisions (Argi, 2026-10-06)
 
 1. **Decay stays.** The added Decay amplitude envelope (T60) is kept. It is the **Env** output and it drives the Kick amplitude (`Kick = amplitude × e × wave`).
-2. **No forced hard reset on Trigger. Reset ↺ is the only phase reset.** Robin's noteOn always zeroes the phase; the sandbox Kick does that only on Reset (an optional reset is what the Reset input is for). Exact behaviour:
+2. **Superseded (Argi, 2026-10-06): Trigger only, no Reset ↺. Trigger hard-resets the phase (`φ = 0`) and restarts the sweep and envelope, exactly Robin's noteOn.** The earlier decision, kept for the record: **No forced hard reset on Trigger. Reset ↺ is the only phase reset.** Robin's noteOn always zeroes the phase; the sandbox Kick does that only on Reset (an optional reset is what the Reset input is for). Exact behaviour:
    - **Trigger ⎍** (`gate_hit`, height `v`): latch High Freq / Low Freq / Sweep Time; **restart the sweep** (`n = 0`, so `t = 0`; `f_prev = fHi`; coefficients from the new latched values); **restart the envelope** (`e = v`). The oscillator phase `φ` is **not touched**. The next sample is `wave(φ + phase)` with `φ` advanced from wherever it was. Mid-hit the waveform stays continuous: only the frequency jumps back to High Freq and the level jumps to `v`.
    - **Reset ↺** (height ignored): `φ = 0`, plus the same sweep and envelope restart from the latched values (`e` = last latched `v`). This is the hard reset and the only way to zero the phase. Before the first Trigger `v = 0`, so Reset alone is silent.
    - **Trigger and Reset on the same sample:** Reset first, then Trigger, so `φ = 0` with the new height. That is exactly Robin's noteOn. Patch one trigger into both jacks to get Robin's always-zero-phase start.
@@ -253,7 +253,7 @@ N DF1 biquads per sample (5 multiplies, 4 adds each). **Measured ≈ 325 ns/samp
 
 ### Flat Zapper module (seed)
 
-**Status:** seed only, not started (Argi, 2026-10-06). Do not build until Argi says go. Also in `docs/FUTURE_PLANNING.md` §Flat Zapper and the `progress.md` backlog.
+**Status:** built as **Robin Sinepulse Allpass** (`robinSinepulseAllpass`, graph type 206, `native_modules/robin_sinepulse_allpass/`), local and uncommitted (Argi, 2026-10-06: "add module rsFlatZapper as Robin Sinepulse Allpass"). A separate module (Phase Disperse unchanged), no Reset jack, no brown post-filter in v1, default 50 stages. Parity: `scripts/parity_robin_sinepulse_allpass.py`. Also in `docs/FUTURE_PLANNING.md` §Flat Zapper.
 
 **Idea.** Robin's `rsFlatZapper` as its own module. A chain of 0–256 allpass stages whose tuning frequencies are spread from Low Freq to High Freq. **Trigger** fires an internal unit impulse into the chain; it comes out as a flat-spectrum (white) falling "zap". An **audio input** feeds anything else through the same dispersion chain, so the module is also an effect: a disperser / smear for noise bursts, clicks, the Kick, other drums, pads. Robin's ToolChain wrapper already has both paths (Exciter % and Input %).
 
@@ -340,7 +340,7 @@ Budget: one sample at 48 kHz is 20.8 µs, so the worst case (biquad, 256 stages)
 | Native type id | Next free id in `NATIVE_GRAPH_TYPE_IDS` at build time. The highest seen on 2026-10-06 is 204 (`powerDecay`). Snare may take the next one. Other agents have uncommitted `graph_engine` work, so check again before picking |
 | Inputs (order) | `Trigger`, `Reset`. No aliases |
 | Outputs (order) | `Kick`, `Env` |
-| Polyphony | One voice per module. Trigger restarts the sweep and envelope and keeps the phase; only Reset zeroes the phase (Decisions §2) |
+| Polyphony | One voice per module. Trigger zeroes the phase and restarts the sweep and envelope; no Reset (Decisions §2, superseded 2026-10-06) |
 | Channels | Mono (see PhaseStereoShift below) |
 
 ---
@@ -433,6 +433,8 @@ SweepKicker has no envelope of its own, so Env is a sandbox addition by necessit
 ---
 
 ## Port plan (native C++)
+
+**As built (2026-10-06):** `native_modules/robin_sinepulse/robin_sinepulse.cpp` + `originalcode/`, exports `soemdsp_robin_sinepulse_*`, graph `kTypeRobinSinepulse` (205) / `process_robin_sinepulse`, parity `scripts/parity_robin_sinepulse.py`, smoke `scripts/smoke_graph_robin_sinepulse.mjs`; Trigger only (no Reset). The names below (`kick.cpp`, `soemdsp_kick_*`, `kTypeKick`, Reset) are the planning-era names.
 
 ### Where the code goes
 
@@ -584,12 +586,12 @@ Goal: prove the port computes Robin's SweepKicker, not a look-alike.
 2. **Decay (added). Resolved (Argi, 2026-10-06):** keep the Decay envelope; it drives Env and the Kick amplitude. Still open: range and default (proposed 0.02–4 s, 0.5 s).
 3. **Velocity.** Height scales Env only (proposed), or also High Freq like a harder beater?
 4. **Latching.** Keep Robin's rule (High Freq / Low Freq / Sweep Time only change at the next hit), or make them live?
-5. **Retrigger. Resolved (Argi, 2026-10-06):** no forced hard reset on Trigger. Trigger restarts the sweep and envelope and keeps the phase; only Reset ↺ zeroes the phase (Decisions §2).
+5. **Retrigger. Resolved (Argi, 2026-10-06):** Trigger only, no Reset ↺. Trigger hard-resets the phase and restarts the sweep and envelope (Decisions §2; this replaced the earlier keep-phase rule).
 6. **Units.** Phase in cycles −0.5…+0.5 (proposed) vs degrees; Amplitude 0–1 (proposed) vs Robin's −1…+1.
 7. **Stereo.** Drop PhaseStereoShift (proposed, mono spec) or add Kick L / R outs?
 8. **Pitch input.** Add a 0.1V/Oct or pitch input so key tracking works like Robin's ByKey (100 %, A4 reference)?
-9. **FlatZapper. Partly resolved (Argi, 2026-10-06):** its own seed with an audio input and a Trigger (Flat Zapper module (seed)). Still open: a new module (proposed) or a mode / input of Phase Disperse; Robin's brown lowpass + DC highpasses (`getBrownZap`) as a `tone` choice; a Reset jack; default stage count (proposed 50).
-10. **Kick vs Electro Kick. Resolved (Argi, 2026-10-06):** separate modules. SweepKicker is not an Electro Kick algorithm.
+9. **FlatZapper. Resolved (Argi, 2026-10-06):** built as the separate module Robin Sinepulse Allpass with an audio input and a Trigger, no Reset jack, default 50 stages. Still open: Robin's brown lowpass + DC highpasses (`getBrownZap`) as a `tone` choice (left out of v1).
+10. **Kick vs Electro Kick. Resolved (Argi, 2026-10-06):** separate modules. SweepKicker is not an Electro Kick algorithm; Electro Kick will be our common kick algorithms.
 11. **Removal (C-002). Done 2026-10-06** (Argi: "start"): Sinepulse, Sine Kick, Kick Envelope (with `kick-envelope-math.js` and the Ellipsoid kick branch), `electroKick`, `electroSnare`. Still open: delete the stale `search-width.txt`?
 12. **Shared helpers.** Approve `rational_map_01` / TriSaw helpers in `library/include/soemdsp`, or keep them local to `kick.cpp` (proposed)?
 13. **isIdle out.** Add one for voice idle detection, like other envelopes? Not in the spec, so out of v1 unless you say so.

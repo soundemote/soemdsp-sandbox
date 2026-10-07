@@ -148,7 +148,16 @@ function drawNodeGraphGradientVectorscopeFaceItem(_renderer, item, pixelRatio) {
     return;
   }
 
-  if (typeof nodeGraphScopeDestFadeTowardPlate === "function") {
+  const trails = typeof TraceRgbTrailsGl !== "undefined" ? TraceRgbTrailsGl : null;
+  const useTrails = Boolean(
+    trails
+    && typeof trails.ensure === "function"
+    && trails.ensure(canvas, canvas.width, canvas.height)
+  );
+  if (useTrails) {
+    trails.stepFade(canvas, settings.trail, settings.ghost, bg);
+    trails.presentTo(canvas, ctx, bg);
+  } else if (typeof nodeGraphScopeDestFadeTowardPlate === "function") {
     nodeGraphScopeDestFadeTowardPlate(ctx, canvas, bg, settings.trail, settings.ghost);
   } else {
     ctx.save();
@@ -225,7 +234,11 @@ function drawNodeGraphGradientVectorscopeFaceItem(_renderer, item, pixelRatio) {
       sampleRgb: sample,
     });
   } finally {
-    if (typeof nodeGraphScopeDestFadeGhostAfterStamps === "function") {
+    if (useTrails && typeof trails.ingestCanvas === "function") {
+      // Woscope stamped onto 2D; fold back into RGB residual then present.
+      trails.ingestCanvas(canvas, canvas);
+      trails.presentTo(canvas, ctx, bg);
+    } else if (typeof nodeGraphScopeDestFadeGhostAfterStamps === "function") {
       nodeGraphScopeDestFadeGhostAfterStamps(ctx, canvas);
     }
   }

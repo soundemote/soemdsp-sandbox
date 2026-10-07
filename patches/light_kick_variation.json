@@ -147,8 +147,7 @@
     "bankName": "",
     "category": "",
     "description": "",
-    "program": 0,
-    "tags": "circle"
+    "program": 0
   },
   "masterSeed": 1493348590,
   "modularOnlyControlsVisible": false,
