@@ -418,9 +418,17 @@ function toggleNodeGraphModuleBypassFromNode(node, event) {
     bypassed.add(nodeId);
   }
   patch.bypassedNodes = [...bypassed];
+  const nowBypassed = bypassed.has(nodeId);
   commitNodeGraphPatch(patch, {
-    status: bypassed.has(nodeId) ? "module bypassed" : "module active",
+    status: nowBypassed ? "module bypassed" : "module active",
   });
+  if (nowBypassed && typeof nodeGraphModuleScopeWipeNode === "function") {
+    try {
+      nodeGraphModuleScopeWipeNode(nodeId);
+    } catch (_error) {
+      // Best-effort face cold-boot on power-off.
+    }
+  }
   event?.preventDefault?.();
   event?.stopPropagation?.();
   return true;

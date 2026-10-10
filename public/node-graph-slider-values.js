@@ -627,10 +627,9 @@ function nodeSliderRationalCurveContinuous(position, contour) {
   if (Math.abs(c) < 0.000001) {
     return p;
   }
-  const cSafe = clampNodeSliderValue(c, -0.999999, 0.999999);
-  return cSafe < 0
-    ? (p * (1 + cSafe)) / (1 + cSafe * p)
-    : p / (1 - cSafe + cSafe * p);
+  return c < 0
+    ? (p * (1 + c)) / (1 + c * p)
+    : p / (1 - c + c * p);
 }
 
 function nodeSliderRationalCurveContinuousInverse(value, contour) {
@@ -639,13 +638,12 @@ function nodeSliderRationalCurveContinuousInverse(value, contour) {
   if (Math.abs(c) < 0.000001) {
     return y;
   }
-  const cSafe = clampNodeSliderValue(c, -0.999999, 0.999999);
-  if (cSafe < 0) {
-    const denom = 1 + cSafe - y * cSafe;
-    return denom === 0 ? y : clampNodeSliderValue(y / denom, 0, 1);
+  if (c < 0) {
+    const denom = 1 + c - y * c;
+    return denom === 0 ? y : y / denom;
   }
-  const denom = 1 - y * cSafe;
-  return denom === 0 ? y : clampNodeSliderValue(y * (1 - cSafe) / denom, 0, 1);
+  const denom = 1 - y * c;
+  return denom === 0 ? y : y * (1 - c) / denom;
 }
 
 /**

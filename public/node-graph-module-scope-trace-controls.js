@@ -167,6 +167,7 @@ function nodeGraphDisplaySettingsIsPhosphorFormType(type) {
     || key === "xyPad"
     || key === "videoscopeBurn"
     || key === "oscilloscopeBankBurn"
+    || key === "vectorRgbFace"
     || key.endsWith("Burn");
 }
 
@@ -210,11 +211,12 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "labelSize",
     "backgroundBrightness",
     "backgroundHue",
+    "ghostBlend",
     "shapeParam",
     "pill",
     "squircle",
   ],
-  colors: ["dot1Color", "secondaryColor", "tertiaryColor", "backgroundColor", "ghostColor", "buttonColor", "hoverColor", "downColor", "textColor", "strokeColor", "dotColor", "arcFill", "arcTrack", "sliderColor", "sliderNumberColor", "sliderTextColor", "sliderUnitColor", "inactiveColor", "activeColor"],
+  colors: ["dot1Color", "secondaryColor", "tertiaryColor", "backgroundColor", "ghostColor", "buttonColor", "hoverColor", "downColor", "textColor", "strokeColor", "dotColor", "arcFill", "arcTrack", "sliderColor", "sliderNumberColor", "sliderTextColor", "sliderUnitColor", "inactiveColor", "activeColor", "fontColor", "inactiveFillColor", "activeFillColor", "inactiveTextColor", "activeTextColor", "previousColor"],
   // Every control key that exists in the shared popover MUST be listed here.
   // setNodeGraphTraceDisplaySettingsFormType only show/hides keys from these
   // lists — anything missing leaks onto every module (e.g. Output saw
@@ -249,6 +251,13 @@ const nodeGraphTraceDisplaySettingControlKeys = Object.freeze({
     "freqOverlap",
     "freqScale",
     "cornerShape",
+    "spectrumAxis",
+    "spectrumDbMode",
+    "spectrumDbFloor",
+    "spectrumDbCeiling",
+    "spectrumDrawStyle",
+    "spectrumPeakHold",
+    "spectrumPeakDecay",
     "shape",
     "outerPlate",
     "lightBlend",
@@ -316,7 +325,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   vectorDot: Object.freeze({
     fields: Object.freeze([
       "backgroundBrightness",
+      "backgroundSaturation",
       "dot1Brightness",
+      "dot1Saturation",
       "dot1Size",
       "lineThickness",
       "shapeParam",
@@ -328,7 +339,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   pulseDot: Object.freeze({
     fields: Object.freeze([
       "backgroundBrightness",
+      "backgroundSaturation",
       "dot1Brightness",
+      "dot1Saturation",
       "dot1Size",
       "lineThickness",
       "shapeParam",
@@ -436,14 +449,16 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze(["drawMode"]),
   }),
   vectorRgbFace: Object.freeze({
-    fields: Object.freeze([
-      "dot1Brightness",
+    fields: Object.freeze(nodeGraphPhosphorDisplayFieldsFor([
       "dot1Size",
-      "trail",
+      "lineThickness",
+      "dot1Brightness",
+      "dotBudget",
       "ghost",
+      "trail",
       "scale",
       "pixelDensity",
-    ]),
+    ])),
     colors: Object.freeze(["backgroundColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
@@ -515,6 +530,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
       "dot1Brightness",
       "dot1Saturation",
       "ghost",
+      "ghostBlend",
       "trail",
       "burnAmount",
       "unlitSegments",
@@ -540,7 +556,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   vectorDot: Object.freeze({
     fields: Object.freeze([
       "backgroundBrightness",
+      "backgroundSaturation",
       "dot1Brightness",
+      "dot1Saturation",
       "dot1Size",
       "lineThickness",
       "shapeParam",
@@ -552,7 +570,9 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   pulseDot: Object.freeze({
     fields: Object.freeze([
       "backgroundBrightness",
+      "backgroundSaturation",
       "dot1Brightness",
+      "dot1Saturation",
       "dot1Size",
       "lineThickness",
       "shapeParam",
@@ -693,6 +713,26 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     toggles: Object.freeze([]),
     choices: Object.freeze(["fftSize", "window", "overlap", "freqOverlap", "freqScale"]),
   }),
+  // 1D Spectrum: same FFT analysis choices as Spectrogram (shared keys) + its
+  // own axis / dB / draw / peak choices. Colors on the shared color row.
+  spectrumLine: Object.freeze({
+    fields: Object.freeze([]),
+    colors: Object.freeze(["dot1Color", "backgroundColor"]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze([
+      "fftSize",
+      "window",
+      "overlap",
+      "freqOverlap",
+      "spectrumAxis",
+      "spectrumDbMode",
+      "spectrumDbFloor",
+      "spectrumDbCeiling",
+      "spectrumDrawStyle",
+      "spectrumPeakHold",
+      "spectrumPeakDecay",
+    ]),
+  }),
   // Videoscope / bank / hypersaw: mono energy phosphor (same knobs as 2D Phosphor).
   // MUST NOT fall through to "waterfall" — that is Output's Left/Right page.
   // Videoscope Bright lives on the module face param — not in Display Settings.
@@ -739,6 +779,26 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
   }),
   // Knob face: independent knob / label / value (toggle-style pins).
   // dialSize 0…1 scales only the arc graphic (1 = fill display).
+  arpKeysFace: Object.freeze({
+    fields: Object.freeze([
+      "strokeThickness",
+      "edgeSpacing",
+      "cornerRadius",
+      "trail",
+      "ghost",
+    ]),
+    colors: Object.freeze([
+      "strokeColor",
+      "fontColor",
+      "inactiveFillColor",
+      "activeFillColor",
+      "inactiveTextColor",
+      "activeTextColor",
+      "previousColor",
+    ]),
+    toggles: Object.freeze([]),
+    choices: Object.freeze(["cornerShape"]),
+  }),
   knobFace: Object.freeze({
     fields: Object.freeze([
       "labelSize",
@@ -897,7 +957,7 @@ const nodeGraphTraceDisplayActiveControlsByType = Object.freeze({
     choices: Object.freeze([]),
   }),
   textBoxFace: Object.freeze({
-    fields: Object.freeze(["textSizePercent", "textWeight", "lineHeight", "verticalAlignPercent"]),
+    fields: Object.freeze(["textSizePercent", "textWeight", "lineHeight", "newLineHeight", "verticalAlignPercent"]),
     colors: Object.freeze(["backgroundColor", "textColor"]),
     toggles: Object.freeze([]),
     choices: Object.freeze([]),
@@ -1070,6 +1130,13 @@ const nodeGraphTraceDisplaySectionControls = Object.freeze({
       "freqOverlap",
       "freqScale",
       "syncChannel",
+      "spectrumAxis",
+      "spectrumDbMode",
+      "spectrumDbFloor",
+      "spectrumDbCeiling",
+      "spectrumDrawStyle",
+      "spectrumPeakHold",
+      "spectrumPeakDecay",
       "stereoBlend",
       "cornerShape",
       "polarity",
@@ -2177,6 +2244,12 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
       Object.freeze({ value: "absolute", label: "Absolute" }),
     ]),
   }),
+  ghostBlend: Object.freeze({
+    label: "Ghost blend",
+    inputmode: "decimal",
+    id: "nodeTraceDisplayGhostBlend",
+    title: "0…1 all-8 plate under the live digits, colored with Ghost Gradient stop t=0. 0 = off. Residual hang still uses the full gradient LUT.",
+  }),
   // Number Readout: how live Light composites over residual / ghost gradient.
   lightBlend: Object.freeze({
     label: "Light blend",
@@ -2364,6 +2437,71 @@ const nodeGraphDisplaySettingsChoiceMeta = Object.freeze({
       Object.freeze({ value: "2", label: "Bark" }),
     ]),
   }),
+  spectrumAxis: Object.freeze({
+    label: "Freq axis",
+    aria: "1D Spectrum frequency axis",
+    id: "nodeTraceDisplaySpectrumAxis",
+    options: Object.freeze([
+      Object.freeze({ value: "log", label: "Log" }),
+      Object.freeze({ value: "linear", label: "Linear" }),
+      Object.freeze({ value: "mel", label: "Mel" }),
+      Object.freeze({ value: "bark", label: "Bark" }),
+    ]),
+  }),
+  spectrumDbMode: Object.freeze({
+    label: "Scale",
+    aria: "1D Spectrum magnitude scaling",
+    id: "nodeTraceDisplaySpectrumDbMode",
+    title: "Compressed = Spectrogram look log10(1+x·100). dB = that value inverted to dBFS (smoothed). Exact dB = raw last-hop magnitude in dBFS. Linear = raw magnitude, full-scale sine = top.",
+    options: Object.freeze([
+      Object.freeze({ value: "exactDb", label: "Exact dB" }),
+      Object.freeze({ value: "db", label: "dB (smoothed)" }),
+      Object.freeze({ value: "compressed", label: "Compressed" }),
+      Object.freeze({ value: "linear", label: "Linear" }),
+    ]),
+  }),
+  spectrumDbFloor: Object.freeze({
+    label: "dB floor",
+    aria: "1D Spectrum bottom of range in dBFS",
+    id: "nodeTraceDisplaySpectrumDbFloor",
+    title: "Bottom of the face in dBFS (dB / Exact dB only).",
+    options: Object.freeze(["-144", "-120", "-96", "-84", "-72", "-60", "-48", "-36", "-24"]
+      .map((v) => Object.freeze({ value: v, label: v + " dB" }))),
+  }),
+  spectrumDbCeiling: Object.freeze({
+    label: "dB ceiling",
+    aria: "1D Spectrum top of range in dBFS",
+    id: "nodeTraceDisplaySpectrumDbCeiling",
+    title: "Top of the face in dBFS (dB / Exact dB only). 0 = full-scale sine.",
+    options: Object.freeze(["12", "6", "0", "-6", "-12", "-24"]
+      .map((v) => Object.freeze({ value: v, label: (Number(v) > 0 ? "+" : "") + v + " dB" }))),
+  }),
+  spectrumDrawStyle: Object.freeze({
+    label: "Draw",
+    aria: "1D Spectrum draw style",
+    id: "nodeTraceDisplaySpectrumDrawStyle",
+    options: Object.freeze([
+      Object.freeze({ value: "filled", label: "Filled" }),
+      Object.freeze({ value: "line", label: "Line" }),
+    ]),
+  }),
+  spectrumPeakHold: Object.freeze({
+    label: "Peak hold",
+    aria: "1D Spectrum peak hold",
+    id: "nodeTraceDisplaySpectrumPeakHold",
+    title: "Hold = keep each peak 0.5 s, then fall at the Peak decay rate.",
+    options: Object.freeze([
+      Object.freeze({ value: "off", label: "Off" }),
+      Object.freeze({ value: "hold", label: "Hold, then fall" }),
+    ]),
+  }),
+  spectrumPeakDecay: Object.freeze({
+    label: "Peak decay",
+    aria: "1D Spectrum peak fall rate in dB per second",
+    id: "nodeTraceDisplaySpectrumPeakDecay",
+    options: Object.freeze(["3", "6", "12", "24", "48", "96"]
+      .map((v) => Object.freeze({ value: v, label: v + " dB/s" }))),
+  }),
 });
 
 const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
@@ -2376,7 +2514,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   waterfallXyz: "Instant Waterfall XYZ",
   waterfallRgb: "Instant Waterfall RGB",
   vectorRgbFace: "Vector RGB",
-  rasterRgbFace: "Pixel Grid",
+  rasterRgbFace: "Scan Grid",
   gradientVectorscopeFace: "Vectorscope",
   numberReadout: "Value",
   xyPad: "Phosphor",
@@ -2386,6 +2524,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   pulseDot: "LED Dot",
   lcdDot: "LCD Dot",
   spectrogramBurn: "Spectrogram",
+  spectrumLine: "1D Spectrum",
   rgbShapeFace: "Shape",
   rgbPictureFace: "Picture",
   imageBurnFace: "Image Ghost",
@@ -2400,6 +2539,7 @@ const nodeGraphDisplaySettingsFormTypeTitles = Object.freeze({
   videoscopeBurn: "Videoscope",
   oscilloscopeBankBurn: "Bank",
   hypersawBurn: "Hypersaw",
+  arpKeysFace: "Arp",
   knobFace: "Knob",
   pluginSliderFace: "Slider",
   graphFace: "Graph",

@@ -142,7 +142,6 @@ const nodeGraphModuleCatalogUnderConstructionSort = Object.freeze([
   "previousPatch",
   "sampleLooper",
   "shootingStarExplosion",
-  "softpopOscillator",
   "stftBlur",
   "tiltFilter",
   "windowReopen",
@@ -190,6 +189,7 @@ const nodeGraphModuleCatalogRetiredFromUnderConstruction = Object.freeze([
   "ensemble",
   "vcvrackSuperloveFilter",
   "ellipsoidOsc",
+  "softpopOscillator",
 ]);
 
 /** Short shop-card reminder for under-construction modules (title tooltip). */
@@ -264,7 +264,7 @@ const nodeGraphModuleStoreDepartments = Object.freeze([
   { id: "text",         emoji: "📝", label: "Text",         symbol: "Aa",  title: "Text",      pitch: "Text and code surfaces: labels, streams, and control-plane Code boxes. Not audio DSP." },
   { id: "sample",       emoji: "🎶", label: "Sample Player", symbol: "▣", title: "Sample Player", pitch: "Sample and music-file playback: one-shots, loops, and scrubbable players that turn stored audio into patch signal." },
   { id: "object",       emoji: "🧊", label: "Object",       symbol: "●",   title: "Object",    pitch: "Things you place in the world rather than wire into the signal path -- indicator lights, label plates, and other in-world props." },
-  { id: "rgb",          emoji: "🌈", label: "RGB",          symbol: "◍",   title: "RGB",       pitch: "RGB analog picture and vector faces — Pixel Grid, Vector RGB, and other color-path scopes." },
+  { id: "rgb",          emoji: "🌈", label: "RGB",          symbol: "◍",   title: "RGB",       pitch: "RGB analog picture and vector faces — Scan Grid, Vector RGB, and other color-path scopes." },
   { id: "rgba",         emoji: "🖼️", label: "Shader",       symbol: "▣",   title: "Shader",    pitch: "Screen-space shaders, color-space, image, and screen-wash modules — RGBA/HSLA, chroma, and stills." },
   { id: "oscilloscope", emoji: "📺", label: "Oscilloscope", symbol: "OSC", title: "Oscilloscope", pitch: "Dedicated display testbeds for trace, line burn, 2D scope, videoscope, and canvas-style waveform inspection." },
   { id: "multimeter",   emoji: "📟", label: "Multimeter",   symbol: "0D",  title: "Multimeter", pitch: "Readouts that are not waveforms: numbers, character grids, and other value/message faces for what the signal is saying right now." },
@@ -459,7 +459,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   // additiveOsc / gpuAdditiveOsc retired — Yellow Graph chain replaces them.
   additiveGenerator: {
     category: "additive",
-    description: "Saw / Square / Pulse* / Triangle / RectSine + PWM + Phase Rotation + Harmonics (Instant/Smoothed/Decimal fade) → Yellow Graph.",
+    description: "Harmonics + Waveform (Saw / Square / Pulse* / Triangle / RectSine / Even / Odd) + PWM + Rotation + Slope Curve / Slope Start / Slope End / Slope Skew / Slope Height + HarmonicFade (Instant/Smoothed/Decimal) → Yellow Graph.",
     label: "Additive Generator",
     notes: ["additive", "yellow graph", "harmonics", "morph", "decimal"],
   },
@@ -1622,21 +1622,25 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   softpopOscillator: {
     category: "oscillator",
-    description: "Noise through a resonant peak BP—softpop-style pitchable noise voice.",
+    description: "Sine or resonant-filter noise voice. Width, Pitch Mod, and Amp Mod stay live in both models.",
     label: "Softpop Oscillator",
     notes: [
       "softpop",
       "noise oscillator",
       "band noise",
+      "sine",
+      "filter",
       "gaussian",
       "pink",
       "brown",
       "bandpass",
-      "resonant",
+      "pitch mod",
+      "amp mod",
       "seed",
       "reset",
       "stereo",
       "mono",
+      "native",
     ],
   },
   robinSinepulse: {
@@ -1655,7 +1659,7 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "sweep",
       "chirp",
       "Trigger",
-      "Env",
+      "ƒ",
       "native",
     ],
   },
@@ -2282,6 +2286,24 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
       "native",
     ],
   },
+  exponentialSkew: {
+    category: "envelope",
+    description: "Exp Skew: Trigger restarts a linear fall from height to 0.001 with Marvinh exp(w·x) time warp. Shape w = 0 is a straight line.",
+    label: "Exp Skew",
+    notes: ["Trigger", "Duration", "Shape w", "decay", "exponential skew", "native"],
+  },
+  hyperbolicDecay: {
+    category: "envelope",
+    description: "Hyperbolic: Trigger restarts start·end/((start−end)·u+end) from height to 0.001. Shape w warps time; 0 is linear time.",
+    label: "Hyperbolic",
+    notes: ["Trigger", "Duration", "Shape w", "decay", "hyperbolic", "native"],
+  },
+  exponentialMix: {
+    category: "envelope",
+    description: "Exponential Mix: Trigger restarts (1−p)·e^{−x}+p·e^{−rate·x}. Decay Time is when the slow exp hits −60 dB.",
+    label: "Exponential Mix",
+    notes: ["Trigger", "Decay Time", "Mix p", "Fast Rate", "decay", "parallel exponential", "native"],
+  },
   vactrol: {
     category: "envelope",
     description: "Roll-your-own optical lag: Light → attack/release one-pole → gamma. Settles to 0 when dark.",
@@ -2435,6 +2457,12 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
     label: "Spectrogram",
     notes: ["fft", "spectrum", "frequency waterfall", "spectral display", "thru"],
   },
+  spectrum1d: {
+    category: "multimeter",
+    description: "See the frequency spectrum right now (magnitude vs frequency) while passing audio through.",
+    label: "1D Spectrum",
+    notes: ["fft", "spectrum", "spectrum analyzer", "frequency", "peaks", "db", "thru"],
+  },
   valueOscilloscope: {
     category: "oscilloscope",
     description: "Latest sample as one horizontal line—ultra-simple level glance.",
@@ -2530,15 +2558,15 @@ const nodeGraphModuleStoreCatalog = Object.freeze({
   },
   vectorRgb: {
     category: "rgb",
-    description: "X/Y phosphor path colored by analog R/G/B — three-channel beam, no brightness LUT.",
+    description: "X/Y phosphor path colored by analog R/G/B. Bright is 0…1 beam intensity × Display Settings brightness.",
     label: "Vector RGB",
-    notes: ["xy", "rgb", "phosphor", "beam", "blank"],
+    notes: ["xy", "rgb", "phosphor", "beam", "bright", "blank", "z"],
   },
   rasterRgb: {
     category: "rgb",
     description: "Analog RGB color-corrector and rolling framebuffer. Scan Speed sets pixels per sample; invert/contrast/brightness/hue land on R/G/B/📺 outs.",
-    label: "Pixel Grid",
-    notes: ["pixel grid", "raster", "framebuffer", "scan", "rgb", "hue", "color correct", "tv"],
+    label: "Scan Grid",
+    notes: ["scan grid", "pixel grid", "raster", "framebuffer", "scan", "rgb", "hue", "color correct", "tv"],
   },
   gradientVectorscope: {
     category: "oscilloscope",
@@ -2775,19 +2803,48 @@ function normalizeNodeGraphNativeModuleEntry(entry = {}) {
   const source = String(entry.source || "");
   const localSourceUrl = String(entry.localSourceUrl || "").trim()
     || (source.startsWith("native_modules/") ? `/${source.replace(/\\/g, "/")}` : "");
+  const sandboxLicense = "Soundemote Noncommercial";
+  const sandboxLicenseUrl =
+    "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE";
+  const noticeUrlDefault =
+    "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md";
   return Object.freeze({
     kind: String(entry.kind || ""),
     label: String(entry.label || name),
     libUrl: String(entry.libUrl || ""),
+    license: String(entry.license || sandboxLicense),
+    licenseUrl: String(entry.licenseUrl || sandboxLicenseUrl),
     localSourceUrl,
     name,
+    noticeUrl: String(entry.noticeUrl || noticeUrlDefault),
     source,
     sourceUrl: String(entry.sourceUrl || ""),
     targetType,
+    upstreamLicense: String(entry.upstreamLicense || ""),
+    upstreamLicenseUrl: String(entry.upstreamLicenseUrl || ""),
     wasm: String(entry.wasm || ""),
     wasmAvailable: Boolean(entry.wasmAvailable),
     wasmUrl: String(entry.wasmUrl || ""),
   });
+}
+
+/** Short Module Settings license line data for a Code/LIB catalog entry. */
+function nodeGraphLicenseInfoForEntry(entry) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+  const sandboxLicense = "Soundemote Noncommercial";
+  const sandboxLicenseUrl =
+    "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE";
+  const noticeUrlDefault =
+    "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md";
+  return {
+    license: String(entry.license || sandboxLicense),
+    licenseUrl: String(entry.licenseUrl || sandboxLicenseUrl),
+    upstreamLicense: String(entry.upstreamLicense || ""),
+    upstreamLicenseUrl: String(entry.upstreamLicenseUrl || ""),
+    noticeUrl: String(entry.noticeUrl || noticeUrlDefault),
+  };
 }
 
 // Extra shop/face types that share one native catalog entry (Code + LIB).
@@ -3488,6 +3545,18 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
     source: "native_modules/power_decay/power_decay.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/power_decay/power_decay.cpp",
   },
+  exponentialSkew: {
+    source: "native_modules/exponential_skew/exponential_skew.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/exponential_skew/exponential_skew.cpp",
+  },
+  hyperbolicDecay: {
+    source: "native_modules/hyperbolic_decay/hyperbolic_decay.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/hyperbolic_decay/hyperbolic_decay.cpp",
+  },
+  exponentialMix: {
+    source: "native_modules/exponential_mix/exponential_mix.cpp",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/exponential_mix/exponential_mix.cpp",
+  },
   robinSinepulse: {
     source: "native_modules/robin_sinepulse/robin_sinepulse.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/robin_sinepulse/robin_sinepulse.cpp",
@@ -3639,6 +3708,10 @@ const nodeGraphJsSourceEntriesByType = Object.freeze({
   speakerProtector2: {
     source: "native_modules/speaker_protector2/speaker_protector2.cpp",
     sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/speaker_protector2/speaker_protector2.cpp",
+  },
+  spectrum1d: {
+    source: "public/modules/spectrum1d/spectrum1d-display.js",
+    sourceUrl: "https://github.com/soundemote/soemdsp-sandbox/blob/master/public/modules/spectrum1d/spectrum1d-display.js",
   },
   spectrogram: {
     source: "public/modules/spectrogram/spectrogram-worklet-evaluator.js",

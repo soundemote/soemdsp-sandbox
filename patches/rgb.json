@@ -605,7 +605,7 @@
         "invert": 0
       },
       "type": "rasterRgb",
-      "alias": "RGB Pixel Grid",
+      "alias": "Scan Grid",
       "widthGu": 11,
       "traceDisplaySettings": {
         "background": "#000004",

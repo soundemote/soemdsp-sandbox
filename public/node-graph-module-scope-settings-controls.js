@@ -213,6 +213,7 @@ function nodeGraphTraceDisplayUnitDragField(key) {
     "ghostBrightness",
     "residual",
     "ghost",
+    "ghostBlend",
     "trail",
     "burnAmount",
     "unlitSegments",
@@ -292,6 +293,12 @@ function nodeGraphTraceDisplayUnitDragRange(key) {
     return { min: -0.5, max: 1 };
   }
   if (key === "burnAmount") {
+    const formType = typeof nodeGraphTraceDisplaySettingsFormType === "function"
+      ? nodeGraphTraceDisplaySettingsFormType()
+      : "";
+    if (formType === "numberReadout") {
+      return { min: 0, max: 1 };
+    }
     const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX) || 4;
     return { min: 0, max };
   }
@@ -585,12 +592,13 @@ const nodeGraphTraceDisplaySharedValueClamps = Object.freeze({
     return clampNodeSliderValue(n, 0, 2);
   },
   ghost: nodeGraphTraceDisplayClampUnit,
+  ghostBlend: nodeGraphTraceDisplayClampUnit,
   capLength: nodeGraphTraceDisplayClampUnit,
   capPadding: nodeGraphTraceDisplayClampUnit,
   capSize: nodeGraphTraceDisplayClampUnit,
   cycles: (value) => Math.max(1, Math.min(64, Math.round(nodeGraphFiniteNumber(value)))),
   trail: nodeGraphTraceDisplayClampUnit,
-  // Deposit gain vs Bright (0...4, default 1).
+  // Deposit gain vs Bright (0...4, default 1). Value LED overrides to 0…1 energy.
   burnAmount: (value) => {
     const max = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX) || 4;
     const n = Number(value);
@@ -815,6 +823,10 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   oscilloscopeBankBurn: Object.freeze({
     lineThickness: nodeGraphTraceDisplayClampStampBlur,
   }),
+  vectorRgbFace: Object.freeze({
+    lineThickness: nodeGraphTraceDisplayClampStampBlur,
+    dotBudget: nodeGraphTraceDisplayClampDotBudget,
+  }),
   toggleButtonFace: Object.freeze({
     strokeScale: nodeGraphTraceDisplayClampUnit,
     buttonPadLeft: nodeGraphTraceDisplayClampUnit,
@@ -937,6 +949,10 @@ const nodeGraphTraceDisplayFormTypeValueClampOverrides = Object.freeze({
   }),
   value: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,
+  }),
+  // Value LED: Burn ⨯ is deposit energy 0…1 (stop t), independent of Bright.
+  numberReadout: Object.freeze({
+    burnAmount: nodeGraphTraceDisplayClampUnit,
   }),
   scope2dTrace: Object.freeze({
     dot1Size: nodeGraphTraceDisplayClampInkPx,

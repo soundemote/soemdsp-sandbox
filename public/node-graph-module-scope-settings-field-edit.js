@@ -515,7 +515,8 @@ function stepNodeGraphTraceDisplaySetting(event) {
   // Spectrogram: FFT steps the size table.
   if (
     key === "fftSize" &&
-    nodeGraphTraceDisplaySettingsFormType() === "spectrogramBurn" &&
+    (nodeGraphTraceDisplaySettingsFormType() === "spectrogramBurn"
+      || nodeGraphTraceDisplaySettingsFormType() === "spectrumLine") &&
     typeof nodeGraphSpectrogramStepFftSize === "function"
   ) {
     nextValue = nodeGraphSpectrogramStepFftSize(baseValue, direction);

@@ -551,6 +551,9 @@ if (type === "portalFace") {
       ? normalizeNodeGraphEnsembleCloudSettings()
       : { cloudSpeed: 0.5 };
   }
+  if (type === "spectrumLine") {
+    return normalizeNodeGraphSpectrumLineSettings(nodeGraphSpectrumLineSettingsDefaults);
+  }
   if (type === "spectrogramBurn") {
     return normalizeNodeGraphSpectrogramSettings(nodeGraphSpectrogramSettingsDefaults);
   }
@@ -626,6 +629,10 @@ function normalizeNodeGraphDisplaySettingsForFormType(settings, type = nodeGraph
     return typeof normalizeNodeGraphTransportSettings === "function"
       ? normalizeNodeGraphTransportSettings(settings)
       : { gateBlink: false };
+  }
+  if (type === "spectrumLine") {
+    const node = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId());
+    return normalizeNodeGraphSpectrumLineSettings(settings, node);
   }
   if (type === "spectrogramBurn") {
     const node = nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId());
@@ -1047,6 +1054,9 @@ if (settingsSchema === "portalFace") {
       ? normalizeNodeGraphAsciiscope(node?.matrixDisplay || node?.matrixWaterfall)
       : { glyphTable: ".", message: "READY" };
   }
+  if (settingsSchema === "spectrumLine") {
+    return normalizeNodeGraphSpectrumLineSettings(node.traceDisplaySettings || {}, node);
+  }
   if (settingsSchema === "spectrogramBurn") {
     const merged = { ...(node.traceDisplaySettings || {}) };
     if (merged.fftSize == null && node.params?.fftSize != null) {
@@ -1248,7 +1258,7 @@ function readNodeGraphTraceDisplaySettingsForm() {
   if (formType === "textBoxFace") {
     const panel = root?.querySelector?.("[data-textbox-display-settings-panel]") || root;
     const next = { ...current };
-    for (const key of ["textSizePercent", "textWeight", "lineHeight", "verticalAlignPercent", "backgroundAlpha"]) {
+    for (const key of ["textSizePercent", "textWeight", "lineHeight", "newLineHeight", "verticalAlignPercent", "backgroundAlpha"]) {
       const input = panel?.querySelector?.(`[data-textbox-field="${key}"]`);
       if (input) {
         next[key] = Number(input.value);
@@ -1593,9 +1603,9 @@ function nodeGraphWriteTraceDisplaySettingsFormInner(settings) {
     if (typeof syncNodeGraphArpKeysDisplaySettingsControls === "function") {
       syncNodeGraphArpKeysDisplaySettingsControls(panel, normalized);
     }
-    if (typeof syncNodeGraphHueTitleSteppers === "function") {
-      syncNodeGraphHueTitleSteppers(panel);
-    }
+    syncNodeGraphTraceDisplayColorWidgets(
+      document.getElementById("nodeTraceDisplaySettingsPopover"),
+    );
     return;
   }
   if (formType === "transportBpm") {
@@ -2268,7 +2278,7 @@ function syncNodeGraphHslLampWidgets(popover = document.getElementById("nodeTrac
       const satInput = host.querySelector(`[data-trace-display-field="${satKey}"]`);
       let face = host.querySelector("[data-hsl-lamp-face]");
       let widget = nodeGraphHslLampWidgetState.widgets.get(host);
-      if (!widget || widget.channels !== "hsl") {
+      if (!widget || widget.channels !== "hbs") {
         if (!face) {
           face = document.createElement("div");
           face.setAttribute("data-hsl-lamp-face", "");
@@ -2279,7 +2289,7 @@ function syncNodeGraphHslLampWidgets(popover = document.getElementById("nodeTrac
         try {
           widget = mount(face, {
             label,
-            channels: "hsl",
+            channels: "hbs",
             h: Number.isFinite(hue) ? hue : 0,
             s: (Number.isFinite(sat) ? sat : 1) * 100,
             l: (Number.isFinite(bright) ? bright : 0.5) * 100,
@@ -2449,20 +2459,19 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
   }
   const formType = nodeGraphTraceDisplaySettingsFormType();
   const activeColors = nodeGraphTraceDisplayActiveControlSet("colors", formType);
-  // Drop widgets for inactive fields.
+  // Drop widgets whose host is gone. Keep hosts that exist in this popover
+  // (Arp etc. may list colors only in the panel HTML).
   for (const [field, widget] of [...nodeGraphTraceDisplayColorWidgetState.widgets.entries()]) {
-    if (!activeColors.has(field)) {
-      try {
-        widget?.destroy?.();
-      } catch {
-        // ignore
-      }
-      nodeGraphTraceDisplayColorWidgetState.widgets.delete(field);
-      const host = popover.querySelector(`[data-trace-display-color-widget="${field}"]`);
-      if (host) {
-        host.replaceChildren();
-      }
+    const host = popover.querySelector(`[data-trace-display-color-widget="${field}"]`);
+    if (host) {
+      continue;
     }
+    try {
+      widget?.destroy?.();
+    } catch {
+      // ignore
+    }
+    nodeGraphTraceDisplayColorWidgetState.widgets.delete(field);
   }
   loadNodeGraphTraceDisplayColorWidgetModule().then((module) => {
     const livePopover = document.getElementById("nodeTraceDisplaySettingsPopover");
@@ -2477,10 +2486,19 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
     }
     const liveType = nodeGraphTraceDisplaySettingsFormType();
     const liveColors = nodeGraphTraceDisplayActiveControlSet("colors", liveType);
-    for (const field of liveColors) {
-      const host = livePopover.querySelector(`[data-trace-display-color-widget="${field}"]`);
-      const input = livePopover.querySelector(`[data-trace-display-color="${field}"]`);
-      if (!host || !input) {
+    const hosts = [...livePopover.querySelectorAll("[data-trace-display-color-widget]")];
+    for (const host of hosts) {
+      const field = host.getAttribute("data-trace-display-color-widget") || "";
+      if (!field) {
+        continue;
+      }
+      const input = host.closest("[data-hbs-widget], [data-trace-display-color-row], [data-trace-display-control-row]")
+        ?.querySelector?.(`[data-trace-display-color="${field}"]`)
+        || livePopover.querySelector(`[data-trace-display-color="${field}"]`);
+      if (!input) {
+        continue;
+      }
+      if (liveColors.size && !liveColors.has(field) && !host.closest("[data-hbs-widget]")) {
         continue;
       }
       // Host row may still be hidden by section visibility.
@@ -2500,7 +2518,18 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
       }
       const hex = nodeGraphTraceDisplayNormalizeHexColor(input.value, "#ffffff");
       const hsl = nodeGraphTraceDisplayHexToHsl(hex);
-      const label = nodeGraphTraceDisplayColorWidgetLabel(field);
+      const hbsWrap = host.closest("[data-hbs-widget]");
+      const wantHbs = host.getAttribute("data-hbs-channels") === "hbs" || !!hbsWrap;
+      const hbsLabel = host.getAttribute("data-hbs-label") || "";
+      const brightKey = hbsWrap?.getAttribute("data-hue-title-step-field") || "";
+      const satKey = hbsWrap?.getAttribute("data-hue-title-sat-field") || "";
+      const brightInput = brightKey
+        ? livePopover.querySelector(`[data-trace-display-field="${brightKey}"]`)
+        : null;
+      const satInput = satKey
+        ? livePopover.querySelector(`[data-trace-display-field="${satKey}"]`)
+        : null;
+      const label = hbsLabel || nodeGraphTraceDisplayColorWidgetLabel(field);
       // Value LED Light: hue bar only (Bright does black→hue→white).
       // Value LCD Foreground: full color widget (same as Background).
       const lcdNode = liveType === "numberReadout"
@@ -2508,23 +2537,23 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
         && ["valueLcd", "helmholtzPitch"].includes(
           nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type,
         );
-      const hueOnly = liveType === "numberReadout" && field === "dot1Color" && !lcdNode;
+      const hueOnly = liveType === "numberReadout" && field === "dot1Color" && !lcdNode && !wantHbs;
+      const brightN = Number(brightInput?.value);
+      const satN = Number(satInput?.value);
       const mountHsl = hueOnly
         ? { h: hsl.h, s: 100, l: 50, a: 1 }
-        : hsl;
+        : wantHbs
+          ? {
+            h: Number.isFinite(hsl.h) ? hsl.h : 0,
+            s: (Number.isFinite(satN) ? satN : 1) * 100,
+            l: (Number.isFinite(brightN) ? brightN : 0.5) * 100,
+            a: 1,
+          }
+          : hsl;
+      const wantChannels = hueOnly ? "hue" : (wantHbs ? "hbs" : "hbs");
       let widget = nodeGraphTraceDisplayColorWidgetState.widgets.get(field);
       // Remount if channel mode must change (full ↔ hue).
-      if (widget && hueOnly && widget.channels !== "hue") {
-        try {
-          widget.destroy?.();
-        } catch {
-          // ignore
-        }
-        nodeGraphTraceDisplayColorWidgetState.widgets.delete(field);
-        host.replaceChildren();
-        widget = null;
-      }
-      if (widget && !hueOnly && widget.channels === "hue") {
+      if (widget && widget.channels !== wantChannels) {
         try {
           widget.destroy?.();
         } catch {
@@ -2552,7 +2581,7 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
               ...mountHsl,
               // 0 = red (Left). Must pass explicitly — falsy 0 is still a hue.
               defaultHue: Number.isFinite(Number(defaultHsl?.h)) ? defaultHsl.h : undefined,
-              channels: hueOnly ? "hue" : "full",
+              channels: wantChannels,
               onChange: (color) => {
                 if (nodeGraphTraceDisplayColorWidgetState.syncing) {
                   return;
@@ -2566,9 +2595,17 @@ function syncNodeGraphTraceDisplayColorWidgets(popover = document.getElementById
                 if (colorInput) {
                   colorInput.value = nextHex;
                 }
+                if (brightInput) {
+                  brightInput.value = String(Math.max(0, Math.min(1, Number(color.l) / 100)));
+                }
+                if (satInput) {
+                  satInput.value = String(Math.max(0, Math.min(1, Number(color.s) / 100)));
+                }
                 // Live paint while dragging strips.
                 if (typeof markNodeGraphTraceDisplaySettingsDirty === "function") {
                   markNodeGraphTraceDisplaySettingsDirty(field);
+                  if (brightKey) markNodeGraphTraceDisplaySettingsDirty(brightKey);
+                  if (satKey) markNodeGraphTraceDisplaySettingsDirty(satKey);
                 }
                 applyNodeGraphTraceDisplaySettingsForm({ persist: "none", record: false });
               },

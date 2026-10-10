@@ -141,6 +141,7 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
   let heldButton = -1;
   let shownPlay = -1;
   const fadeAt = new Map();
+  let lastFadeNow = 0;
 
   function faceState() {
     const bag = typeof nodeGraphMvp === "object" ? nodeGraphMvp._arpFaceByNode : null;
@@ -205,11 +206,14 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     stickyPlay = midi;
     lastSig = "";
     try { canvas.setPointerCapture?.(event.pointerId); } catch (_e) { /* ignore */ }
-    // A click on the step that is already lit still bangs. Drag stays legato.
-    const leftBang = event.button === 0 && pressArmed;
+    // Left click on the already-lit step does not retrigger. Drag stays legato.
+    const alreadyLit = midi === shownPlay;
+    const leftBang = event.button === 0 && pressArmed && !alreadyLit;
     const rightBang = event.button === 2;
     pressArmed = false;
-    sendOverride(midi, leftBang || rightBang, leftBang);
+    if (event.button === 2 || !alreadyLit) {
+      sendOverride(midi, leftBang || rightBang, leftBang);
+    }
     event.preventDefault();
     event.stopPropagation();
   }
@@ -249,9 +253,21 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     event.stopPropagation();
   });
 
-  function notePlayed(play) {
+  function ghostKeep01(g) {
+    const x = Math.max(0, Math.min(1, Number(g) || 0));
+    const fade = Math.pow(1 - x, 2.8) * 0.012;
+    return 1 - Math.min(0.08, Math.max(0.00025, fade));
+  }
+
+  function notePlayed(play, ghostHang) {
     if (play === shownPlay) return;
-    if (shownPlay >= 0) fadeAt.set(shownPlay, performance.now());
+    if (shownPlay >= 0) {
+      const g = Math.max(0, Math.min(1, Number(ghostHang) || 0));
+      fadeAt.set(shownPlay, {
+        trail: 1,
+        ghost: g > 0.001 ? 1 : 0,
+      });
+    }
     if (play >= 0) fadeAt.delete(play);
     shownPlay = play;
   }
@@ -270,15 +286,31 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
     return `rgb(${ch(0)} ${ch(1)} ${ch(2)})`;
   }
 
-  function fillAfterPlay(midi, now, fadeMs, previousCss, inactiveCss) {
-    const started = fadeAt.get(midi);
-    if (started == null || fadeMs <= 0) return inactiveCss;
-    const t = (now - started) / fadeMs;
-    if (t >= 1) {
+  function stepFades(now, trail, ghost) {
+    const t = Math.max(0, Math.min(1, Number(trail) || 0));
+    const g = Math.max(0, Math.min(1, Number(ghost) || 0));
+    const dt = lastFadeNow > 0
+      ? Math.min(0.05, Math.max(0, (now - lastFadeNow) / 1000))
+      : 0;
+    lastFadeNow = now;
+    const drainPerSec = t <= 0.001 ? 1e6 : 1 / Math.max(1e-4, t * 4);
+    const gMul = Math.pow(ghostKeep01(g), dt * 60);
+    for (const [midi, e] of [...fadeAt.entries()]) {
+      e.trail = Math.max(0, e.trail - drainPerSec * dt);
+      e.ghost = Math.max(0, e.ghost * gMul);
+      if (e.trail <= 0.004 && e.ghost <= 0.004) fadeAt.delete(midi);
+    }
+  }
+
+  function fillAfterPlay(midi, previousCss, inactiveCss) {
+    const e = fadeAt.get(midi);
+    if (!e) return inactiveCss;
+    const u = Math.max(e.trail, e.ghost);
+    if (u <= 0.004) {
       fadeAt.delete(midi);
       return inactiveCss;
     }
-    return mixCss(previousCss, inactiveCss, t);
+    return mixCss(inactiveCss, previousCss, u);
   }
 
   function paint() {
@@ -314,22 +346,24 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
       look.previousBrightness,
       look.previousSaturation,
       look.previousFadeSeconds,
+      look.trail,
+      look.ghost,
       look.cornerShape,
       look.cornerRadius,
       look.edgeSpacing,
       look.strokeThickness,
     ].join(":");
     const zoomQuant = zoom < 1 ? Math.ceil(dpr / zoomOut) : 1;
-    notePlayed(play);
-    const fadeMs = Math.max(0, Number(look.previousFadeSeconds) || 0) * 1000;
+    const trailHang = Math.max(0, Math.min(1, Number(look.trail) || 0));
+    const ghostHang = Math.max(0, Math.min(1, Number(look.ghost) || 0));
+    notePlayed(play, ghostHang);
     const now = performance.now();
+    stepFades(now, trailHang, ghostHang);
     let fading = false;
-    if (fadeMs > 0) {
-      for (const started of fadeAt.values()) {
-        if (now - started < fadeMs) {
-          fading = true;
-          break;
-        }
+    for (const e of fadeAt.values()) {
+      if (e.trail > 0.004 || e.ghost > 0.004) {
+        fading = true;
+        break;
       }
     }
     const sig = `${bw}x${bh}:z${zoomQuant}:${play}:${projectOn ? 1 : 0}:${notes.join(",")}:${lookSig}`;
@@ -418,7 +452,7 @@ function createNodeGraphArpKeysDisplay(nodeIdOrEl, _type) {
       const on = play === midi;
       ctx.fillStyle = on
         ? activeFillCss
-        : fillAfterPlay(midi, now, fadeMs, previousCss, inactiveFillCss);
+        : fillAfterPlay(midi, previousCss, inactiveFillCss);
       ctx.fillRect(xs[i], y0, Math.max(0, xs[i + 1] - xs[i]), innerH);
     }
     const odd = (strokeDev & 1) === 1;

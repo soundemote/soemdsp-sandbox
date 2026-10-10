@@ -9,6 +9,7 @@ const NODE_GRAPH_TEXT_BOX_DISPLAY_SLIDER_FIELDS = Object.freeze([
   "textSizePercent",
   "textWeight",
   "lineHeight",
+  "newLineHeight",
   "verticalAlignPercent",
 ]);
 
@@ -35,6 +36,9 @@ function nodeGraphTextBoxDisplaySliderDefaults() {
         ? NODE_GRAPH_TEXT_BOX_DEFAULT_BACKGROUND_ALPHA
         : 0.78,
       lineHeight: typeof NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT === "number"
+        ? NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT
+        : 1.2,
+      newLineHeight: typeof NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT === "number"
         ? NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT
         : 1.2,
       verticalAlignPercent: 50,
@@ -111,7 +115,13 @@ function buildNodeGraphTextBoxDisplaySettingsBodyHtml() {
       <label class="node-led-settings-row textbox-display-settings-row">
         <span>Line height</span>
         <div class="textbox-display-controls">
-          <input type="range" min="0.5" max="3" step="0.05" data-textbox-field="lineHeight" aria-label="Newline vertical spacing 0.5–3">
+          <input type="range" min="0.5" max="3" step="0.05" data-textbox-field="lineHeight" aria-label="Line height: spacing between wrapped lines 0.5–3">
+        </div>
+      </label>
+      <label class="node-led-settings-row textbox-display-settings-row">
+        <span>New line height</span>
+        <div class="textbox-display-controls">
+          <input type="range" min="0.5" max="3" step="0.05" data-textbox-field="newLineHeight" aria-label="New line height: spacing at each Enter (hard newline) 0.5–3">
         </div>
       </label>
       <label class="node-led-settings-row textbox-display-settings-row">

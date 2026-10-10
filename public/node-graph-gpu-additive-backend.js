@@ -34,15 +34,11 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> outSamples: array<f32>;
 
 fn rationalCurveValue(value: f32, skew: f32) -> f32 {
-  let t = clamp(value, 0.0, 1.0);
-  if (t <= 0.0) {
-    return 0.0;
+  let den = 1.0 - skew + 2.0 * skew * value;
+  if (abs(den) < 1e-12) {
+    return value;
   }
-  if (t >= 1.0) {
-    return 1.0;
-  }
-  let safeSkew = clamp(skew, -0.999999, 0.999999);
-  return clamp(((1.0 + safeSkew) * t) / (1.0 - safeSkew + 2.0 * safeSkew * t), 0.0, 1.0);
+  return ((1.0 + skew) * value) / den;
 }
 
 fn dampingAmplitude(harmonic: u32, maxHarmonics: u32, ratio: f32, curveValue: f32, algorithm: u32) -> f32 {

@@ -7,7 +7,7 @@
 // original canvas Gaussian: filter:blur() on the present, then an
 // additive wider Gaussian for glow.
 
-const NODE_GRAPH_RASTER_RGB_PAINT_REV = "scan-speed-frac-1";
+const NODE_GRAPH_RASTER_RGB_PAINT_REV = "scan-pic-1";
 
 // Rolling framebuffer lives by node id — not on the face canvas.
 // Hide/show title rebuilds the module DOM; the raster must survive that.
@@ -414,10 +414,11 @@ function nodeGraphRasterRgbUnlightFace(face) {
   }
 }
 
-function wipeNodeGraphRasterRgbScreensToColdBoot() {
+function wipeNodeGraphRasterRgbScreensToColdBoot(options = {}) {
   if (typeof document === "undefined") {
     return;
   }
+  const onlyId = String(options.nodeId || "").trim();
   const faces = typeof nodeGraphRasterRgbCollectFaces === "function"
     ? nodeGraphRasterRgbCollectFaces()
     : [];
@@ -425,15 +426,21 @@ function wipeNodeGraphRasterRgbScreensToColdBoot() {
   const list = faces.length
     ? faces.map((entry) => entry.face).filter(Boolean)
     : Array.from(document.querySelectorAll(
-      ".dsp-node[data-node-type=\"rasterRgb\"] .node-module-scope-window, .node-module-scope-window[data-node-type=\"rasterRgb\"]",
+      "[data-node-type=\"rasterRgb\"] .node-module-scope-window, .node-module-scope-window[data-node-type=\"rasterRgb\"]",
     ));
   for (const face of list) {
     if (!face || seen.has(face)) {
       continue;
     }
     seen.add(face);
-    const canvas = face.querySelector?.(":scope > .node-raster-rgb-canvas");
-    const nodeId = face.dataset?.node || face.closest?.(".dsp-node")?.dataset?.node || "";
+    const canvas = options.canvas
+      || face.querySelector?.(":scope > .node-raster-rgb-canvas");
+    const nodeId = face.dataset?.node
+      || face.closest?.("[data-node]")?.dataset?.node
+      || "";
+    if (onlyId && nodeId !== onlyId) {
+      continue;
+    }
     const state = (nodeId && nodeGraphRasterRgbBuffers.get(String(nodeId)))
       || canvas?._rasterRgb;
     if (state) {
@@ -461,7 +468,9 @@ function wipeNodeGraphRasterRgbScreensToColdBoot() {
     }
     nodeGraphRasterRgbUnlightFace(face);
   }
-  nodeGraphRasterRgbBuffers.clear();
+  if (!onlyId) {
+    nodeGraphRasterRgbBuffers.clear();
+  }
 }
 
 function nodeGraphRasterRgbAnalog01(value, bipolar) {
@@ -572,6 +581,28 @@ function nodeGraphRasterRgbPickChannel(slot, port) {
     return inlet;
   }
   return upstreamFallback;
+}
+
+function nodeGraphRasterRgbWiredPicture(slot) {
+  const nodeId = slot?.nodeId;
+  if (!nodeId) return null;
+  if (typeof nodeGraphPictureRead === "function") {
+    const tv = nodeGraphPictureRead(nodeId, "rgba") || nodeGraphPictureRead(nodeId, "📺");
+    if (tv?.texture) return tv;
+  }
+  if (typeof nodeGraphPictureGet !== "function") return null;
+  const ports = ["R", "G", "B", "rgba"];
+  for (let i = 0; i < ports.length; i += 1) {
+    const conns = typeof nodeGraphModuleScopeConnectionsTo === "function"
+      ? nodeGraphModuleScopeConnectionsTo(nodeId, ports[i])
+      : [];
+    for (let c = 0; c < (conns || []).length; c += 1) {
+      const src = conns[c]?.sourceNode;
+      const pic = nodeGraphPictureGet(src);
+      if (pic?.texture) return pic;
+    }
+  }
+  return null;
 }
 
 function nodeGraphRasterRgbTakeChannels(slot) {
@@ -839,8 +870,14 @@ function drawNodeGraphRasterRgbFaceItem(_renderer, item, pixelRatio) {
   // GPU first (DISPLAY_SHADER_PLAN M3, raster-rgb-gl.js): raw buffer texture,
   // grade LUT + hue + separable blur / glow in shaders on the shared picture
   // device. Canvas2D below is the fallback (no GL / lost context).
+  const pic = nodeGraphRasterRgbWiredPicture(paintSlot);
   const gpuDrawn = typeof nodeGraphRasterRgbGlPresent === "function"
-    && nodeGraphRasterRgbGlPresent(state, grade, ctx, { cw, ch, dx, dy, dw, dh, blurPx, glowPx, plate });
+    && nodeGraphRasterRgbGlPresent(state, grade, ctx, {
+      cw, ch, dx, dy, dw, dh, blurPx, glowPx, plate,
+      sourceTex: pic?.texture || null,
+      sourceW: pic?.width || 0,
+      sourceH: pic?.height || 0,
+    });
   const graded = gpuDrawn ? null : nodeGraphRasterRgbApplyGrade(state, grade);
   try {
     if (!gpuDrawn) {
@@ -1065,7 +1102,7 @@ function scheduleNodeGraphRasterRgbPump() {
     const live = nodeGraphRasterRgbLiveLoopActive();
     const tracesOff = typeof nodeGraphModuleScopeTracesOff === "function"
       && nodeGraphModuleScopeTracesOff();
-    // Live compositor owns the Simulation FPS tick so Pixel Grid stays
+    // Live compositor owns the Simulation FPS tick so Scan Grid stays
     // phase-locked with phosphor / traces. Pump only covers pause + traces-off.
     if (live && !tracesOff) {
       scheduleNodeGraphRasterRgbPump();
@@ -1091,6 +1128,11 @@ function paintNodeGraphRasterRgbFacesNow(pixelRatio = window.devicePixelRatio ||
   const pr = Math.max(1, nodeGraphFiniteNumber(pixelRatio, nodeGraphFiniteNumber(window.devicePixelRatio, 1)));
   let painted = 0;
   for (const { slot, face } of nodeGraphRasterRgbCollectFaces()) {
+    const nodeId = slot?.nodeId || face?.dataset?.node;
+    if (typeof scopePaintIsFacePoweredOff === "function" && scopePaintIsFacePoweredOff(nodeId)) {
+      wipeNodeGraphRasterRgbScreensToColdBoot({ nodeId });
+      continue;
+    }
     try {
       drawNodeGraphRasterRgbFaceItem(null, {
         nodeId: slot?.nodeId,
@@ -1110,6 +1152,15 @@ if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleSc
   nodeGraphModuleScopeCustomRenderers.rasterRgbFace = function nodeGraphRasterRgbScopeHook() {
     // Live write/present is once, after the shared Simulation FPS gate.
   };
+}
+if (typeof nodeGraphModuleScopeRegisterFaceWipe === "function") {
+  nodeGraphModuleScopeRegisterFaceWipe("rasterRgbFace", (canvas, _bg, options) => {
+    wipeNodeGraphRasterRgbScreensToColdBoot({
+      canvas: canvas || options?.canvas,
+      nodeId: options?.nodeId,
+      all: options?.all,
+    });
+  });
 }
 
 if (typeof window !== "undefined") {

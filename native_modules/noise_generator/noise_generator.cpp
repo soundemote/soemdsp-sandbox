@@ -17,15 +17,10 @@ static const int kMaxInstances = 16;
 // as fractal_brownian_noise and sabrina_reverb's process_block APIs.
 static const int kMaxBlockFrames = 2048;
 
-struct NoiseChan {
-  unsigned int seed;
-  double brown;
-  double pink[7];
-};
-
+// left / right: NoiseColorChannel (library/include/soemdsp/math/noise_colors.h).
 struct NoiseGenState {
-  NoiseChan left;
-  NoiseChan right;
+  NoiseColorChannel left;
+  NoiseColorChannel right;
   int currentSeed;
   bool active;
   double lastLeft;
@@ -46,78 +41,8 @@ static unsigned int seedHash(int seed, int channel) {
   return h ? h : 1U;
 }
 
-static void resetChan(NoiseChan& chan, unsigned int initialSeed) {
-  chan.seed = initialSeed;
-  chan.brown = 0.0;
-  for (int i = 0; i < 7; i++) chan.pink[i] = 0.0;
-}
-
-static unsigned int lcgNext(NoiseChan& chan) {
-  chan.seed = 1664525U * chan.seed + 1013904223U;
-  return chan.seed;
-}
-
-static double nextBipolar(NoiseChan& chan) {
-  return (double)(lcgNext(chan)) / (double)(0xffffffffU) * 2.0 - 1.0;
-}
-
-static double nextUnipolar(NoiseChan& chan) {
-  return (double)(lcgNext(chan)) / (double)(0xffffffffU);
-}
-
-static double nextGaussian(NoiseChan& chan) {
-  // CLT approximation: sum of 12 uniforms ≈ N(6, 1), shifted to N(0, 1)
-  double sum = 0.0;
-  for (int i = 0; i < 12; i++) sum += nextUnipolar(chan);
-  return sum - 6.0;
-}
-
-// Continuous morph: 0 = even bipolar U(−1,1), 1 = Gaussian ~N(0,1).
-// Smoothstep blend keeps the path full-range and click-free.
-static double nextShapedBipolar(NoiseChan& chan, double shape) {
-  const double t = clamp(shape, 0.0, 1.0);
-  if (t <= 1.0e-12) {
-    return nextBipolar(chan);
-  }
-  if (t >= 1.0 - 1.0e-12) {
-    return nextGaussian(chan);
-  }
-  const double s = t * t * (3.0 - 2.0 * t);
-  const double u = nextBipolar(chan);
-  const double g = nextGaussian(chan);
-  return u * (1.0 - s) + g * s;
-}
-
-static double channelSample(NoiseChan& chan, int mode, double mean, double deviation, double shape) {
-  const double white = nextBipolar(chan);
-  if (mode == 1) {
-    // Pure Gaussian (legacy Mode = Gaussian).
-    return mean + nextGaussian(chan) * deviation;
-  }
-  if (mode == 2) {
-    const double dev = deviation < 0.001 ? 0.001 : deviation;
-    chan.brown = clamp11(chan.brown + white * dev * 0.05);
-    return mean + chan.brown;
-  }
-  if (mode == 3) {
-    chan.pink[0] = 0.99886 * chan.pink[0] + white * 0.0555179;
-    chan.pink[1] = 0.99332 * chan.pink[1] + white * 0.0750759;
-    chan.pink[2] = 0.969   * chan.pink[2] + white * 0.153852;
-    chan.pink[3] = 0.8665  * chan.pink[3] + white * 0.3104856;
-    chan.pink[4] = 0.55    * chan.pink[4] + white * 0.5329522;
-    chan.pink[5] = -0.7616 * chan.pink[5] - white * 0.016898;
-    const double out = mean + (chan.pink[0] + chan.pink[1] + chan.pink[2] +
-      chan.pink[3] + chan.pink[4] + chan.pink[5] + chan.pink[6] + white * 0.5362) * 0.11;
-    chan.pink[6] = white * 0.115926;
-    return out;
-  }
-  if (mode == 4) {
-    const double abw = white < 0.0 ? -white : white;
-    return mean + (abw > 0.94 ? (white > 0.0 ? deviation : -deviation) : 0.0);
-  }
-  // Mode 0 Uniform: continuous Uniform → Gaussian via shape.
-  return mean + nextShapedBipolar(chan, shape) * deviation;
-}
+// Scalar white / pink / brown generators: noise_color_reset / noise_color_sample
+// in library/include/soemdsp/math/noise_colors.h.
 
 // SIMD kernels: pair the left/right channels into one f64x2/i32x4 lane each.
 // L and R are independent within a call (each channel's own persistent LCG
@@ -127,9 +52,9 @@ static double channelSample(NoiseChan& chan, int mode, double mean, double devia
 // the profile that made fractal_brownian_noise's kernel the biggest win.
 //
 // Always calls the LCG step for "white" first, exactly like the scalar
-// channelSample, so both paths consume the RNG stream in identical order
+// noise_color_sample, so both paths consume the RNG stream in identical order
 // -- required for bit-exact equivalence, not just similar output.
-static void lcgNextPairSimd(NoiseChan& chanL, NoiseChan& chanR, unsigned int& outL, unsigned int& outR) {
+static void lcgNextPairSimd(NoiseColorChannel& chanL, NoiseColorChannel& chanR, unsigned int& outL, unsigned int& outR) {
   const v128_t seeds = wasm_i32x4_make(static_cast<int>(chanL.seed), static_cast<int>(chanR.seed), 0, 0);
   const v128_t multiplied = wasm_i32x4_mul(seeds, wasm_i32x4_splat(static_cast<int>(1664525U)));
   const v128_t next = wasm_i32x4_add(multiplied, wasm_i32x4_splat(static_cast<int>(1013904223U)));
@@ -141,21 +66,21 @@ static void lcgNextPairSimd(NoiseChan& chanL, NoiseChan& chanR, unsigned int& ou
   outR = chanR.seed;
 }
 
-static void nextBipolarPairSimd(NoiseChan& chanL, NoiseChan& chanR, double& outL, double& outR) {
+static void nextBipolarPairSimd(NoiseColorChannel& chanL, NoiseColorChannel& chanR, double& outL, double& outR) {
   unsigned int rawL, rawR;
   lcgNextPairSimd(chanL, chanR, rawL, rawR);
   outL = static_cast<double>(rawL) / static_cast<double>(0xffffffffU) * 2.0 - 1.0;
   outR = static_cast<double>(rawR) / static_cast<double>(0xffffffffU) * 2.0 - 1.0;
 }
 
-static void nextUnipolarPairSimd(NoiseChan& chanL, NoiseChan& chanR, double& outL, double& outR) {
+static void nextUnipolarPairSimd(NoiseColorChannel& chanL, NoiseColorChannel& chanR, double& outL, double& outR) {
   unsigned int rawL, rawR;
   lcgNextPairSimd(chanL, chanR, rawL, rawR);
   outL = static_cast<double>(rawL) / static_cast<double>(0xffffffffU);
   outR = static_cast<double>(rawR) / static_cast<double>(0xffffffffU);
 }
 
-static void nextGaussianPairSimd(NoiseChan& chanL, NoiseChan& chanR, double& outL, double& outR) {
+static void nextGaussianPairSimd(NoiseColorChannel& chanL, NoiseColorChannel& chanR, double& outL, double& outR) {
   v128_t sum = wasm_f64x2_splat(0.0);
   for (int i = 0; i < 12; i += 1) {
     double uL, uR;
@@ -168,7 +93,7 @@ static void nextGaussianPairSimd(NoiseChan& chanL, NoiseChan& chanR, double& out
   outR = lanes[1] - 6.0;
 }
 
-static void nextShapedBipolarPairSimd(NoiseChan& chanL, NoiseChan& chanR, double shape, double& outL, double& outR) {
+static void nextShapedBipolarPairSimd(NoiseColorChannel& chanL, NoiseColorChannel& chanR, double shape, double& outL, double& outR) {
   const double t = clamp(shape, 0.0, 1.0);
   if (t <= 1.0e-12) {
     nextBipolarPairSimd(chanL, chanR, outL, outR);
@@ -186,7 +111,7 @@ static void nextShapedBipolarPairSimd(NoiseChan& chanL, NoiseChan& chanR, double
   outR = uR * (1.0 - s) + gR * s;
 }
 
-static void channelSamplePairSimd(NoiseChan& chanL, NoiseChan& chanR, int mode, double mean, double deviation, double shape, double& outL, double& outR) {
+static void channelSamplePairSimd(NoiseColorChannel& chanL, NoiseColorChannel& chanR, int mode, double mean, double deviation, double shape, double& outL, double& outR) {
   double whiteL, whiteR;
   nextBipolarPairSimd(chanL, chanR, whiteL, whiteR);
   const v128_t white = wasm_f64x2_make(whiteL, whiteR);
@@ -289,8 +214,8 @@ static void channelSamplePairSimd(NoiseChan& chanL, NoiseChan& chanR, int mode, 
 // latency -- unlike Sabrina, which was deliberately kept native-only.
 static void noiseProcessBlockScalar(NoiseGenState& s, int mode, double mean, double deviation, double shape, double level, int frameCount) {
   for (int frame = 0; frame < frameCount; frame += 1) {
-    const double l = clamp11(channelSample(s.left, mode, mean, deviation, shape)) * level;
-    const double r = clamp11(channelSample(s.right, mode, mean, deviation, shape)) * level;
+    const double l = clamp11(noise_color_sample(s.left, mode, mean, deviation, shape)) * level;
+    const double r = clamp11(noise_color_sample(s.right, mode, mean, deviation, shape)) * level;
     s.blockOutLeft[frame] = l;
     s.blockOutRight[frame] = r;
   }
@@ -344,14 +269,14 @@ extern "C" void soemdsp_noise_generator_sample(
   const int seed = seedValue < 0.0 ? 0 : (seedValue > 16777215.0 ? 16777215 : (int)seedValue);
   if (seed != s.currentSeed) {
     s.currentSeed = seed;
-    resetChan(s.left,  seedHash(seed, 0));
-    resetChan(s.right, seedHash(seed, 1));
+    noise_color_reset(s.left,  seedHash(seed, 0));
+    noise_color_reset(s.right, seedHash(seed, 1));
   }
   const int safeMode = mode < 0 ? 0 : (mode > 4 ? 4 : mode);
   const double safeDev = deviation < 0.0 ? 0.0 : deviation;
   const double safeShape = clamp(shape, 0.0, 1.0);
-  s.lastLeft  = clamp11(channelSample(s.left,  safeMode, mean, safeDev, safeShape)) * level;
-  s.lastRight = clamp11(channelSample(s.right, safeMode, mean, safeDev, safeShape)) * level;
+  s.lastLeft  = clamp11(noise_color_sample(s.left,  safeMode, mean, safeDev, safeShape)) * level;
+  s.lastRight = clamp11(noise_color_sample(s.right, safeMode, mean, safeDev, safeShape)) * level;
 }
 
 extern "C" double soemdsp_noise_generator_left(int handle) {
@@ -394,8 +319,8 @@ extern "C" void soemdsp_noise_generator_process_block(
   const int seed = seedValue < 0.0 ? 0 : (seedValue > 16777215.0 ? 16777215 : (int)seedValue);
   if (seed != s.currentSeed) {
     s.currentSeed = seed;
-    resetChan(s.left, seedHash(seed, 0));
-    resetChan(s.right, seedHash(seed, 1));
+    noise_color_reset(s.left, seedHash(seed, 0));
+    noise_color_reset(s.right, seedHash(seed, 1));
   }
   const int safeMode = mode < 0 ? 0 : (mode > 4 ? 4 : mode);
   const double safeDev = deviation < 0.0 ? 0.0 : deviation;

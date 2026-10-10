@@ -17,12 +17,11 @@ static const int kMaxCascade = 4;
 
 struct State {
   bool active;
-  double z1[kMaxCascade];
-  double z2[kMaxCascade];
+  TptSvfState stage[kMaxCascade];
   int lastMode;
   int lastStages;
   double lastOmega, lastQ, lastA;
-  double g, c, s, aL, aB, aH;
+  TptSvfCoeffs k;
 };
 
 static State gPool[kMaxInstances];
@@ -36,78 +35,57 @@ static const char kMetadataJson[] =
   "}";
 
 static void setup_bypass(State* st) {
-  st->g = 0.0;
-  st->c = 0.0;
-  st->s = 1.0;
-  st->aL = 0.0;
-  st->aB = 0.0;
-  st->aH = 1.0;
+  st->k.g = 0.0;
+  st->k.c = 0.0;
+  st->k.s = 1.0;
+  st->k.aL = 0.0;
+  st->k.aB = 0.0;
+  st->k.aH = 1.0;
 }
 
 static void setup_muted(State* st) {
-  st->g = 0.0;
-  st->c = 0.0;
-  st->s = 0.0;
-  st->aL = 0.0;
-  st->aB = 0.0;
-  st->aH = 0.0;
+  st->k.g = 0.0;
+  st->k.c = 0.0;
+  st->k.s = 0.0;
+  st->k.aL = 0.0;
+  st->k.aB = 0.0;
+  st->k.aH = 0.0;
 }
 
-static double tan_half(double omega) {
-  double s = 0.0, c = 0.0;
-  dsp_sin_cos(0.5 * omega, &s, &c);
-  if (dsp_fabs(c) < 1.0e-15) return 1e15;
-  return s / c;
-}
-
-static void setup_core(State* st, double omega, double r, double aL, double aB, double aH, double gScale) {
-  const double rawW = safe(omega);
-  const double w = rawW < 0.0 ? 0.0 : (rawW > kPi * 0.999 ? kPi * 0.999 : rawW);
-  const double safeR = r > 1e-9 ? r : 1e-9;
-  const double g = tan_half(w) * (gScale == 0.0 && gScale * 0.0 != 0.0 ? 1.0 : (gScale * 0.0 == 0.0 ? gScale : 1.0));
-  const double c = g + safeR;
-  const double denom = 1.0 + g * c;
-  st->g = g;
-  st->c = c;
-  st->s = denom != 0.0 ? 1.0 / denom : 0.0;
-  st->aL = aL;
-  st->aB = aB;
-  st->aH = aH;
-}
+// TPT SVF core (tan_half, setup, tick): library/include/soemdsp/filter/tpt_svf.h.
 
 static void setup(State* st, int mode, double omega, double q, double A) {
   const double Q = (q > 1e-9 || q < -1e-9) ? q : 1e-9;
   const double a = A > 1e-6 ? A : 1.0;
   if (mode == 0) { setup_bypass(st); return; }
-  if (mode == 1) { setup_core(st, omega, 1.0 / Q, 0, 0, 1, 1); return; }
-  if (mode == 2) { setup_core(st, omega, 1.0 / Q, 1, 0, 0, 1); return; }
-  if (mode == 3) { setup_core(st, omega, 1.0 / Q, 0, 1, 0, 1); return; }
+  if (mode == 1) { tpt_svf_setup(st->k, omega, 1.0 / Q, 0, 0, 1, 1); return; }
+  if (mode == 2) { tpt_svf_setup(st->k, omega, 1.0 / Q, 1, 0, 0, 1); return; }
+  if (mode == 3) { tpt_svf_setup(st->k, omega, 1.0 / Q, 0, 1, 0, 1); return; }
   if (mode == 4) {
-    const double r = 1.0 / Q;
-    setup_core(st, omega, r, 0, r, 0, 1);
+    tpt_svf_setup_bandpass_const_peak(st->k, omega, Q);
     return;
   }
-  if (mode == 5) { setup_core(st, omega, 1.0 / Q, 1, 0, 1, 1); return; }
+  if (mode == 5) { tpt_svf_setup(st->k, omega, 1.0 / Q, 1, 0, 1, 1); return; }
   if (mode == 6) {
     const double r = 1.0 / Q;
-    setup_core(st, omega, r, 1, -r, 1, 1);
+    tpt_svf_setup(st->k, omega, r, 1, -r, 1, 1);
     return;
   }
   if (mode == 7) {
     const double r = 1.0 / (Q * a);
-    setup_core(st, omega, r, 1, a * a * r, 1, 1);
+    tpt_svf_setup(st->k, omega, r, 1, a * a * r, 1, 1);
     return;
   }
   if (mode == 8) {
     const double r = 1.0 / Q;
     const double gScale = 1.0 / dsp_exp(0.5 * dsp_ln(a));
-    setup_core(st, omega, r, a * a, a * r, 1, gScale);
+    tpt_svf_setup(st->k, omega, r, a * a, a * r, 1, gScale);
     return;
   }
   if (mode == 9) {
     const double r = 1.0 / Q;
     const double gScale = dsp_exp(0.5 * dsp_ln(a));
-    setup_core(st, omega, r, 1, a * r, a * a, gScale);
+    tpt_svf_setup(st->k, omega, r, 1, a * r, a * a, gScale);
     return;
   }
   setup_muted(st);
@@ -141,10 +119,7 @@ extern "C" int soemdsp_eq_filter_create() {
   for (int i = 0; i < kMaxInstances; i += 1) {
     if (!gPool[i].active) {
       State& s = gPool[i];
-      for (int k = 0; k < kMaxCascade; k += 1) {
-        s.z1[k] = 0.0;
-        s.z2[k] = 0.0;
-      }
+      for (int k = 0; k < kMaxCascade; k += 1) tpt_svf_reset(s.stage[k]);
       s.lastMode = -1;
       s.lastStages = 1;
       s.lastOmega = 0.0 / 0.0;
@@ -184,27 +159,12 @@ extern "C" double soemdsp_eq_filter_sample(
   if (n < 1) n = 1;
   if (n > kMaxCascade) n = kMaxCascade;
   if (n != st->lastStages) {
-    for (int k = 0; k < kMaxCascade; k += 1) {
-      st->z1[k] = 0.0;
-      st->z2[k] = 0.0;
-    }
+    for (int k = 0; k < kMaxCascade; k += 1) tpt_svf_reset(st->stage[k]);
     st->lastStages = n;
   }
   ensure_setup(st, safeMode, frequency, q, gainDb, sampleRate);
-  const double g = st->g;
-  const double c = st->c;
-  const double s = st->s;
   double y = x;
-  for (int i = 0; i < n; i += 1) {
-    const double z1 = st->z1[i];
-    const double z2 = st->z2[i];
-    const double yH = (y - c * z1 - z2) * s;
-    const double yB = z1 + g * yH;
-    const double yL = z2 + g * yB;
-    st->z1[i] = 2.0 * yB - z1;
-    st->z2[i] = 2.0 * yL - z2;
-    y = st->aH * yH + st->aB * yB + st->aL * yL;
-  }
+  for (int i = 0; i < n; i += 1) y = tpt_svf_tick(st->stage[i], st->k, y);
   return y;
 }
 

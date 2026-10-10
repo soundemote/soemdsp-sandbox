@@ -82,17 +82,189 @@ function textBoxWidgetBackgroundPaint(value, alpha) {
   return `rgba(${channels.join(", ")}, ${textBoxWidgetBackgroundAlphaCss(alpha)})`;
 }
 
+function textBoxWidgetNormalizeNewLineHeight(value, lineHeight) {
+  if (typeof normalizeNodeGraphTextBoxNewLineHeight === "function") {
+    return normalizeNodeGraphTextBoxNewLineHeight(value, lineHeight);
+  }
+  const n = Number(value);
+  return value != null && value !== "" && Number.isFinite(n) ? n : (Number(lineHeight) || 1.2);
+}
+
+// Hard lines live as one <div> per line inside the field (empty line =
+// <div><br></div>). Wrapped lines inside a block keep Line height; the gap
+// between blocks adds New line height (styles.css). Own serializer instead of
+// innerText: Chrome's innerText reads <div><br></div> as two newlines, which
+// doubled blank lines on every edit round trip.
+const TEXT_BOX_WIDGET_BLOCK_TAGS = new Set([
+  "ADDRESS", "ARTICLE", "ASIDE", "BLOCKQUOTE", "DIV", "DL", "FIGURE", "FOOTER",
+  "H1", "H2", "H3", "H4", "H5", "H6", "HEADER", "HR", "LI", "OL", "P", "PRE",
+  "SECTION", "TABLE", "TR", "UL",
+]);
+
+function textBoxWidgetIsBlock(node) {
+  return node?.nodeType === 1 && TEXT_BOX_WIDGET_BLOCK_TAGS.has(node.nodeName);
+}
+
+/** A <br> that ends its block (or the field) is a placeholder, not a newline. */
+function textBoxWidgetBrIsTrailing(field, br) {
+  let cur = br;
+  while (cur && cur !== field) {
+    let next = cur.nextSibling;
+    while (next && next.nodeType === 3 && next.data === "") next = next.nextSibling;
+    if (next) return false;
+    const parent = cur.parentNode;
+    if (!parent) return false;
+    if (parent === field || textBoxWidgetIsBlock(parent)) return true;
+    cur = parent;
+  }
+  return false;
+}
+
+/**
+ * Field DOM -> plain text ("\n" per hard line). Optional marks
+ * [{ node, offset }] receive .index = plain-text offset of that DOM point.
+ */
+function textBoxWidgetSerialize(field, marks = null) {
+  if (!field) return "";
+  let out = "";
+  let pendingBreak = false;
+  const flush = () => {
+    if (pendingBreak) {
+      out += "\n";
+      pendingBreak = false;
+    }
+  };
+  const mark = (node, offset) => {
+    if (!marks) return;
+    for (const m of marks) {
+      if (m && m.index == null && m.node === node && m.offset === offset) m.index = out.length;
+    }
+  };
+  const walk = (parent) => {
+    const kids = parent.childNodes;
+    for (let i = 0; i < kids.length; i += 1) {
+      mark(parent, i);
+      const child = kids[i];
+      if (child.nodeType === 3) {
+        const data = child.data.replace(/\u00a0/g, " ");
+        if (data) flush();
+        if (marks) {
+          for (const m of marks) {
+            if (m && m.index == null && m.node === child) {
+              m.index = out.length + Math.min(Math.max(0, Number(m.offset) || 0), data.length);
+            }
+          }
+        }
+        out += data;
+      } else if (child.nodeType === 1) {
+        if (child.nodeName === "BR") {
+          flush();
+          mark(child, 0);
+          if (!textBoxWidgetBrIsTrailing(field, child)) out += "\n";
+        } else if (textBoxWidgetIsBlock(child)) {
+          if (pendingBreak) flush();
+          else if (out && !out.endsWith("\n")) out += "\n";
+          walk(child);
+          pendingBreak = true;
+        } else {
+          walk(child);
+        }
+      }
+    }
+    mark(parent, kids.length);
+  };
+  walk(field);
+  return out;
+}
+
 function textBoxWidgetReadText(field) {
   if (!field) return "";
-  const raw = String(field.innerText ?? field.textContent ?? "").replace(/\u00a0/g, " ");
-  return raw === "\n" ? "" : raw;
+  return textBoxWidgetSerialize(field);
+}
+
+/** Canonical = only plain <div>s, each holding newline-free text or one <br>. */
+function textBoxWidgetBlocksAreCanonical(field) {
+  if (!field) return true;
+  for (const child of field.childNodes) {
+    if (child.nodeType !== 1 || child.nodeName !== "DIV" || child.attributes.length) return false;
+    const kids = child.childNodes;
+    if (kids.length === 1 && kids[0].nodeName === "BR") continue;
+    let length = 0;
+    for (const kid of kids) {
+      if (kid.nodeType !== 3 || /[\r\n]/.test(kid.data)) return false;
+      length += kid.data.length;
+    }
+    if (!length) return false;
+  }
+  return true;
+}
+
+function textBoxWidgetBuildBlocks(field, text) {
+  const lines = text === "" ? [] : String(text).split("\n");
+  const blocks = lines.map((line) => {
+    const block = document.createElement("div");
+    if (line) block.textContent = line;
+    else block.appendChild(document.createElement("br"));
+    return block;
+  });
+  field.replaceChildren(...blocks);
+  return blocks;
+}
+
+function textBoxWidgetPointForIndex(field, blocks, index) {
+  let pos = 0;
+  for (const block of blocks) {
+    const text = block.firstChild?.nodeType === 3 ? block.firstChild : null;
+    const len = text ? text.data.length : 0;
+    if (index <= pos + len) {
+      return text ? { node: text, offset: Math.max(0, index - pos) } : { node: block, offset: 0 };
+    }
+    pos += len + 1;
+  }
+  const last = blocks[blocks.length - 1];
+  if (!last) return { node: field, offset: 0 };
+  const text = last.firstChild?.nodeType === 3 ? last.firstChild : null;
+  return text ? { node: text, offset: text.data.length } : { node: last, offset: 0 };
 }
 
 function textBoxWidgetWriteText(field, value) {
   if (!field) return;
-  const next = String(value ?? "");
-  if (textBoxWidgetReadText(field) === next) return;
-  field.textContent = next;
+  const next = String(value ?? "").replace(/\r\n?/g, "\n");
+  if (textBoxWidgetReadText(field) === next && textBoxWidgetBlocksAreCanonical(field)) return;
+  textBoxWidgetBuildBlocks(field, next);
+}
+
+/**
+ * Native edits (first keystroke in an empty field, Shift+Enter <br>, merges
+ * that add spans, select-all delete) can leave non-canonical DOM. Re-shape
+ * into line blocks; caret/selection survive by plain-text index.
+ */
+function textBoxWidgetNormalizeBlocks(field) {
+  if (!field || textBoxWidgetBlocksAreCanonical(field)) return false;
+  const selection = window.getSelection?.();
+  let anchor = null;
+  let focus = null;
+  if (
+    selection
+    && selection.rangeCount
+    && field.contains(selection.anchorNode)
+    && field.contains(selection.focusNode)
+  ) {
+    anchor = { node: selection.anchorNode, offset: selection.anchorOffset, index: null };
+    focus = { node: selection.focusNode, offset: selection.focusOffset, index: null };
+  }
+  const text = textBoxWidgetSerialize(field, anchor ? [anchor, focus] : null);
+  const blocks = textBoxWidgetBuildBlocks(field, text);
+  if (anchor && selection) {
+    const a = textBoxWidgetPointForIndex(field, blocks, anchor.index ?? text.length);
+    const f = textBoxWidgetPointForIndex(field, blocks, focus.index ?? text.length);
+    try {
+      selection.setBaseAndExtent(a.node, a.offset, f.node, f.offset);
+    } catch {
+      // Selection API can throw on detached nodes; caret just lands at default.
+    }
+  }
+  return true;
 }
 
 /** Vertical slider range in face-heights: 0% = −N, 50% = 0, 100% = +N. */
@@ -184,11 +356,13 @@ function createTextBoxWidget(body, options = {}) {
     lineHeight: typeof normalizeNodeGraphTextBoxLineHeight === "function"
       ? normalizeNodeGraphTextBoxLineHeight(options.lineHeight ?? options.lineSpacing ?? options.newlineSpacing)
       : 1.2,
+    newLineHeight: 1.2,
     font: textBoxWidgetNormalizeFont(options.font),
     backgroundAlpha: textBoxWidgetNormalizeBackgroundAlpha(options.backgroundAlpha),
     backgroundColor: String(options.backgroundColor || ""),
     textColor: String(options.textColor || ""),
   };
+  layout.newLineHeight = textBoxWidgetNormalizeNewLineHeight(options.newLineHeight, layout.lineHeight);
   let editable = options.editable !== false;
   let changeFn = typeof options.onChange === "function" ? options.onChange : null;
   let commitFn = typeof options.onCommit === "function" ? options.onCommit : null;
@@ -257,8 +431,11 @@ function createTextBoxWidget(body, options = {}) {
     if (dragged || event.shiftKey || Number(event.detail) > 1) {
       return;
     }
-    const selected = String(window.getSelection?.()?.toString() || "");
-    const all = textBoxWidgetReadText(field);
+    // Compare without whitespace: Selection#toString counts blank line
+    // blocks differently from the field's own serializer.
+    const squash = (value) => String(value || "").replace(/\s+/g, "");
+    const selected = squash(window.getSelection?.()?.toString());
+    const all = squash(textBoxWidgetReadText(field));
     if (selected && all && selected === all) {
       textBoxWidgetPlaceCaretAtPoint(field, event.clientX, event.clientY);
     }
@@ -301,7 +478,7 @@ function createTextBoxWidget(body, options = {}) {
     const pasted = String(event.clipboardData?.getData("text/plain") ?? "");
     const text = layout.textMode === "singleLine"
       ? pasted.replace(/[\r\n]+/g, " ")
-      : pasted;
+      : pasted.replace(/\r\n?/g, "\n");
     document.execCommand("insertText", false, text);
   });
   field.addEventListener("wheel", (event) => {
@@ -324,6 +501,10 @@ function createTextBoxWidget(body, options = {}) {
     field.style.setProperty("--node-text-box-font", textBoxWidgetFontFamily(layout.font));
     field.style.setProperty("--node-text-box-font-weight", String(layout.textWeight || 400));
     field.style.setProperty("--node-text-box-line-height", String(layout.lineHeight || 1.2));
+    field.style.setProperty(
+      "--node-text-box-new-line-height",
+      String(layout.newLineHeight || layout.lineHeight || 1.2),
+    );
     const backgroundAlpha = textBoxWidgetNormalizeBackgroundAlpha(layout.backgroundAlpha);
     const backgroundAlphaCss = textBoxWidgetBackgroundAlphaCss(backgroundAlpha);
     // Empty / "transparent" must not write blank CSS vars — `var(--x, fallback)`
@@ -392,8 +573,13 @@ function createTextBoxWidget(body, options = {}) {
     commitFn?.(textBoxWidgetReadText(field));
   }
 
-  field.addEventListener("input", () => {
+  field.addEventListener("compositionend", () => {
     if (applying || !canEditText()) return;
+    textBoxWidgetNormalizeBlocks(field);
+  });
+  field.addEventListener("input", (event) => {
+    if (applying || !canEditText()) return;
+    if (!event?.isComposing) textBoxWidgetNormalizeBlocks(field);
     layout.text = textBoxWidgetReadText(field);
     scheduleVisual();
     changeFn?.(layout.text);
@@ -458,6 +644,9 @@ function createTextBoxWidget(body, options = {}) {
         layout.lineHeight = typeof normalizeNodeGraphTextBoxLineHeight === "function"
           ? normalizeNodeGraphTextBoxLineHeight(next.lineHeight ?? next.lineSpacing ?? next.newlineSpacing)
           : 1.2;
+      }
+      if (next.newLineHeight !== undefined) {
+        layout.newLineHeight = textBoxWidgetNormalizeNewLineHeight(next.newLineHeight, layout.lineHeight);
       }
       if (next.font != null) layout.font = textBoxWidgetNormalizeFont(next.font);
       if (next.backgroundAlpha != null) {

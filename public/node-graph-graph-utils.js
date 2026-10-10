@@ -342,7 +342,7 @@ const NODE_GRAPH_GRAPH_CONTOUR_PLANCK = (
   : 1e-7;
 const NODE_GRAPH_GRAPH_CONTOUR_SOFT_MAX = 1 - NODE_GRAPH_GRAPH_CONTOUR_PLANCK; // 0.9999999
 
-/** Soft-cap |c| for continuous eval; domain stays −1…+1, kernels never see exact ±1. */
+/** Soft-cap for exponential and log only. Rational uses the full −1…+1. */
 function nodeGraphGraphContourSoftCap(contour) {
   const c = nodeGraphGraphNormalizeContour(contour, 0);
   if (c > NODE_GRAPH_GRAPH_CONTOUR_SOFT_MAX) return NODE_GRAPH_GRAPH_CONTOUR_SOFT_MAX;
@@ -352,7 +352,7 @@ function nodeGraphGraphContourSoftCap(contour) {
 
 function nodeGraphGraphRationalCurveContinuous(position, contour = 0) {
   const p = normalizeNodeGraphGraphNumber(position, 0, 0, 1);
-  const c = nodeGraphGraphContourSoftCap(contour);
+  const c = nodeGraphGraphNormalizeContour(contour, 0);
   if (Math.abs(c) < NODE_GRAPH_GRAPH_CONTOUR_PLANCK) {
     return p;
   }

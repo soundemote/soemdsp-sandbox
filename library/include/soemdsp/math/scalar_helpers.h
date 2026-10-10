@@ -238,11 +238,11 @@ static inline double map(double v, double inMin, double inMax, double outMin, do
   return outMin + (outMax - outMin) * ((v - inMin) / span);
 }
 
-// Rational tension curve on [0,1]: ((1+s)*t)/(1-s+2*s*t), skew clamped +-0.999.
+// Rational tension curve: ((1+s)*t)/(1-s+2*s*t). No clamp on t or skew.
 static inline double rational_curve01(double t01, double skew) {
-  const double t = clamp(t01, 0.0, 1.0);
-  const double s = clamp(skew, -0.999, 0.999);
-  return ((1.0 + s) * t) / (1.0 - s + 2.0 * s * t);
+  const double den = 1.0 - skew + 2.0 * skew * t01;
+  if (!(den > 1e-12) && !(den < -1e-12)) return t01;
+  return ((1.0 + skew) * t01) / den;
 }
 
 // Bipolar [-1,1] rational via unipolar map-through.

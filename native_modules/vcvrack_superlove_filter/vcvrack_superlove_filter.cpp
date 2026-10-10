@@ -98,7 +98,7 @@ extern "C" double soemdsp_vcvrack_superlove_filter_sample(
 }
 
 extern "C" int soemdsp_vcvrack_superlove_filter_version() {
-  return 3;
+  return 4;
 }
 
 extern "C" const char* soemdsp_vcvrack_superlove_filter_metadata_json() {

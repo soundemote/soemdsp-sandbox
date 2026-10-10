@@ -1,8 +1,8 @@
 # Display Shader Plan
 
-**Status:** plan only. Nothing built. Do not start an item until Argi says go.
+**Status:** living tracker for moving display per-pixel work out of JavaScript (and off CPU/WASM fill-grid) into GLSL. M1–M10 landed (need visual check). Phase 0 infra, G-rows (`.vert` / `.frag` next to wasm), and **W-rows (one Stop/bypass face-wipe registry)** wait for Argi go on each row.
 
-**Date:** 2026-10-06. Source: Argi via LibraryCode.
+**Date:** 2026-10-06. Source: Argi via LibraryCode. GLSL-on-disk: 2026-10-09 Argi. Face wipe registry: 2026-10-09 Argi.
 
 **Related:** `docs/APP_POLICY.md` (no JS DSP, no GPU audio, no worklet / JS special cases); `docs/BUG_PLAN.md` → **Cleanup** → **C-001** (JS DSP removal; overlaps P0e-1); `docs/SCOPE_PAINT_SIMPLIFICATION_PLAN.md`; `docs/FUTURE_PLANNING.md` §Display shaders.
 
@@ -86,6 +86,75 @@ Size key: **S** = small, **M** = medium, **L** = large (combinations like S-M me
 
 ---
 
+## GLSL files next to WASM
+
+Shipped present shaders that belong to a **native module** live beside that module’s `.cpp` / `.wasm`, not as JS template strings.
+
+Layout (Field is the pattern):
+
+```
+native_modules/<name>/
+  <name>.cpp
+  <name>.wasm
+  <name>.vert.glsl
+  <name>.frag.glsl      (or extra .frag.glsl per pass: source, blur, …)
+```
+
+**Rules**
+
+- Text assets the face `fetch()`es. Same debug-server path as wasm. No clang, no combined link, no worklet.
+- Audio stays C++. The `.glsl` is the face present only.
+- One `.vert` (usually the 4-line fullscreen quad) + one `.frag` per program. Extra passes = extra `.frag` files, same folder.
+- JS (`*-gl.js`) fetches, compiles on the **shared picture device**, Canvas2D/WASM fallback until the files land.
+- Cache-bust with `?v=` like wasm.
+- **Easy** means: a `native_modules/<name>/` folder already exists **and** that module owns the GL programs (not a shared lib).
+- Shared stack (phosphor, traces, Meet, cycle-line, room dimmer, colour picker, number readout, waterfall) stays in `public/lib/…-gl.js` until someone wants a `public/shaders/` shelf. Do not invent a wasm-less `native_modules/` folder just to park GLSL.
+- Live typing (Apply without reload, saved in the patch) is the parked **Screen Space Shader** host. Repo `.glsl` is the shipped default, not the live buffer.
+
+**Easy moves**
+
+| ID | Module folder | From | Files | Status | Notes |
+|----|---------------|------|-------|--------|-------|
+| G1 | `native_modules/fbm_field/` | `fbm-field-gl.js` | `fbm_field.vert.glsl`, `fbm_field.frag.glsl` | Done | 2026-10-09 Grok: Field present fetches both; fill_grid until they land. |
+| G2 | `native_modules/raster_rgb/` | `raster-rgb-gl.js` | one `.vert` + `source` / `blur` / `down` / `composite` `.frag` | Done | 2026-10-09 Grok: Scan Grid present fetches five files; Canvas2D until they land. |
+| G3 | `native_modules/basic_shape/` (only if cycle-line is **not** shared) | `cycle-line-gl.js` | skip unless split | Dropped | Shared by Basic Shape / SinCos / Softwave. Keep in `public/lib/visual/cycle-line-gl.js`. |
+| G4 | `public/lib/trace/` (shared shelf, no wasm) | `trace-dot-sprite-gl.js` | `trace-dot-sprite.vert.glsl`, `trace-dot-sprite.frag.glsl` | Done | 2026-10-09 Grok: LED / LCD Dot / RGB Shape SDF present. Same fetch as G1. |
+
+**Not snug (no wasm sibling, or shared lib)** — leave in JS until a native folder exists: Image Ghost, Soft Fractal / rgbFractal, Spectrogram, Phosphor, traces, LED dots, number readout, colour picker, room dimmer, waterfall.
+
+---
+
+## Face wipe registry (Stop / power off)
+
+GL faces keep residual **off** the 2D canvas (FBO, rolling buffer, rAF). Stop’s generic plate fill never sees that, so each new face grew a private `wipeXScreensToColdBoot` hook. Vector RGB missed Stop until 2026-10-09 because wipe looked for `.dsp-node` and paint still `presentTo`’d the old FBO.
+
+**Law**
+
+| Event | Face |
+|-------|------|
+| Pause | Hold residual |
+| Stop | Cold-boot plate (dark / idle) |
+| Power off / bypass | Same as Stop **for that module** |
+| Play | Paint again |
+
+Same idea as `scopePaintIsFrozen` in `node-graph-module-scope-paint-gate.js`: one gate, no per-file pause predicates.
+
+**Target**
+
+```text
+nodeGraphModuleScopeFaceWipes[displayType] = (canvas, bg) => { … }
+```
+
+- Stop walks visible face canvases (persistent map + `[data-node-type]` articles) and calls the wipe for that `displayType`, then fills the plate.
+- Bypass calls the same wipe for that node only.
+- Custom paint **must** early-out through the gate: stopped / bypassed → wipe + return; frozen → hold. No `presentTo` after Stop.
+- No new `if (typeof wipeX === "function")` in `node-graph-module-scope-wipe.js`.
+- LCD / LED / Pitch idle digits stay the one exception (idle plate, not a solid black fill). Filter-curve plots redraw, they do not black out.
+
+**Today’s special cases to fold in:** phosphor energy destroy, waterfall history, spectrogram history, number readout idle, Field, Scan Grid, Vector RGB.
+
+---
+
 ## Progress tracker
 
 Full paths: `public/lib/phosphor/phosphor-energy-gl.js`, `public/lib/trace/{trace-woscope,trace-stroke,trace-tape,trace-rgb-points,trace-dot-sprite}.js`, `public/modules/spectrogram/spectrogram-display.js`, `public/modules/rasterRgb/raster-rgb-display.js`, `public/node-graph-module-scope-paint-helpers.js`, `public/node-graph-module-scope-number-readout.js`, `public/color-widget.js`, `public/boot-loading.js`. Sizes for Phase 0 rows were not given; they say TBD until someone estimates them.
@@ -108,5 +177,10 @@ Full paths: `public/lib/phosphor/phosphor-energy-gl.js`, `public/lib/trace/{trac
 | M6 | Number Readout / Value LCD / Pitch digits: SDF glyph atlas + exp glow | `number-readout-gl.js` (new); `node-graph-module-scope-number-readout.js` | M-L | Done, needs visual check | Librarian | 2026-10-06 Librarian: DSEG/mono SDF glyph atlas (EDT bake) on shared picture device; glow=exp(-d^2/sigma^2), core=smoothstep; LCD inner shadow via rounded-box SDF (no fillText/shadowBlur/ctx.filter when GL works). Canvas2D kept as fallback. Files: new `public/modules/numberReadout/number-readout-gl.js`; `public/node-graph-module-scope-number-readout.js`; script tags in `public/index.html` + `public/perform.html`; `scripts/smoke_test.py` PUBLIC_SCRIPT_PATHS |
 | M7 | Colour picker plane in a shader | `color-widget-plane-gl.js` (new); `color-widget.js` | S | Done, needs visual check | Librarian | 2026-10-06 Librarian: colour plane is a fullscreen quad on the shared picture device (HSV plane / HSL lamp / BW from UV + hue uniform); Canvas2D putImageData kept as fallback. Files: new `public/lib/visual/color-widget-plane-gl.js`; `public/color-widget.js`; script tags in `public/index.html` + `public/perform.html`; `scripts/smoke_test.py` PUBLIC_SCRIPT_PATHS |
 | M8 | Room dimmer: pack 128 rects into a texture or cull per tile | `node-graph-room-dimmer.js` | S | Done, needs visual check | Librarian | 2026-10-06 Librarian: pack up to 128 rects into a 2-row data texture (float preferred, RGBA8 fallback) instead of ~512 uniforms; fragment loop unchanged (same rounded-box SDF look). Files: `public/node-graph-room-dimmer.js` (SHADER_REV 16); script tag version bump in `public/index.html` + `public/perform.html` |
-| M9 | Fractal Brownian Field: fBm per texel in GLSL from uniforms | `fbm-field-gl.js`; `fbm-field-display.js`; `fbm_field.cpp` fill_grid | M | Done, needs visual check | Librarian | 2026-10-06 Librarian: face present evaluates fBm in the fragment shader on the shared picture device (no new context); fill_grid WASM only for Canvas2D fallback. Audio X/Y/Z probes stay in C++/WASM (fieldAt / eval_at / sample) — WISIWIH approximate (GL float hash vs C++ uint32). Files: `public/modules/fbmField/fbm-field-gl.js`; `public/modules/fbmField/fbm-field-display.js`; script tag version bump in `public/index.html` + `public/perform.html` |
+| M9 | Fractal Brownian Field: fBm per texel in GLSL from uniforms | `fbm-field-gl.js`; `fbm-field-display.js`; `fbm_field.cpp` fill_grid | M | Done, needs visual check | Librarian | 2026-10-06 Librarian: face present evaluates fBm in the fragment shader on the shared picture device (no new context); fill_grid WASM only for Canvas2D fallback. Audio X/Y/Z probes stay in C++/WASM (fieldAt / eval_at / sample) — WISIWIH approximate (GL float hash vs C++ uint32). 2026-10-09 Grok: present source extracted to `native_modules/fbm_field/fbm_field.{vert,frag}.glsl` (G1); `fbm-field-gl.js` fetches. Files: `public/modules/fbmField/fbm-field-gl.js`; `public/modules/fbmField/fbm-field-display.js`; `native_modules/fbm_field/fbm_field.vert.glsl`; `native_modules/fbm_field/fbm_field.frag.glsl` |
 | M10 | Image Ghost: dry flash + contrast in PRESENT shader (zero hot-path getImageData) | `image-burn-gl.js`; `image-burn-display.js` | M | Done, needs visual check | Librarian | 2026-10-06 Librarian: residual path already GL; DrawDry contrast/brightness moved into PRESENT_FRAG screen composite so live frames do no getImageData when GL works; Canvas2D/getImageData kept as fallback. Files: `public/modules/imageBurn/image-burn-gl.js`; `public/modules/imageBurn/image-burn-display.js`; script tag version bump in `public/index.html` + `public/perform.html` |
+| G1 | Field present `.vert` + `.frag` next to wasm | `native_modules/fbm_field/fbm_field.{vert,frag}.glsl`; `fbm-field-gl.js` | S | Done | Grok Bot | 2026-10-09 Grok: fetch + compile; fill_grid until files land. Pattern for G2. |
+| G2 | Scan Grid present shaders next to wasm | `native_modules/raster_rgb/`; `raster-rgb-gl.js` | S | Done | Grok Bot | 2026-10-09 Grok: `raster_rgb.vert.glsl` + `source` / `blur` / `down` / `composite` `.frag.glsl`. Fetch + compile; Canvas2D until they land. Blur tap loop is literal 24 (matches MAX_TAPS_RADIUS). |
+| G4 | LED Dot SDF present `.vert` + `.frag` on the shared shelf | `public/lib/trace/trace-dot-sprite.{vert,frag}.glsl`; `trace-dot-sprite-gl.js` | S | Done | Grok Bot | 2026-10-09 Grok: no wasm sibling; LED / LCD / Pulse / RGB Shape share one SDF program. Fetch + compile; JS bake until files land. |
+| W1 | Face wipe registry: Stop / bypass / power-off through `nodeGraphModuleScopeFaceWipes[displayType]` | `node-graph-module-scope-wipe.js`; `node-graph-module-scope-paint-gate.js`; Field / Scan Grid / Vector RGB / phosphor / waterfall / spectrogram / number readout | M | Done | Grok Bot | 2026-10-09 Grok: `nodeGraphModuleScopeRegisterFaceWipe` / `WipeCanvas` / `WipeNode`. Pause holds (`scopePaintIsFrozen`). Stop + orchestrator early-out + power-off call the registry. LCD idle exception kept. |
+| W2 | Fold existing special-case wipes into W1 and delete the `if (typeof wipeX)` list | same as W1 | S | Done | Grok Bot | 2026-10-09 Grok: Field / Scan Grid / Vector RGB register; phosphor / waterfall / spectrogram / LCD builtins in wipe.js. Removed the `if (typeof wipeX)` tail. |

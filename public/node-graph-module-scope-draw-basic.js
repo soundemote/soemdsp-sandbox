@@ -923,7 +923,21 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
   nodeGraphFacePlateFillCanvas(context, canvas, bg);
   const width = canvas.width;
   const height = canvas.height;
-  const size01 = clampNodeSliderValue(nodeGraphFiniteNumber(settings.dot1Size), 0, 1);
+  const lcdModule = node?.type === "lcdDot";
+  const params = node?.params && typeof node.params === "object" ? node.params : {};
+  const size01 = clampNodeSliderValue(
+    nodeGraphFiniteNumber(
+      lcdModule ? (params.size ?? settings.dot1Size) : settings.dot1Size,
+    ),
+    0,
+    1,
+  );
+  const posX = lcdModule
+    ? clampNodeSliderValue(nodeGraphFiniteNumber(params.posX), -1, 1)
+    : 0;
+  const posY = lcdModule
+    ? clampNodeSliderValue(nodeGraphFiniteNumber(params.posY), -1, 1)
+    : 0;
   const stampShape = typeof normalizeTraceStampShape === "function"
     ? normalizeTraceStampShape(settings.shape)
     : String(settings.shape || "circle");
@@ -956,8 +970,10 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
     shape: stampShape,
     shapeParam,
   };
-  const cx = width * 0.5;
-  const cy = height * 0.5;
+  const maxX = Math.max(0, width * 0.5 - extents.rx);
+  const maxY = Math.max(0, height * 0.5 - extents.ry);
+  const cx = width * 0.5 + posX * maxX;
+  const cy = height * 0.5 - posY * maxY;
   if (lcd) {
     const ghostAmt = clampNodeSliderValue(nodeGraphFiniteNumber(settings.unlitSegments), 0, 1);
     let inkCss = settings.dot1Color || settings.color || "#1a2216";
@@ -965,10 +981,26 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
     if (typeof nodeGraphNumberReadoutLcdInkRgb === "function") {
       const rgb = nodeGraphNumberReadoutLcdInkRgb(settings);
       inkCss = `rgb(${rgb[0]} ${rgb[1]} ${rgb[2]})`;
-      if (typeof nodeGraphNumberReadoutLcdGhostRgb === "function") {
-        const g = nodeGraphNumberReadoutLcdGhostRgb(rgb, settings);
-        ghostCss = `rgb(${g[0]} ${g[1]} ${g[2]})`;
-      }
+    }
+    // Unlit ghost is parked vs the plate, not vs live Foreground — changing
+    // ink brightness must not recolor the skeleton.
+    if (typeof nodeGraphHueBrightnessRgb01 === "function"
+      && typeof nodeGraphNumberReadoutLcdHueDeg === "function") {
+      const hueDeg = nodeGraphNumberReadoutLcdHueDeg(
+        { dot1Color: settings.dot1Color ?? settings.color },
+        settings.dot1Color ?? settings.color,
+        210,
+      );
+      const plateAmt = clampNodeSliderValue(
+        nodeGraphFiniteNumber(settings.backgroundBrightness),
+        0,
+        1,
+      );
+      const satN = Number(settings.dot1Saturation ?? settings.colorSaturation);
+      const sat = Number.isFinite(satN) ? clampNodeSliderValue(satN, 0, 1) : 0.9;
+      const ghostBright = plateAmt + (0.2 - plateAmt) * 0.45;
+      const [gr, gg, gb] = nodeGraphHueBrightnessRgb01(hueDeg, ghostBright, sat);
+      ghostCss = `rgb(${Math.round(gr * 255)} ${Math.round(gg * 255)} ${Math.round(gb * 255)})`;
     }
     if (ghostAmt > 0.001 && radius > 0.05) {
       context.save();
@@ -980,10 +1012,14 @@ function drawNodeGraphVectorDotItem(renderer, item, pixelRatio) {
       });
       context.restore();
     }
-    if (e > 0.001 && radius > 0.05) {
+    // Digital In: on = opaque live ink. Do not fade live with energy (that
+    // made the "on" stamp look like a second ghost).
+    const last = Number(buffer && buffer.length ? buffer[buffer.length - 1] : 0);
+    const lit = Number.isFinite(last) && Math.abs(last) >= 0.5;
+    if (lit && radius > 0.05) {
       context.save();
       context.globalCompositeOperation = "source-over";
-      context.globalAlpha = e;
+      context.globalAlpha = 1;
       nodeGraphDrawVectorDotDisc(context, cx, cy, radius, blur, {
         ...shape,
         color: inkCss,

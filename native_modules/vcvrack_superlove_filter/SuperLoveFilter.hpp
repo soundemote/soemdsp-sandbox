@@ -1,8 +1,9 @@
 #pragma once
 
-// Super Love — DSP from soemdsp-sandbox Superlove Rev2.
+// Super Love — DSP from VCV Rack SuperLoveFilter.hpp (soemdsp-vcvrack).
 // Chaos is fixed at 0 (no Chaos control on the VCV panel).
 // Modes: LP18 / LP24 / HP6 / BP6. Panel left→right: LP18, LP24, HP, BP.
+// Sandbox host uses ±1 audio (no Rack 5V scale, no clip LED).
 
 #include <soemdsp/soemdsp.hpp>
 
@@ -98,8 +99,8 @@ static double hpBpResonanceMod(double reso) {
 	return g.getValue(reso);
 }
 
-// Softwave Tri with the phasor stopped (freq 0): Morph is the knob 0…1, not m^4,
-// and not the running-oscillator pitch softness. Same as Superlove Rev2 / breadboard.
+// SuperLove.cpp: Rev2 breadboard Softwave Tri with the phasor stopped.
+// Morph is the knob 0…1 (no m^4). Peak-normalized so Morph 0.75 is a real tri.
 static double softwaveTri(double phaseCycles, double morph, double frequencyHz) {
 	(void) frequencyHz;
 	const double p = wrap01(phaseCycles);

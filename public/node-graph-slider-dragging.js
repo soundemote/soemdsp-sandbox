@@ -162,6 +162,7 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
       : 0;
     storedDomain = choiceKeys[index] || choiceKeys[0];
   }
+  const priorParams = patchNode.params || {};
   patchNode.paramMeta = {
     ...(patchNode.paramMeta || {}),
     [key]: nextMeta,
@@ -207,6 +208,13 @@ function syncNodeGraphPatchParameterFromSlider(slider, options = {}) {
     if (typeof syncNodeGraphPitchQuantizersFedByChordPad === "function") {
       syncNodeGraphPitchQuantizersFedByChordPad(node);
     }
+  }
+  if (
+    patchNode.type === "additiveGenerator"
+    && key === "harmonics"
+    && typeof nodeGraphAdditiveGeneratorSyncSlopeRange === "function"
+  ) {
+    nodeGraphAdditiveGeneratorSyncSlopeRange(node, patchNode, priorParams);
   }
   // Value-only writes (mid-frame drag coalesce): domain is already on the
   // patch; skip graph-face / history / transport side effects until a full sync.

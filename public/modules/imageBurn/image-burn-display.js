@@ -1185,16 +1185,25 @@ function buildNodeGraphImageBurnDisplaySettingsBodyHtml() {
       </div>
       <div class="metadata-field-section">
         <div class="metadata-section-title">PLATE</div>
-        ${hueRow
-          ? hueRow({
+        ${hueRow && typeof nodeGraphDisplaySettingsHbsRow === "function"
+          ? nodeGraphDisplaySettingsHbsRow([hueRow({
             title: "Background",
             stepField: "backgroundBrightness",
             colorField: "backgroundColor",
             formType: "imageBurnFace",
             defaultHueHex: "#000000",
             titleAttr: "Plate brightness 0…1.",
-          })
-          : ""}
+          })])
+          : (hueRow
+            ? hueRow({
+              title: "Background",
+              stepField: "backgroundBrightness",
+              colorField: "backgroundColor",
+              formType: "imageBurnFace",
+              defaultHueHex: "#000000",
+              titleAttr: "Plate brightness 0…1.",
+            })
+            : "")}
         <div class="metadata-field-section node-trace-display-xy-pad-actions" style="margin-top:0.5rem">
           <button type="button" data-image-burn-clear-residual class="node-xy-pad-reset-canvas-button">
             Clear

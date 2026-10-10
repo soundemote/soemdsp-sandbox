@@ -361,9 +361,10 @@ extern "C" void soemdsp_ray_bouncer_sample(
 
   bouncer_step(s);
 
-  // Soft clamp for audio/scope; ellipse size ~1 keeps motion near unity.
-  s.outX = clamp(safe_bounded(s.outX), -2.0, 2.0);
-  s.outY = clamp(safe_bounded(s.outY), -2.0, 2.0);
+  // Size/aspect set the ellipse. Amplitude is applied in graph_engine after
+  // these outs. Do not brickwall here — that squared the path before Amplitude.
+  s.outX = safe_bounded(s.outX);
+  s.outY = safe_bounded(s.outY);
 }
 
 extern "C" double soemdsp_ray_bouncer_x(int handle) {
@@ -377,5 +378,5 @@ extern "C" double soemdsp_ray_bouncer_y(int handle) {
 }
 
 extern "C" int soemdsp_ray_bouncer_version() {
-  return 1;
+  return 2;
 }

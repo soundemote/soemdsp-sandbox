@@ -29,6 +29,7 @@ struct FbmFieldState {
   bool resetWasHigh;
   bool hasStarted;
   double time;
+  double lastDomainT;
   double lastX;
   double lastY;
   double lastZ;
@@ -264,6 +265,7 @@ extern "C" void soemdsp_fbm_field_destroy(int handle) {
 extern "C" void soemdsp_fbm_field_reset(int handle) {
   if (handle < 1 || handle > kMaxInstances) return;
   gPool[handle - 1].time = 0.0;
+  gPool[handle - 1].lastDomainT = 0.0;
   gPool[handle - 1].hasStarted = false;
 }
 
@@ -333,6 +335,7 @@ extern "C" void soemdsp_fbm_field_sample(
   const double span = 1.0 / safeZoom;
   const int mode = normalizeMotion(motion);
   const double t = s.time;
+  s.lastDomainT = t;
   // Probe spacing in field space (fraction of view span) — same points face could sample.
   const double d = span * 0.35;
   const double cx = panX;
@@ -475,9 +478,9 @@ extern "C" double soemdsp_fbm_field_z_raw(int handle) {
 
 extern "C" double soemdsp_fbm_field_domain_time(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return gPool[handle - 1].time;
+  return gPool[handle - 1].lastDomainT;
 }
 
 extern "C" int soemdsp_fbm_field_version() {
-  return 3;
+  return 4;
 }

@@ -630,7 +630,131 @@ function nodeGraphPatchMigratePhaseRotationOutToGenerator(patch) {
   return changed ? { ...patch, nodes } : patch;
 }
 
-/** additiveGrowl → additiveBubble (UI rename; wires use node ids, stay valid). */
+// Slope
+function nodeGraphPatchMigrateAdditiveSlopeModel(patch) {
+  if (!patch || !Array.isArray(patch.nodes)) return patch;
+  const legacyKeys = ["filter", "harmonic", "slope", "skew", "curve"];
+  const outKeys = legacyKeys.concat("optimize");
+  const nodes = patch.nodes.slice();
+  const byId = new Map();
+  for (let i = 0; i < nodes.length; i += 1) {
+    const n = nodes[i];
+    if (n && n.id != null) byId.set(String(n.id), i);
+  }
+  const conns = Array.isArray(patch.connections) ? patch.connections : [];
+  const graphSrc = (dstId) => {
+    const want = String(dstId);
+    for (let i = 0; i < conns.length; i += 1) {
+      const c = conns[i];
+      if (!c || String(c.destinationNode) !== want) continue;
+      if (String(c.destinationPort || "Graph") !== "Graph") continue;
+      return String(c.sourceNode || "");
+    }
+    return "";
+  };
+  const findGenerator = (outId) => {
+    let id = graphSrc(outId);
+    const seen = new Set();
+    while (id && !seen.has(id)) {
+      seen.add(id);
+      const index = byId.get(id);
+      if (index == null) return -1;
+      if (String(nodes[index]?.type || "").trim() === "additiveGenerator") return index;
+      id = graphSrc(id);
+    }
+    return -1;
+  };
+  const withoutKeys = (obj, keys) => {
+    const out = { ...obj };
+    for (const k of keys) delete out[k];
+    return out;
+  };
+  const isBag = (obj) => Boolean(obj) && typeof obj === "object";
+  let changed = false;
+  // Additive Out
+  for (let i = 0; i < nodes.length; i += 1) {
+    const node = nodes[i];
+    if (!node || String(node.type || "").trim() !== "additiveOut") continue;
+    const bags = [node.params, node.parameters].filter(isBag);
+    if (!bags.some((b) => outKeys.some((k) => Object.hasOwn(b, k)))) continue;
+    const src = bags.find((b) => legacyKeys.some((k) => Object.hasOwn(b, k))) || {};
+    const moved = {};
+    for (const k of legacyKeys) {
+      if (Object.hasOwn(src, k)) moved[k] = src[k];
+    }
+    nodes[i] = {
+      ...node,
+      ...(isBag(node.params) ? { params: withoutKeys(node.params, outKeys) } : {}),
+      ...(isBag(node.parameters) ? { parameters: withoutKeys(node.parameters, outKeys) } : {}),
+      ...(isBag(node.paramMeta) ? { paramMeta: withoutKeys(node.paramMeta, outKeys) } : {}),
+    };
+    changed = true;
+    if (!(Number(moved.harmonic) > 0)) continue;
+    const gi = findGenerator(node.id);
+    if (gi < 0) continue;
+    const gen = nodes[gi];
+    const gp = isBag(gen.params) ? gen.params : {};
+    if (
+      Number(gp._slopeModel) >= 1
+      || Object.hasOwn(gp, "harmonic")
+      || Object.hasOwn(gp, "slopeEnd")
+    ) continue;
+    nodes[gi] = { ...gen, params: { ...gp, ...moved } };
+  }
+  // Additive Generator
+  for (let i = 0; i < nodes.length; i += 1) {
+    const node = nodes[i];
+    if (!node || String(node.type || "").trim() !== "additiveGenerator") continue;
+    const gp = isBag(node.params) ? node.params : {};
+    if (Number(gp._slopeModel) >= 1) continue;
+    changed = true;
+    const legacy = Object.hasOwn(gp, "harmonic")
+      || Object.hasOwn(gp, "filter")
+      || !Object.hasOwn(gp, "slopeEnd");
+    if (!legacy) {
+      nodes[i] = { ...node, params: { ...gp, _slopeModel: 1 } };
+      continue;
+    }
+    const n = Math.max(1, Math.round(nodeGraphFiniteNumber(gp.harmonics, 32)));
+    const knee = nodeGraphFiniteNumber(gp.harmonic, 0);
+    const oldSlope = nodeGraphFiniteNumber(gp.slope, 0.25);
+    const filterKey = String(gp.filter ?? "lp").trim().toLowerCase();
+    const lowpass = filterKey === "lp" || filterKey === "0";
+    const next = withoutKeys(gp, ["filter", "harmonic"]);
+    next.slope = 0;
+    next.slopeStart = 1;
+    next.slopeEnd = n;
+    next.skew = 1;
+    next.curve = gp.curve ?? "rational";
+    next._slopeModel = 1;
+    if (knee > 0 && lowpass && oldSlope >= 0) {
+      const halfOct = oldSlope <= 1e-6 ? 0 : 0.05 + oldSlope * 5;
+      let fc = knee;
+      if (halfOct > 0) {
+        const unity = fc * Math.pow(2, -halfOct);
+        if (unity < 1) fc /= unity;
+      } else if (fc < 1) {
+        fc = 1;
+      }
+      const start = Math.min(n, Math.max(1, fc * Math.pow(2, -halfOct)));
+      const end = halfOct > 0 ? fc * Math.pow(2, halfOct) : start + 0.001;
+      next.slope = 1;
+      next.slopeStart = start;
+      next.slopeEnd = Math.min(n, end);
+      next.skew = nodeGraphFiniteNumber(gp.skew, 0);
+    }
+    nodes[i] = {
+      ...node,
+      params: next,
+      ...(isBag(node.paramMeta)
+        ? { paramMeta: withoutKeys(node.paramMeta, legacyKeys.concat("slopeStart", "slopeEnd")) }
+        : {}),
+    };
+  }
+  return changed ? { ...patch, nodes } : patch;
+}
+
+/** additiveGrowl \u2192 additiveBubble (UI rename; wires use node ids, stay valid). */
 function nodeGraphPatchMigrateGrowlToBubble(patch) {
   if (!patch || !Array.isArray(patch.nodes)) return patch;
   let changed = false;
@@ -1213,6 +1337,7 @@ function migrateNodeGraphPatchToCurrent(patch) {
     next = nodeGraphPatchMigrateAdditiveGeneratorWaveformsBasic(next);
     next = nodeGraphPatchMigrateAdditiveGeneratorWaveformsPwm(next);
     next = nodeGraphPatchMigratePhaseRotationOutToGenerator(next);
+    next = nodeGraphPatchMigrateAdditiveSlopeModel(next);
     next = nodeGraphPatchMigrateGrowlHarmonicReduceToCutoff(next);
     next = nodeGraphPatchMigrateGrowlToBubble(next);
     next = nodeGraphPatchMigrateBubbleBrickwallToDampen(next);

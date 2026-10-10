@@ -276,11 +276,15 @@ const nodeGraphValueOscilloscopeSettingsDefaults = Object.freeze({
 
 
 // Value LED (numberReadout): phosphor / lit seven-segment face.
-// App-wide residual axes: Bright = light only; Ghost/Trail = hang only (no brightness).
+// Bright = live light only; Burn ⨯ = 0…1 deposit energy; Ghost/Trail = hang only.
 const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   faceStyle: "led",
   background: nodeGraphScopePhosphorLookDefaults.background,
   backgroundColor: nodeGraphScopePhosphorLookDefaults.background,
+  backgroundBrightness: 0,
+  backgroundSaturation: 1,
+  backgroundBrightness: 0,
+  backgroundSaturation: 1,
   // Digit hue saturation 0…1 (0 = grey, 1 = full hue).
   dot1Saturation: 1,
   colorSaturation: 1,
@@ -310,6 +314,8 @@ const nodeGraphNumberReadoutSettingsDefaults = Object.freeze({
   // How live Light composites over residual gradient (canvas blend / occlude).
   // lighten: live segments brighten residual ink (default for Value LED / Pitch).
   lightBlend: "lighten",
+  // 0…1 all-8 plate under digits, Ghost Gradient stop t=0.
+  ghostBlend: 0,
   // Digit inset 0…1 linear vs face square min side (0 = flush fill, 1 = one pin pixel).
   facePadding: 0.1,
   // Sign column: showMinus / showPlus. Default: Show - on (old bipolar). Neither = no gutter + abs.
@@ -384,6 +390,9 @@ const nodeGraphVectorDotSettingsDefaults = Object.freeze({
   hue: 30,
   dot1Brightness: 0.9,
   brightness: 0.9,
+  backgroundSaturation: 1,
+  dot1Saturation: 1,
+  colorSaturation: 1,
   dot1Size: 0.85,
   lineThickness: 0.35,
   blur: 0.35,
@@ -413,8 +422,9 @@ const nodeGraphLcdDotSettingsDefaults = Object.freeze({
     ? nodeGraphHueUnitHex(210)
     : "#00aaff",
   hue: 210,
-  dot1Brightness: 0,
-  brightness: 0,
+  // 0.5 = full hue (HBS). 0 is black, so hue-title drags look dead.
+  dot1Brightness: 0.5,
+  brightness: 0.5,
   dot1Saturation: 0.9,
   colorSaturation: 0.9,
   dot1Size: 0.72,

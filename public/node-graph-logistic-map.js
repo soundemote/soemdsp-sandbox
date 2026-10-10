@@ -48,8 +48,9 @@ function nodeGraphLogisticMapSample(options = {}) {
     state.nativeHandle,
     Number(options.reset) > 0 ? 1 : 0,
     Math.max(0, nodeGraphFiniteNumber(options.rate)),
-    Math.max(0, Math.min(4, nodeGraphFiniteNumber(options.r))),
-    Math.max(0.0001, Math.min(0.9999, nodeGraphFiniteNumber(options.seed, 0.5))),
+    nodeGraphFiniteNumber(options.r, 3.9),
+    nodeGraphFiniteNumber(options.seed, 0),
+    nodeGraphFiniteNumber(options.antialias, 0),
     nodeGraphFiniteNumber(options.level),
     Math.max(1, nodeGraphFiniteNumber(options.sampleRate, 44100)),
   );

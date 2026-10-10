@@ -159,8 +159,8 @@ function nodeGraphRobinSupersawMapNtoN(v, in0, in1, out0, out1) {
 
 /** soemdsp::curve::Rational{c}.get(p) on 0…1. */
 function nodeGraphRobinSupersawRational01(p, c) {
-  const x = Math.min(1, Math.max(0, nodeGraphFiniteNumber(p)));
-  const skew = Math.min(0.9999, Math.max(-0.9999, nodeGraphFiniteNumber(c)));
+  const x = nodeGraphFiniteNumber(p);
+  const skew = nodeGraphFiniteNumber(c);
   const den = 1 - skew + 2 * skew * x;
   if (!(Math.abs(den) > 1e-12)) return x;
   return ((1 + skew) * x) / den;

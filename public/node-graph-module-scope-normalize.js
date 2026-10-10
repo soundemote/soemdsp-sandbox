@@ -73,7 +73,8 @@ function nodeGraphDisplaySettingsNormalizePlateLook(source = {}, defaults = {}) 
 
 /**
  * App-wide phosphor residual axes (Ghost / Trail / Burn Amount).
- * residualSchema >= 3/4: burnAmount multiplies Bright for residual deposits (default 1).
+ * residualSchema >= 3/4: scopes multiply Bright × burnAmount (0…4) for residual deposits.
+ * Value LED Burn ⨯ is independent 0…1 energy (see normalizeNodeGraphNumberReadoutSettings).
  * SSOT keys: trail, ghost, burnAmount -- sticky burn / frozen-pixel floor stays removed.
  * Unknown legacy key burn in patches is ignored.
  *
@@ -393,6 +394,71 @@ function normalizeNodeGraphSpectrogramSettings(settings = {}, node = null) {
   };
 }
 
+
+const nodeGraphSpectrumLineSettingsDefaults = Object.freeze({
+  fftSize: 2048,
+  window: 1, // Hann
+  overlap: 2, // 4× hop
+  freqOverlap: 0,
+  spectrumAxis: "log",
+  spectrumDbMode: "exactDb",
+  spectrumDbFloor: -96,
+  spectrumDbCeiling: 0,
+  spectrumDrawStyle: "filled",
+  spectrumPeakHold: "off",
+  spectrumPeakDecay: 12,
+  dot1Color: "#4fd1ff",
+  backgroundColor: "#05070a",
+});
+
+/** 1D Spectrum display settings. FFT keys share the Spectrogram snap/clamp. */
+function normalizeNodeGraphSpectrumLineSettings(settings = {}, node = null) {
+  const source = settings && typeof settings === "object" ? settings : {};
+  const d = nodeGraphSpectrumLineSettingsDefaults;
+  const analysis = normalizeNodeGraphSpectrogramSettings({
+    fftSize: source.fftSize ?? node?.params?.fftSize ?? d.fftSize,
+    window: source.window ?? node?.params?.window ?? d.window,
+    overlap: source.overlap ?? node?.params?.overlap ?? d.overlap,
+    freqOverlap: source.freqOverlap ?? node?.params?.freqOverlap ?? d.freqOverlap,
+  }, null);
+  const pick = (raw, allowed, fallback) => (allowed.includes(String(raw)) ? String(raw) : fallback);
+  const pickNum = (raw, allowed, fallback) => {
+    const n = Number(raw);
+    return allowed.includes(n) ? n : fallback;
+  };
+  let dbFloor = pickNum(source.spectrumDbFloor, [-144, -120, -96, -84, -72, -60, -48, -36, -24], d.spectrumDbFloor);
+  const dbCeiling = pickNum(source.spectrumDbCeiling, [12, 6, 0, -6, -12, -24], d.spectrumDbCeiling);
+  if (!(dbCeiling > dbFloor)) dbFloor = d.spectrumDbFloor < dbCeiling ? d.spectrumDbFloor : dbCeiling - 24;
+  const backgroundColor = normalizeNodeGraphTraceDisplayColor(source.backgroundColor ?? source.background, d.backgroundColor);
+  return {
+    background: backgroundColor,
+    backgroundColor,
+    dot1Color: normalizeNodeGraphTraceDisplayColor(source.dot1Color ?? source.color, d.dot1Color),
+    fftSize: analysis.fftSize,
+    window: analysis.window,
+    overlap: analysis.overlap,
+    freqOverlap: analysis.freqOverlap,
+    // Worklet ignores freqScale; kept so shared param injection stays well-formed.
+    freqScale: 0,
+    spectrumAxis: pick(source.spectrumAxis, ["log", "linear", "mel", "bark"], d.spectrumAxis),
+    spectrumDbMode: pick(source.spectrumDbMode, ["exactDb", "db", "compressed", "linear"], d.spectrumDbMode),
+    spectrumDbFloor: dbFloor,
+    spectrumDbCeiling: dbCeiling,
+    spectrumDrawStyle: pick(source.spectrumDrawStyle, ["filled", "line"], d.spectrumDrawStyle),
+    spectrumPeakHold: pick(source.spectrumPeakHold, ["off", "hold"], d.spectrumPeakHold),
+    spectrumPeakDecay: pickNum(source.spectrumPeakDecay, [3, 6, 12, 24, 48, 96], d.spectrumPeakDecay),
+  };
+}
+
+function syncNodeGraphSpectrumLineDisplaySettingsToParams(node, settings) {
+  if (!node) return;
+  const safe = normalizeNodeGraphSpectrumLineSettings(settings, node);
+  node.params = node.params && typeof node.params === "object" ? { ...node.params } : {};
+  node.params.fftSize = safe.fftSize;
+  node.params.window = safe.window;
+  node.params.overlap = safe.overlap;
+  node.params.freqOverlap = safe.freqOverlap;
+}
 
 function syncNodeGraphSpectrogramDisplaySettingsToParams(node, settings) {
   if (!node) return;
@@ -1046,7 +1112,8 @@ function nodeGraphSampleGradientStopsRgb(stops, energyT, peakFallback = "#75ebff
 /**
  * Value LED / Value LCD display settings.
  * App-wide residual policy (phosphor-residual.js):
- *   Bright → live light / deposit energy only
+ *   Bright → live digit light only
+ *   Burn ⨯ → 0…1 deposit energy on number change (1 = Ghost Gradient stop t=1.0)
  *   Trail → hot residual hang (not brightness)
  *   Ghost → slow super-exp residual hang (not brightness)
  * Legacy residual / ghostBrightness aliases stay in sync for older patches.
@@ -1172,15 +1239,12 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
   const burnAmountDefault = Number.isFinite(Number(defaults.burnAmount))
     ? Number(defaults.burnAmount)
     : 1;
-  const burnAmountMax = (typeof PhosphorResidual !== "undefined" && PhosphorResidual.BURN_AMOUNT_MAX) || 4;
-  const burnAmount = typeof PhosphorResidual !== "undefined" && PhosphorResidual.migrateBurnAmount
-    ? PhosphorResidual.migrateBurnAmount(source, burnAmountDefault)
-    : normalizeNodeGraphTraceDisplayNumber(
-      source.burnAmount,
-      burnAmountDefault,
-      0,
-      burnAmountMax,
-    );
+  const burnAmount = normalizeNodeGraphTraceDisplayNumber(
+    source.burnAmount,
+    burnAmountDefault,
+    0,
+    1,
+  );
 
   return {
     faceStyle,
@@ -1336,6 +1400,21 @@ function normalizeNodeGraphNumberReadoutSettings(settings = {}, defaultsOverride
         .trim()
         .toLowerCase();
       return allowed.has(raw) ? raw : fallback;
+    })(),
+    ghostBlend: (() => {
+      const raw = source.ghostBlend;
+      if (raw === "stop0") {
+        return 1;
+      }
+      if (raw === "gradient" || raw === "lut") {
+        return 0;
+      }
+      return normalizeNodeGraphTraceDisplayNumber(
+        raw,
+        defaults.ghostBlend ?? 0,
+        0,
+        1,
+      );
     })(),
     // LCD only: permanent dim “8” plate amount (not residual hang).
     unlitSegments: normalizeNodeGraphTraceDisplayNumber(
@@ -1986,6 +2065,24 @@ function normalizeNodeGraphVectorDotSettings(settings = {}) {
     backgroundBrightness: normalizeNodeGraphTraceDisplayNumber(
       source.backgroundBrightness,
       defaults.backgroundBrightness ?? 0,
+      0,
+      1,
+    ),
+    backgroundSaturation: normalizeNodeGraphTraceDisplayNumber(
+      source.backgroundSaturation,
+      defaults.backgroundSaturation ?? 1,
+      0,
+      1,
+    ),
+    dot1Saturation: normalizeNodeGraphTraceDisplayNumber(
+      source.dot1Saturation ?? source.colorSaturation,
+      defaults.dot1Saturation ?? defaults.colorSaturation ?? 1,
+      0,
+      1,
+    ),
+    colorSaturation: normalizeNodeGraphTraceDisplayNumber(
+      source.colorSaturation ?? source.dot1Saturation,
+      defaults.colorSaturation ?? defaults.dot1Saturation ?? 1,
       0,
       1,
     ),

@@ -6,6 +6,8 @@
 //   • Scroll rate is wall-clock: full face width = History (s) of audio.
 //     hop → pixel advance = (hopSize/sampleRate) * (faceW/historySeconds).
 //   • Sub-pixel hops accumulate (max-pool into the pending column).
+//   • Leftover hop-time is uSub (GL) / blit offset (2D), same leftover-time
+//     scroll as Instant Waterfall — whole texels still commit, remainder slides.
 //   • Large hops can advance multiple pixels in one step.
 //
 // This keeps motion tied to real time without needing a huge hop ring, and
@@ -158,6 +160,32 @@ function spectrogramLutRgbForStops(stops) {
   return rgb;
 }
 
+
+/** Leftover hop-time as a fraction of one *buffer* pixel [0, 1). Hop seconds only. */
+function spectrogramScrollSubPx(st) {
+  const hist = Math.max(
+    SPECTROGRAM_MIN_HISTORY_SECONDS,
+    nodeGraphFiniteNumber(st?.historySeconds, 2),
+  );
+  const bufW = Math.max(1, (st?.faceW | 0));
+  const secPerBufPx = hist / bufW;
+  const debt = Math.max(0, nodeGraphFiniteNumber(st?.scrollDebtSec));
+  const sub = debt / Math.max(1e-12, secPerBufPx);
+  if (!Number.isFinite(sub) || sub <= 0) return 0;
+  return sub < 1 ? sub : 0.999;
+}
+
+/** LUT sample as 0…1 RGB (shader plate / CSS helper). */
+function spectrogramLutRgb01(lutRgb, brightness01) {
+  const raw = Number(brightness01);
+  const u = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 0;
+  const li = Math.min(255, Math.max(0, Math.floor(u * 255 + 1e-6)));
+  const idx = li * 3;
+  const r = lutRgb && lutRgb.length > idx ? lutRgb[idx] : 0;
+  const g = lutRgb && lutRgb.length > idx + 1 ? lutRgb[idx + 1] : 0;
+  const b = lutRgb && lutRgb.length > idx + 2 ? lutRgb[idx + 2] : 0;
+  return [r / 255, g / 255, b / 255];
+}
 
 /** Opaque gradient sample. Brightness is 0..1, then LUT. Alpha stays 1. Not rgb * brightness. */
 function spectrogramCssAtBrightness(lutRgb, brightness01) {
@@ -708,7 +736,9 @@ function spectrogramPresent(ctx, st, faceW, faceH, lutRgb) {
   const exact = srcW === faceW && srcH === faceH;
   ctx.imageSmoothingEnabled = !exact;
   if ("imageSmoothingQuality" in ctx) ctx.imageSmoothingQuality = exact ? "low" : "medium";
-  ctx.drawImage(st.canvas, 0, 0, srcW, srcH, 0, 0, faceW, faceH);
+  const sub = spectrogramScrollSubPx(st);
+  const dx = exact ? -sub : -sub * (faceW / srcW);
+  ctx.drawImage(st.canvas, 0, 0, srcW, srcH, dx, 0, faceW, faceH);
 }
 
 function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
@@ -877,7 +907,17 @@ function drawNodeGraphSpectrogramItem(renderer, item, pixelRatio) {
   }
 
   if (st.useGl) {
-    if (spectrogramGlRingPresent(st.ring, st.faceW, st.faceH, ctx, faceW, faceH)) return;
+    const plate = spectrogramLutRgb01(lutRgb, 0);
+    if (spectrogramGlRingPresent(
+      st.ring,
+      st.faceW,
+      st.faceH,
+      ctx,
+      faceW,
+      faceH,
+      spectrogramScrollSubPx(st),
+      plate,
+    )) return;
     // Failed mid-frame (context lost, bins past texture limit): fall back now.
     spectrogramRasterizeRingTo2d(st);
     st.inkMode = "2d";

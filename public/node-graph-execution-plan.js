@@ -441,7 +441,7 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
   const outputNode = "output";
   const reachableNodes = new Set();
   const bypassedNodes = new Set(graph.bypassedNodes || []);
-  const passthroughTypes = new Set(["asciiscope", "matrixDisplay", "matrixWaterfall", "activeFilter", "allpass", "badvalMonitor", "bandpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaser", "flanger", "chorus", "ensemble", "bode", "phaseDisperse", "stftBlur", "bessel", "bias", "u2b", "pitchHz", "ampDb", "b2u", "inv", "butterworth", "chaoticPhaseLockingFilter", "chebyshev", "cookbookFilter", "elliptic", "eqFilter", "graphicEq", "flowerChildFilter", "formantFilter", "besselThomson", "massSpringDamper", "gain", "attenumax", "gravityWalker", "degreeTuring", "degreePhrase", "noteGlide", "noteTranspose", "mix2", "mix4", "mixStereo4", "mixStereo2", "mixStereo", "humanFilter", "inertialFilter", "ladderFilter", "linkwitzRiley", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "sampleDelay", "earlyReflections", "sampleHold", "slewLimiter", "softClipper", "speakerProtection", "speakerProtector2", "spectrogram", "speedColorInertia", "superloveFilter", "superloveRev2", "vcvrackSuperloveFilter", "tb303Filter", "tiltFilter", "wallDelay", "yellowjacketFilter", "midSideEncode", "quadrature", "hilbert", "lookaheadLimiter", "limiter", "metamoduleIn", "metamoduleOut", "namedPortalIn", "namedPortalOut", "voiceFrequency", "voiceGate", "voiceTrigger"]);
+  const passthroughTypes = new Set(["asciiscope", "matrixDisplay", "matrixWaterfall", "activeFilter", "allpass", "badvalMonitor", "bandpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaser", "flanger", "chorus", "ensemble", "bode", "phaseDisperse", "stftBlur", "bessel", "bias", "u2b", "pitchHz", "ampDb", "b2u", "inv", "butterworth", "chaoticPhaseLockingFilter", "chebyshev", "cookbookFilter", "elliptic", "eqFilter", "graphicEq", "flowerChildFilter", "formantFilter", "besselThomson", "massSpringDamper", "gain", "attenumax", "gravityWalker", "degreeTuring", "degreePhrase", "noteGlide", "noteTranspose", "mix2", "mix4", "mixStereo4", "mixStereo2", "mixStereo", "humanFilter", "inertialFilter", "ladderFilter", "linkwitzRiley", "papoulisFilter", "passiveFilter", "pll", "resonatorFilter", "reverbEffect", "sampleDelay", "earlyReflections", "sampleHold", "slewLimiter", "softClipper", "speakerProtection", "speakerProtector2", "spectrogram", "spectrum1d", "speedColorInertia", "superloveFilter", "superloveRev2", "vcvrackSuperloveFilter", "tb303Filter", "tiltFilter", "wallDelay", "yellowjacketFilter", "midSideEncode", "quadrature", "hilbert", "lookaheadLimiter", "limiter", "metamoduleIn", "metamoduleOut", "namedPortalIn", "namedPortalOut", "voiceFrequency", "voiceGate", "voiceTrigger"]);
 
   function markReachable(nodeId) {
     if (reachableNodes.has(nodeId) || !graph.nodeMap.has(nodeId)) {
@@ -571,7 +571,8 @@ function compileNodeGraphExecutionPlan(patch = nodeGraphMvp.patch) {
       if (!gateCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} gate`);
       }
-    } else if (type === "pluckEnvelope" || type === "pingEnvelope" || type === "powerDecay") {
+    } else if (type === "pluckEnvelope" || type === "pingEnvelope" || type === "powerDecay"
+      || type === "exponentialSkew" || type === "hyperbolicDecay" || type === "exponentialMix") {
       const triggerCount = (graph.inputConnections.get(nodeGraphInputKey(nodeId, "Trigger")) || []).length;
       if (!triggerCount && nodeGraphNodeSignalOutputRequired(graph, nodeId)) {
         issues.push(`missing ${nodeGraphNodeDisplayName(nodeId)} trigger`);
@@ -770,9 +771,9 @@ function nodeGraphCompiledScopeCaptureNodeIds(graph, reachableNodes) {
       modulationSources.add(String(modulation.sourceNode));
     }
   }
-  // Upstream of a live visual sink (Pixel Grid, Trace RGB, …) must keep
+  // Upstream of a live visual sink (Scan Grid, Trace RGB, …) must keep
   // publishing port rings even when its own face is hidden — faces like
-  // Pixel Grid read `sourceNode:sourcePort` scope buffers, not only audio.
+  // Scan Grid read `sourceNode:sourcePort` scope buffers, not only audio.
   const visualFeedSources = new Set();
   for (const node of graph.nodes) {
     if (
@@ -871,6 +872,7 @@ displayType === "scope1dTrace" ||
     displayType === "videoscopeBurn" ||
     displayType === "oscilloscopeBankBurn" ||
     displayType === "spectrogramBurn" ||
+    displayType === "spectrumLine" ||
     displayType === "phosphorLight" ||
     displayType === "matrixFace" ||
     displayType === "matrixWaterfallFace" ||
@@ -879,7 +881,7 @@ displayType === "scope1dTrace" ||
     displayType === "vectorDot" ||
     displayType === "pulseDot" ||
     displayType === "lcdDot" ||
-    // Pixel Grid: one engine sample = one pixel (not Simulation-FPS latest).
+    // Scan Grid: one engine sample = one pixel (not Simulation-FPS latest).
     displayType === "rasterRgbFace" ||
     displayType === "vectorRgbFace" ||
     displayType === "gradientVectorscopeFace" ||

@@ -168,6 +168,14 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         );
       }
     }
+    additiveGraphApplySlope(
+      graph,
+      eff(node, "slope", 1),
+      eff(node, "slopeStart", 1),
+      eff(node, "slopeEnd", 32),
+      eff(node, "skew", 1),
+      p.curve,
+    );
     genState.lastH = newH;
     const storeH = Math.max(0, newH);
     genState.prevAmp = new Float32Array(storeH);
@@ -280,9 +288,7 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         );
         let bubble = Math.max(0, Math.min(1, nodeGraphFiniteNumber(eff(node, "bubble", 0))));
         const invert = num(p.invertBubble, 0) >= 0.5;
-        let curveAmt = invert ? -bubble : bubble;
-        if (curveAmt > 0.9999) curveAmt = 0.9999;
-        if (curveAmt < -0.9999) curveAmt = -0.9999;
+        const curveAmt = invert ? -bubble : bubble;
         const applied = additiveGraphApplyGrowl(
           out,
           0,
@@ -464,7 +470,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
     if (!(masterAmp === masterAmp)) masterAmp = 0.35;
     // Phase Rotation lives on Additive Generator (baked into Graph phases).
     const masterPhase = 0;
-    const optimizeMode = num(node?.params?.optimize, 0);
 
     // Speaker routes: which Additive Out port → which Output channel.
     // { src: "mono"|"left"|"right", dst: "mono"|"left"|"right" }
@@ -507,7 +512,6 @@ NodeLiveAudioProcessor.prototype.processAdditiveYellowGraphSidecar = function pr
         sr,
         f,
         nFrames,
-        optimizeMode,
       );
       state.phaseAcc = summed.phaseAcc;
       if (f === nFrames - 1) {

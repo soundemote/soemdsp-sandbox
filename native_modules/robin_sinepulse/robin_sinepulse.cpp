@@ -3,6 +3,8 @@
 // soemdsp-native-target: robinSinepulse
 // soemdsp-native-kind: drum
 // soemdsp-native-lib: https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/unfinished/rosic_MiscUnfinished.h
+// soemdsp-native-upstream-license: RS-MET (permission)
+// soemdsp-native-upstream-license-url: https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met
 //
 // Robin Sinepulse: port of rosic::rsSweepKicker / rsFreqSweeper (Robin Schmidt,
 // RS-MET), used with Robin's permission (2026-10-06, see docs/KICK_PLAN.md).
@@ -61,6 +63,8 @@ struct State {
   // Decay envelope.
   double env;
   double envOut;
+  double freqOut;
+  bool swept;
   double decayCached;
   double srCached;
   double r;
@@ -95,6 +99,8 @@ static void init_state(State& s) {
   s.instFreq = s.fHi;
   s.env = 0.0;
   s.envOut = 0.0;
+  s.freqOut = s.fLo;
+  s.swept = false;
   s.decayCached = -1.0;
   s.srCached = -1.0;
   s.r = 0.0;
@@ -229,11 +235,18 @@ extern "C" double soemdsp_robin_sinepulse_sample(
     s.instPhase = 0.0;  // Robin's hard-reset noteOn (Trigger alone)
     restart_sweep(s);
     s.env = s.velocity;
+    s.swept = true;
   }
 
   if (s.env < kPlanck) {  // rest: exact 0, phase kept, no sweep maths
     s.env = 0.0;
     s.envOut = 0.0;
+    if (!s.swept) {
+      const double nyquist = 0.5 * sr;
+      s.freqOut = clamp(safe(lowFreq), 0.0, nyquist);
+    } else {
+      s.freqOut = s.instFreq;
+    }
     return 0.0;
   }
 
@@ -250,6 +263,7 @@ extern "C" double soemdsp_robin_sinepulse_sample(
   const double sh = clamp(safe(chirpShape), -1.0, 1.0);
   if (s.dirty || ch != s.coeffChirp || sh != s.coeffShape) update_coeffs(s, ch, sh);
   s.sampleCount += 1.0;
+  s.freqOut = s.instFreq;
   const double newFreq = inst_freq(s, s.sampleCount / sr);
   s.instPhase += (0.5 / sr) * (s.instFreq + newFreq);  // trapezoidal integration
   if (s.instPhase >= 1.0) s.instPhase -= 1.0;
@@ -268,6 +282,11 @@ extern "C" double soemdsp_robin_sinepulse_sample(
   return (out * 0.0 == 0.0) ? out : 0.0;
 }
 
+extern "C" double soemdsp_robin_sinepulse_freq(int handle) {
+  if (handle < 1 || handle > kMaxInstances || !gPool[handle - 1].active) return 0.0;
+  return gPool[handle - 1].freqOut;
+}
+
 extern "C" double soemdsp_robin_sinepulse_env(int handle) {
   if (handle < 1 || handle > kMaxInstances || !gPool[handle - 1].active) return 0.0;
   return gPool[handle - 1].envOut;
@@ -279,6 +298,6 @@ extern "C" int soemdsp_robin_sinepulse_is_idle(int handle) {
   return (!s.active || s.env < kPlanck) ? 1 : 0;
 }
 
-extern "C" int soemdsp_robin_sinepulse_version() { return 1; }
+extern "C" int soemdsp_robin_sinepulse_version() { return 3; }
 extern "C" const char* soemdsp_robin_sinepulse_metadata_json() { return kMetadataJson; }
 extern "C" int soemdsp_robin_sinepulse_metadata_json_size() { return sizeof(kMetadataJson) - 1; }

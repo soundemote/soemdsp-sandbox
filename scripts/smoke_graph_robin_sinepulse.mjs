@@ -131,32 +131,33 @@ function runGraph({ wave = 0, waveShape = 0, blocks = 750 } = {}) {
   if ((compile(g) | 0) !== 0) throw new Error("compile");
   snap(g);
   const sig = [];
-  const env = [];
+  const freq = [];
   for (let q = 0; q < blocks; q++) {
     process(g, 128);
     const kb = new Float64Array(mem.buffer, portPtr(g, hSp, PORT_MONO) | 0, 128);
-    const eb = new Float64Array(mem.buffer, portPtr(g, hSp, PORT_LEFT) | 0, 128);
-    for (let i = 0; i < 128; i++) { sig.push(kb[i]); env.push(eb[i]); }
+    const fb = new Float64Array(mem.buffer, portPtr(g, hSp, PORT_LEFT) | 0, 128);
+    for (let i = 0; i < 128; i++) { sig.push(kb[i]); freq.push(fb[i]); }
   }
   destroy(g);
   const hits = [];
-  for (let n = 1; n < env.length; n++) if (env[n - 1] === 0 && env[n] > 0) hits.push(n);
-  if (env[0] > 0) hits.unshift(0);
-  return { sig, env, hits };
+  for (let n = 1; n < freq.length; n++) {
+    if (freq[n - 1] < 1000 && freq[n] > 5000) hits.push(n);
+  }
+  if (freq[0] > 5000) hits.unshift(0);
+  return { sig, freq, hits };
 }
 
 {
   const a = runGraph();
   if (a.hits.length < 4) throw new Error(`graph: only ${a.hits.length} hits`);
-  let peakEnv = 0;
+  let peakFreq = 0;
   let peakSig = 0;
   for (let n = 0; n < a.sig.length; n++) {
-    if (!Number.isFinite(a.sig[n]) || !Number.isFinite(a.env[n])) throw new Error("non-finite graph output");
-    if (Math.abs(a.sig[n]) > a.env[n] + 1e-12) throw new Error("graph |Kick| > Env");
-    peakEnv = Math.max(peakEnv, a.env[n]);
+    if (!Number.isFinite(a.sig[n]) || !Number.isFinite(a.freq[n])) throw new Error("non-finite graph output");
+    peakFreq = Math.max(peakFreq, a.freq[n]);
     peakSig = Math.max(peakSig, Math.abs(a.sig[n]));
   }
-  if (!(Math.abs(peakEnv - 1) < 1e-9)) throw new Error(`graph Env peak ${peakEnv} != clock height 1`);
+  if (!(Math.abs(peakFreq - 10000) < 1)) throw new Error(`graph ƒ peak ${peakFreq} != highFreq 10000`);
   if (!(peakSig > 0.3)) throw new Error(`graph Kick peak ${peakSig}`);
   // Every Trigger hard-resets: first sample of each hit is 0 (Sine, phase 0).
   for (const n of a.hits) {
@@ -173,7 +174,7 @@ function runGraph({ wave = 0, waveShape = 0, blocks = 750 } = {}) {
   let diff = 0;
   for (let n = 0; n < c.sig.length; n++) diff = Math.max(diff, Math.abs(c.sig[n] - a.sig[n]));
   if (!(diff > 0.05)) throw new Error(`Wave TriSaw had no effect (${diff})`);
-  console.log(`ok robinSinepulse graph type=${TYPE_SINEPULSE} version=${ver} hits=${a.hits.length} envPeak=${peakEnv.toFixed(6)} outPeak=${peakSig.toFixed(4)} triSawDiff=${diff.toFixed(3)}`);
+  console.log(`ok robinSinepulse graph type=${TYPE_SINEPULSE} version=${ver} hits=${a.hits.length} freqPeak=${peakFreq.toFixed(1)} outPeak=${peakSig.toFixed(4)} triSawDiff=${diff.toFixed(3)}`);
 }
 
 // --- 3) Wave choice persists by name; Trigger only (no Reset); outputs Kick / Env ---
@@ -208,7 +209,7 @@ function runGraph({ wave = 0, waveShape = 0, blocks = 750 } = {}) {
     const got = ctx.idFor("robinSinepulse", "wave", saved.params.wave);
     if (got !== id) throw new Error(`wave ${name} -> ${got}, expected ${id}`);
   }
-  if (JSON.stringify(def.outputs) !== JSON.stringify(["Kick", "Env"])) throw new Error(`robinSinepulse outputs ${JSON.stringify(def.outputs)}`);
+  if (JSON.stringify(def.outputs) !== JSON.stringify(["Kick", "f"])) throw new Error(`robinSinepulse outputs ${JSON.stringify(def.outputs)}`);
   if (/\n  kick: \{/.test(defsSrc)) throw new Error("leftover kick module key in definitions");
-  console.log("ok robinSinepulse wave choice persists by name; inputs=[Trigger], outputs=[Kick, Env]");
+  console.log("ok robinSinepulse wave choice persists by name; inputs=[Trigger], outputs=[Kick, f]");
 }

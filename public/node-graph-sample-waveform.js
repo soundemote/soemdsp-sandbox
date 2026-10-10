@@ -1520,8 +1520,6 @@ function nodeGraphWavetable2dWarpPhase(t, warp) {
   t = nodeGraphWavetable2dWrap01(t);
   let skew = Number(warp);
   if (!Number.isFinite(skew)) skew = 0;
-  if (skew > 0.9999) skew = 0.9999;
-  if (skew < -0.9999) skew = -0.9999;
   if (skew === 0) return t;
   const cv = skew * t;
   const den = 2 * cv - skew + 1;

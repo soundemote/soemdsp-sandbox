@@ -177,6 +177,15 @@
     return name === "rgba" || name === "📺";
   }
 
+  /** Latest published picture for a node id (no cable walk). */
+  function nodeGraphPictureGet(nodeId) {
+    const id = String(nodeId || "").trim();
+    if (!id) return null;
+    const slot = published.get(id);
+    if (!slot?.texture) return null;
+    return { texture: slot.texture, width: slot.width, height: slot.height, nodeId: id };
+  }
+
   /** Latest published texture feeding this inlet, or null. */
   function nodeGraphPictureRead(nodeId, portName) {
     const id = String(nodeId || "").trim();
@@ -228,6 +237,7 @@
 
   global.nodeGraphPictureDevice = nodeGraphPictureDevice;
   global.nodeGraphPicturePublish = nodeGraphPicturePublish;
+  global.nodeGraphPictureGet = nodeGraphPictureGet;
   global.nodeGraphPictureRead = nodeGraphPictureRead;
   global.nodeGraphPicturePresent = nodeGraphPicturePresent;
 })(typeof globalThis !== "undefined" ? globalThis : window);

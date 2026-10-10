@@ -6779,6 +6779,26 @@ body.keyboard-debug-hidden .node-midi-keyboard-signal-bar {
   gap: 4px;
 }
 
+.node-trace-display-hbs-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+  align-items: stretch;
+}
+
+.node-trace-display-hbs-row > .node-trace-display-hbs-widget,
+.node-trace-display-hbs-row > .node-trace-display-color-widget-row,
+.node-trace-display-hbs-row > .node-trace-display-hsl-lamp {
+  min-width: 0;
+  min-height: var(--ds-color-host-h, 168px);
+}
+
+.node-trace-display-hbs-widget .node-trace-display-color-widget-host {
+  width: 100%;
+  min-height: var(--ds-color-host-h, 168px);
+}
+
 /* Labels + trailing %: same as original first-span / unit span. */
 .node-trace-display-settings-popover .node-led-display-settings-panel .node-led-settings-row > span:first-child,
 .node-trace-display-settings-popover .metadata-popover-grid .node-led-display-settings-panel label.node-led-settings-row > span:first-child {
@@ -15277,18 +15297,18 @@ body.node-screen-solo-active .node-screen-solo-face.node-sample-waveform-display
   inset: 0;
   z-index: 2;
   display: block;
-  /* Buffer = layout face (clientWidth) × dpr — fixed under workspace zoom.
-     CSS 100% scales the bitmap; pixelated-canvas-zoom keeps it crisp. */
+  /* Buffer = layout face × dpr. CSS zoom scales the bitmap; nearest-neighbor
+     so zoom-in is pixellated, not vector-sharp. */
   width: 100%;
   height: 100%;
   pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
-/* Value LCD: buffer tracks on-screen pixels (sharp under zoom). Smooth AA, not
-   nearest-neighbor pixelation — text is redrawn each change at screen density. */
-.node-number-readout-canvas.node-number-readout-canvas-vector,
 .dsp-node.value-lcd-layout .node-number-readout-canvas {
-  image-rendering: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .visual-scope-layout .node-module-square-scope-window {
@@ -16385,6 +16405,18 @@ body.node-screen-solo-active .node-screen-solo-face.node-text-box-body {
 
 .node-text-box-input::-webkit-scrollbar {
   display: none;
+}
+
+/* Each hard line (Enter) is one block child of the field (text-box-widget.js).
+   Wrapped lines inside a block keep Line height; the gap between blocks adds
+   New line height − Line height, so a hard newline advances New line height. */
+.node-text-box-input > div + div {
+  margin-top: calc(
+    (
+      var(--node-text-box-new-line-height, var(--node-text-box-line-height, 1.2))
+      - var(--node-text-box-line-height, 1.2)
+    ) * 1em
+  );
 }
 
 .node-text-box-input[data-text-box-mode="singleLine"],
@@ -21507,6 +21539,29 @@ button#nodeScenePasteModuleSettings.settings-paste-mismatch {
 
 .scene-context-button-group[hidden] {
   display: none;
+}
+
+.scene-context-license {
+  margin: 0.15rem 0 0.35rem;
+  padding: 0 0.55rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: rgba(243, 241, 236, 0.72);
+  white-space: normal;
+}
+
+.scene-context-license[hidden] {
+  display: none;
+}
+
+.scene-context-license a {
+  color: rgba(180, 210, 255, 0.95);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.scene-context-license a:hover {
+  color: #fff;
 }
 
 .scene-context-button-group button {

@@ -44,6 +44,10 @@ NodeLiveAudioProcessor.prototype.createSpectrogramState = function createSpectro
   };
 };
 
+// Module types that get this display FFT. 1D Spectrum additionally receives
+// SpectrumRaw (last-hop |X[k]|, no EMA) + SpectrumGain ([window sum]).
+const SPECTROGRAM_ANALYSIS_TYPES = new Set(["spectrogram", "spectrum1d"]);
+
 // Display analysis only. setPlan must not call create*State (DSP door).
 // Without this map, postModuleScopeSnapshot never emits Spectrum.
 NodeLiveAudioProcessor.prototype.syncSpectrogramDisplayAnalysis = function syncSpectrogramDisplayAnalysis(liveIds, reset) {
@@ -55,7 +59,7 @@ NodeLiveAudioProcessor.prototype.syncSpectrogramDisplayAnalysis = function syncS
   }
   const ids = liveIds instanceof Set ? liveIds : null;
   for (const [id, node] of this.nodes || []) {
-    if (String(node?.type || "") !== "spectrogram") continue;
+    if (!SPECTROGRAM_ANALYSIS_TYPES.has(String(node?.type || ""))) continue;
     if (ids && !ids.has(id)) continue;
     if (!this.spectrogramStates.has(id)) {
       this.spectrogramStates.set(id, this.createSpectrogramState());
@@ -63,7 +67,7 @@ NodeLiveAudioProcessor.prototype.syncSpectrogramDisplayAnalysis = function syncS
   }
   for (const id of [...this.spectrogramStates.keys()]) {
     const node = this.nodes?.get?.(id);
-    if (!node || String(node.type || "") !== "spectrogram" || (ids && !ids.has(id))) {
+    if (!node || !SPECTROGRAM_ANALYSIS_TYPES.has(String(node.type || "")) || (ids && !ids.has(id))) {
       this.spectrogramStates.delete(id);
     }
   }
@@ -224,6 +228,20 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
   if (!state.spectrumOut || state.spectrumOut.length !== halfN) {
     state.spectrumOut = new Float32Array(halfN);
   }
+  // 1D Spectrum: raw last-hop magnitudes for Exact dB / Linear (Spectrogram skips).
+  const wantRaw = String(node?.type || "") === "spectrum1d";
+  if (wantRaw) {
+    if (!state.rawOut || state.rawOut.length !== halfN) {
+      state.rawOut = new Float32Array(halfN);
+    }
+    if (state.windowSumFor !== state.analysisWindow) {
+      let sum = 0;
+      for (let j = 0; j < winSize; j++) sum += state.analysisWindow[j];
+      state.windowSum = sum;
+      state.windowSumFor = state.analysisWindow;
+    }
+  }
+  const rawCol = wantRaw ? state.rawOut : null;
 
   // Extract fresh samples using own frame tracking
   const absFrame = Math.max(0, Math.floor(nodeGraphFiniteNumber(buf.absoluteFrame)));
@@ -269,6 +287,7 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
         // Light temporal EMA for stability; still post per-hop columns.
         state.emaBins[j] = 0.35 * state.emaBins[j] + 0.65 * mag;
         col[j] = Math.max(0, Math.log10(1 + state.emaBins[j] * 100));
+        if (rawCol) rawCol[j] = mag;
       }
       if (hopColumns.length < maxBatchCols) {
         hopColumns.push(col);
@@ -310,6 +329,10 @@ NodeLiveAudioProcessor.prototype.spectrogramCollectDisplayData = function spectr
 
   dataPorts.push([nodeId, "Spectrum", state.spectrumOut]);
   dataPorts.push([nodeId, "SpectrumBatch", batchFlat]);
+  if (rawCol) {
+    dataPorts.push([nodeId, "SpectrumRaw", rawCol]);
+    dataPorts.push([nodeId, "SpectrumGain", new Float32Array([state.windowSum || winSize / 2])]);
+  }
   // [0]=fftLen (display bin count basis) [1]=halfN [2]=spectrumBins
   // [3]=hopSize (ONE hop — batch walks columns) [4]=sampleRate
   // [5]=hopSerial [6]=batchColumns [7]=historyFlag

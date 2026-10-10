@@ -217,7 +217,7 @@ var sandbox = {
     output: "Output",
     gain: "Gain",
     mixStereo: "MixStereo",
-    rasterRgb: "Pixel Grid",
+    rasterRgb: "Scan Grid",
     audioPlayer: "Music Player",
     fbmField: "Fractal Brownian Field",
     fractalBrownianNoise: "Fractal Brownian Motion",

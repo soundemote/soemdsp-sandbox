@@ -1,6 +1,5 @@
-// Fractal Brownian Field face: 1 WASM sample per canvas pixel.
-// Canvas buffer size == fill_grid size. CSS may enlarge with pixelated scaling
-// only when the face is bigger than the 512² WASM cap (honest blocks, not blur).
+// Fractal Brownian Field face: GLSL evaluates fBm per present pixel
+// (css × dpr, picture-device cap 4096). WASM fill_grid (512²) is Canvas2D fallback.
 
 const nodeGraphFbmFieldSettingsDefaults = Object.freeze({
   background: "#05060a",
@@ -93,15 +92,15 @@ const nodeGraphFbmFieldMetricsCache = new WeakMap();
  * Compute eval grid from CSS box (no DOM measure).
  * DPR is NOT applied as extra supersampling — that would be a second scale.
  */
-function nodeGraphFbmFieldGridFromCss(cssW, cssH, wasmMaxW, wasmMaxH) {
+function nodeGraphFbmFieldGridFromCss(cssW, cssH, maxW, maxH) {
   const w = Math.max(1, Math.round(cssW || 1));
   const h = Math.max(1, Math.round(cssH || 1));
-  const maxW = Math.max(8, Math.min(512, wasmMaxW || 512));
-  const maxH = Math.max(8, Math.min(512, wasmMaxH || 512));
+  const capW = Math.max(8, Number(maxW) || 4096);
+  const capH = Math.max(8, Number(maxH) || 4096);
   let gw = w;
   let gh = h;
-  if (gw > maxW || gh > maxH) {
-    const s = Math.min(maxW / gw, maxH / gh);
+  if (gw > capW || gh > capH) {
+    const s = Math.min(capW / gw, capH / gh);
     gw = Math.max(1, Math.round(gw * s));
     gh = Math.max(1, Math.round(gh * s));
   }
@@ -131,19 +130,16 @@ function nodeGraphFbmFieldSyncLayout(face, options = {}) {
   const canvas = options.canvas || face.querySelector?.(".node-fbm-field-canvas");
   const cssW = Math.max(1, Math.round(face.clientWidth || face.offsetWidth || 1));
   const cssH = Math.max(1, Math.round(face.clientHeight || face.offsetHeight || 1));
-  const wasm = typeof nodeGraphFbmFieldWasm !== "undefined" ? nodeGraphFbmFieldWasm.exports : null;
-  const maxW = options.wasmMaxW
-    || wasm?.soemdsp_fbm_field_grid_max_width?.()
-    || 512;
-  const maxH = options.wasmMaxH
-    || wasm?.soemdsp_fbm_field_grid_max_height?.()
-    || 512;
-  const metrics = nodeGraphFbmFieldGridFromCss(cssW, cssH, maxW, maxH);
-  if (canvas) {
-    syncNodeGraphFbmFieldCanvas1to1(canvas, face, metrics.gridW, metrics.gridH);
-  }
+  const metrics = { cssW, cssH };
   nodeGraphFbmFieldMetricsCache.set(face, metrics);
   face._fbmMetrics = metrics;
+  if (canvas) {
+    const useGl = typeof nodeGraphFbmFieldGlPresentParams === "function";
+    const dpr = useGl ? Math.max(1, (typeof window !== "undefined" && window.devicePixelRatio) || 1) : 1;
+    const max = useGl ? 4096 : 512;
+    const grid = nodeGraphFbmFieldGridFromCss(cssW * dpr, cssH * dpr, max, max);
+    syncNodeGraphFbmFieldCanvas1to1(canvas, face, grid.gridW, grid.gridH);
+  }
   return metrics;
 }
 
@@ -155,22 +151,15 @@ function nodeGraphFbmFieldReadMetrics(face) {
 /**
  * Face metrics for paint. Cache only; cold path syncs layout once.
  */
-function nodeGraphFbmFieldResolveGridSize(face, wasmMaxW, wasmMaxH) {
+function nodeGraphFbmFieldResolveGridSize(face, maxW, maxH, pixelRatio) {
   let metrics = nodeGraphFbmFieldReadMetrics(face);
   if (!metrics) {
-    metrics = nodeGraphFbmFieldSyncLayout(face, { wasmMaxW, wasmMaxH });
+    metrics = nodeGraphFbmFieldSyncLayout(face);
   }
-  if (!metrics) {
-    return nodeGraphFbmFieldGridFromCss(1, 1, wasmMaxW, wasmMaxH);
-  }
-  // Recompute grid from cached CSS if WASM caps differ — no DOM remeasure.
-  const next = nodeGraphFbmFieldGridFromCss(metrics.cssW, metrics.cssH, wasmMaxW, wasmMaxH);
-  if (next.gridW !== metrics.gridW || next.gridH !== metrics.gridH || next.capped !== metrics.capped) {
-    nodeGraphFbmFieldMetricsCache.set(face, next);
-    face._fbmMetrics = next;
-    return next;
-  }
-  return metrics;
+  const cssW = metrics?.cssW || 1;
+  const cssH = metrics?.cssH || 1;
+  const dpr = Math.max(1, Number(pixelRatio) || 1);
+  return nodeGraphFbmFieldGridFromCss(cssW * dpr, cssH * dpr, maxW, maxH);
 }
 
 function nodeGraphFbmFieldEnsureLayoutObserver(face) {
@@ -199,14 +188,14 @@ function nodeGraphFbmFieldEnsureLayoutObserver(face) {
 
 function nodeGraphFbmFieldEnsureCanvasSize(canvas, face) {
   if (!canvas) return false;
-  let metrics = face ? nodeGraphFbmFieldReadMetrics(face) : null;
-  if (!metrics && face) {
-    metrics = nodeGraphFbmFieldSyncLayout(face, { canvas });
+  if (face && !nodeGraphFbmFieldReadMetrics(face)) {
+    nodeGraphFbmFieldSyncLayout(face, { canvas });
   }
-  if (!metrics) {
-    return false;
-  }
-  return syncNodeGraphFbmFieldCanvas1to1(canvas, face, metrics.gridW, metrics.gridH);
+  const useGl = typeof nodeGraphFbmFieldGlPresentParams === "function";
+  const dpr = useGl ? Math.max(1, (typeof window !== "undefined" && window.devicePixelRatio) || 1) : 1;
+  const max = useGl ? 4096 : 512;
+  const grid = nodeGraphFbmFieldResolveGridSize(face, max, max, dpr);
+  return syncNodeGraphFbmFieldCanvas1to1(canvas, face, grid.gridW, grid.gridH);
 }
 
 function nodeGraphFbmFieldFillBlack(canvas, face) {
@@ -251,9 +240,11 @@ function nodeGraphFbmFieldFillBlack(canvas, face) {
  * Full cold-stop: cancel every FBM face rAF and plate the screens black.
  * Called from module-scope wipe (engine stop) and when transport is stopped.
  */
-function wipeNodeGraphFbmFieldScreensToColdBoot() {
+function wipeNodeGraphFbmFieldScreensToColdBoot(options = {}) {
   if (typeof document === "undefined") return;
+  const onlyId = String(options.nodeId || "").trim();
   for (const face of document.querySelectorAll(".node-fbm-field-face")) {
+    if (onlyId && face.dataset?.node !== onlyId) continue;
     if (typeof nodeGraphFbmFieldStopLoop === "function") {
       nodeGraphFbmFieldStopLoop(face);
     } else if (face._fbmFieldRaf) {
@@ -261,7 +252,8 @@ function wipeNodeGraphFbmFieldScreensToColdBoot() {
       face._fbmFieldRaf = 0;
       face._fbmFieldRunning = false;
     }
-    const canvas = face.querySelector?.(".node-fbm-field-canvas");
+    const canvas = options.canvas
+      || face.querySelector?.(".node-fbm-field-canvas");
     if (canvas) {
       nodeGraphFbmFieldFillBlack(canvas, face);
     } else {
@@ -297,6 +289,10 @@ function syncNodeGraphFbmFieldFacesToLiveState() {
   for (const face of faces) {
     const nodeId = face.dataset?.node;
     if (!nodeId) continue;
+    if (typeof scopePaintIsFacePoweredOff === "function" && scopePaintIsFacePoweredOff(nodeId)) {
+      wipeNodeGraphFbmFieldScreensToColdBoot({ nodeId });
+      continue;
+    }
     if (typeof nodeGraphFbmFieldStartLoop === "function") {
       nodeGraphFbmFieldStartLoop(face, nodeId);
     }
@@ -452,17 +448,21 @@ function paintNodeGraphFbmFieldFace(canvas, face, nodeId, options = {}) {
     return true;
   }
 
+  // Domain clock is WASM s.time (sample-rate). Do not integrate RAF dt.
   if (!Number.isFinite(face._fbmFieldTime)) face._fbmFieldTime = 0;
-  let dt = Number(options.dt);
-  if (!Number.isFinite(dt) || dt < 0) dt = 0;
-  dt = Math.min(0.05, dt);
-  if (frozen) dt = 0;
-  face._fbmFieldTime += dt * frequency;
+  const liveT = typeof nodeGraphModuleScopeLatestOutputValue === "function"
+    ? Number(nodeGraphModuleScopeLatestOutputValue(nodeId, "__DomainTime", Number.NaN))
+    : Number.NaN;
+  if (Number.isFinite(liveT)) {
+    face._fbmFieldTime = liveT;
+  }
 
+  const useGl = typeof nodeGraphFbmFieldGlPresentParams === "function";
   const wasm = typeof nodeGraphFbmFieldWasm !== "undefined" ? nodeGraphFbmFieldWasm.exports : null;
-  const maxW = wasm?.soemdsp_fbm_field_grid_max_width?.() || 512;
-  const maxH = wasm?.soemdsp_fbm_field_grid_max_height?.() || 512;
-  const { gridW, gridH } = nodeGraphFbmFieldResolveGridSize(face, maxW, maxH);
+  const dpr = useGl ? Math.max(1, (typeof window !== "undefined" && window.devicePixelRatio) || 1) : 1;
+  const maxW = useGl ? 4096 : (wasm?.soemdsp_fbm_field_grid_max_width?.() || 512);
+  const maxH = useGl ? 4096 : (wasm?.soemdsp_fbm_field_grid_max_height?.() || 512);
+  const { gridW, gridH } = nodeGraphFbmFieldResolveGridSize(face, maxW, maxH, dpr);
   if (!syncNodeGraphFbmFieldCanvas1to1(canvas, face, gridW, gridH)) return false;
 
   const fieldParams = {
@@ -574,6 +574,9 @@ function paintNodeGraphFbmFieldFacesNow(options = {}) {
     if (!nodeId) {
       continue;
     }
+    if (typeof scopePaintIsFacePoweredOff === "function" && scopePaintIsFacePoweredOff(nodeId)) {
+      continue;
+    }
     try {
       paintNodeGraphFbmFieldFaceForNode(nodeId, {
         dt: Number.isFinite(dt) ? dt : 0,
@@ -594,4 +597,12 @@ function drawNodeGraphFbmFieldFaceItem() {
 
 if (typeof nodeGraphModuleScopeCustomRenderers === "object" && nodeGraphModuleScopeCustomRenderers) {
   nodeGraphModuleScopeCustomRenderers.fbmFieldFace = drawNodeGraphFbmFieldFaceItem;
+}
+if (typeof nodeGraphModuleScopeRegisterFaceWipe === "function") {
+  nodeGraphModuleScopeRegisterFaceWipe("fbmFieldFace", (canvas, _bg, options) => {
+    wipeNodeGraphFbmFieldScreensToColdBoot({
+      ...(options && typeof options === "object" ? options : {}),
+      canvas: canvas || options?.canvas,
+    });
+  });
 }

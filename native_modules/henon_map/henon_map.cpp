@@ -89,17 +89,16 @@ extern "C" void soemdsp_henon_map_sample(
 
 extern "C" double soemdsp_henon_map_x(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  // Classic a=1.4/b=0.3 attractor spans roughly x in [-1.5, 1.5]; normalize
-  // to keep the common case near unity while still tolerating parameter
-  // sweeps via the outer clamp.
-  return clamp11(gPool[handle - 1].x / 1.5);
+  // Classic a=1.4/b=0.3 spans roughly x in [-1.5, 1.5]. Normalize only.
+  // Amplitude is applied in graph_engine after this — do not brickwall ±1.
+  return safe_bounded(gPool[handle - 1].x / 1.5);
 }
 
 extern "C" double soemdsp_henon_map_y(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return clamp11(gPool[handle - 1].y / 0.45);
+  return safe_bounded(gPool[handle - 1].y / 0.45);
 }
 
 extern "C" int soemdsp_henon_map_version() {
-  return 1;
+  return 2;
 }

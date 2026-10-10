@@ -122,12 +122,14 @@ function nodeGraphBuildLivePlanForPatch(patch) {
  * historySeconds / minFreq / maxFreq for any main-thread consumers.
  */
 function nodeGraphInjectSpectrogramWorkletParams(node, params) {
-  if (!node || node.type !== "spectrogram" || !params || typeof params !== "object") {
+  if (!node || (node.type !== "spectrogram" && node.type !== "spectrum1d") || !params || typeof params !== "object") {
     return;
   }
   const p = node.params && typeof node.params === "object" ? node.params : {};
   if (typeof normalizeNodeGraphSpectrogramSettings === "function") {
-    const safe = normalizeNodeGraphSpectrogramSettings(node.traceDisplaySettings || {}, node);
+    const safe = node.type === "spectrum1d" && typeof normalizeNodeGraphSpectrumLineSettings === "function"
+      ? normalizeNodeGraphSpectrumLineSettings(node.traceDisplaySettings || {}, node)
+      : normalizeNodeGraphSpectrogramSettings(node.traceDisplaySettings || {}, node);
     params.fftSize = safe.fftSize;
     params.window = safe.window;
     params.overlap = safe.overlap;
@@ -481,7 +483,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
   const phaseDisperseStates = new Map();
   const bodeStates = new Map();
   const stftBlurStates = new Map();
-  const softpopOscillatorStates = new Map();
   const yellowjacketFilterStates = new Map();
   const superloveFilterStates = new Map();
   const chaoticPhaseLockingFilterStates = new Map();
@@ -707,14 +708,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
         typeof createNodeGraphStereoEqFilterState === "function"
           ? createNodeGraphStereoEqFilterState()
           : createNodeGraphStereoFilterState(createNodeGraphEqFilterState),
-      );
-    }
-    if (node.type === "softpopOscillator") {
-      softpopOscillatorStates.set(
-        node.id,
-        typeof createNodeGraphSoftpopOscillatorState === "function"
-          ? createNodeGraphSoftpopOscillatorState()
-          : { left: {}, right: {}, lastReset: false, generation: 0, lastSeed: NaN },
       );
     }
     if (node.type === "yellowjacketFilter") {
@@ -973,7 +966,6 @@ function createNodeGraphLiveRuntime(plan, previousRuntime = null) {
     phaseDisperseStates,
     bodeStates,
     stftBlurStates,
-    softpopOscillatorStates,
     yellowjacketFilterStates,
     superloveFilterStates,
     chaoticPhaseLockingFilterStates,
@@ -1178,7 +1170,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
   if (!runtime.activeFilterStates) {
     runtime.activeFilterStates = new Map();
   }
-  for (const sci of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaseDisperse", "bode", "stftBlur", "softpopOscillator"]) {
+  for (const sci of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaseDisperse", "bode", "stftBlur"]) {
     const key = `${sci}States`;
     if (!runtime[key]) runtime[key] = new Map();
   }
@@ -1589,15 +1581,6 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
         typeof createNodeGraphStereoEqFilterState === "function"
           ? createNodeGraphStereoEqFilterState()
           : createNodeGraphStereoFilterState(createNodeGraphEqFilterState),
-      );
-    }
-    if (!runtime.softpopOscillatorStates) runtime.softpopOscillatorStates = new Map();
-    if (node.type === "softpopOscillator" && !runtime.softpopOscillatorStates.has(node.id)) {
-      runtime.softpopOscillatorStates.set(
-        node.id,
-        typeof createNodeGraphSoftpopOscillatorState === "function"
-          ? createNodeGraphSoftpopOscillatorState()
-          : { left: {}, right: {}, lastReset: false, generation: 0, lastSeed: NaN },
       );
     }
     if (node.type === "yellowjacketFilter" && !runtime.yellowjacketFilterStates.has(node.id)) {
@@ -2135,7 +2118,7 @@ function updateNodeGraphLiveRuntimePlan(runtime, plan) {
       }
     }
   }
-  for (const sciType of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaseDisperse", "bode", "stftBlur", "softpopOscillator"]) {
+  for (const sciType of ["butterworth", "linkwitzRiley", "bessel", "chebyshev", "elliptic", "bandpass", "allpass", "crossover2", "crossover3", "crossover4", "crossover5", "crossover6", "modeResonator", "combResonator", "waveguide", "phaseDisperse", "bode", "stftBlur"]) {
     const map = runtime[`${sciType}States`];
     if (!map) continue;
     for (const id of [...map.keys()]) {

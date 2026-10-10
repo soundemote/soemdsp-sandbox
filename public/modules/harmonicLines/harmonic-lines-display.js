@@ -105,6 +105,24 @@ function nodeGraphHarmonicLinesReadGraph(nodeId) {
   return null;
 }
 
+/** Follow Graph inputs upstream (through effects) to the Additive Generator. Null when none. */
+function nodeGraphHarmonicLinesUpstreamGenerator(nodeId) {
+  const connections = Array.isArray(nodeGraphMvp?.patch?.connections) ? nodeGraphMvp.patch.connections : [];
+  const seen = new Set();
+  let id = String(nodeId || "");
+  while (id && !seen.has(id)) {
+    seen.add(id);
+    const edge = connections.find((c) => String(c?.destinationNode || "") === id
+      && String(c?.destinationPort || "") === "Graph");
+    if (!edge) return null;
+    id = String(edge.sourceNode || "");
+    const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+    if (!node) return null;
+    if (String(node.type || "") === "additiveGenerator") return node;
+  }
+  return null;
+}
+
 /** Display-only walks for WhiteNoise face animation (does not touch audio state). */
 function nodeGraphHarmonicLinesDisplayWalks(section, key, H, salt, seed) {
   if (!section._noiseVis) section._noiseVis = Object.create(null);
@@ -163,6 +181,17 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   ctx.fillRect(0, 0, w, h);
 
   const nodeId = section.dataset.node;
+  // No Graph edge / no Additive Generator upstream → placeholder only (no bars, no curve).
+  const maskGen = nodeGraphHarmonicLinesUpstreamGenerator(nodeId);
+  if (!maskGen) {
+    ctx.fillStyle = "#666";
+    ctx.font = "12px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("connect Additive Generator", w * 0.5, h * 0.5);
+    section._forceDraw = false;
+    return;
+  }
   const graph = nodeGraphHarmonicLinesReadGraph(nodeId);
   if (!graph || !graph.ratio || !graph.ratio.length) {
     ctx.fillStyle = "#666";
@@ -216,31 +245,25 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
 
   const ampFloorDb = -60;
   let maxAmp = 1e-6;
-  let maxPreAmp = 1e-6;
-  const harmKnee = Number(node?.params?.harmonic);
-  const trackFilter = String(node?.type || "") === "additiveOut"
-    && harmKnee > 0
-    && typeof additiveGraphFilterResponseGainRational === "function";
-  const filterMode = Number(node?.params?.filter) || 0;
-  const filterSlope = Number(node?.params?.slope);
-  const filterSkew = Number(node?.params?.skew) || 0;
-  const filterCurve = Number(node?.params?.curve) || 0;
-  const filterFc = trackFilter && typeof additiveGraphTrackedFilterCutoffHz === "function"
-    ? additiveGraphTrackedFilterCutoffHz(freqHz, harmKnee, Number.isFinite(filterSlope) ? filterSlope : 0.25)
-    : (trackFilter ? harmKnee * freqHz : 0);
-  const filterGainAt = (hz) => {
-    if (!trackFilter || !(filterFc > 0)) return 1;
-    if (hz <= freqHz) return 1;
-    return additiveGraphFilterResponseGainRational(
-      hz,
-      filterMode,
-      filterFc,
-      Number.isFinite(filterSlope) ? filterSlope : 0.25,
-      filterSkew,
-      filterCurve,
-    );
-  };
-  const filterGain = trackFilter ? new Float32Array(H) : null;
+  // Slope
+  const maskParams = maskGen.params || {};
+  const maskSlopeRaw = Number(maskParams.slope);
+  const maskSlope = Number.isFinite(maskSlopeRaw) ? maskSlopeRaw : 1;
+  const maskSkewRaw = Number(maskParams.skew);
+  const maskSkew = Number.isFinite(maskSkewRaw) ? maskSkewRaw : 1;
+  const maskCurve = typeof nodeGraphChoiceIdForKey === "function"
+    ? Number(nodeGraphChoiceIdForKey("additiveGenerator", "curve", maskParams.curve)) || 0
+    : 0;
+  const trackFilter = maskSlope > 0
+    && freqHz > 0
+    && typeof additiveGraphSlopeGain === "function"
+    && typeof additiveGraphResolveSlopeRange === "function";
+  const maskRange = trackFilter
+    ? additiveGraphResolveSlopeRange(maskParams.harmonics, maskParams.slopeStart, maskParams.slopeEnd)
+    : null;
+  const filterGainAt = (hz) => additiveGraphSlopeGain(
+    hz / freqHz, maskSlope, maskRange.start, maskRange.end, maskSkew, maskCurve,
+  );
   const effectiveAmp = new Float32Array(H);
   const leftAmp = new Float32Array(H);
   const rightAmp = new Float32Array(H);
@@ -268,10 +291,7 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
       ? additiveGraphNyquistAmpGain(hz, sr)
       : 1;
     const a = amp * nyqGain;
-    const g = filterGain ? filterGainAt(hz) : 1;
-    if (filterGain) filterGain[i] = g;
-    if (a > maxPreAmp) maxPreAmp = a;
-    effectiveAmp[i] = a * g;
+    effectiveAmp[i] = a;
 
     // Color = Graph phase offsets (+ NoisyPhase WhiteNoise preview), not free-running phaseAcc.
     let phase = typeof additiveGraphEffectivePhase === "function"
@@ -302,8 +322,8 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     const gains = typeof additiveGraphPanGains === "function"
       ? additiveGraphPanGains(pan)
       : { left: 0.5 * (1 - pan), right: 0.5 * (1 + pan) };
-    leftAmp[i] = a * g * gains.left * 2;
-    rightAmp[i] = a * g * gains.right * 2;
+    leftAmp[i] = a * gains.left * 2;
+    rightAmp[i] = a * gains.right * 2;
     if (leftAmp[i] > maxAmp) maxAmp = leftAmp[i];
     if (rightAmp[i] > maxAmp) maxAmp = rightAmp[i];
   }
@@ -328,7 +348,7 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
   ctx.lineTo(pad + span, midY);
   ctx.stroke();
 
-  const ampRef = trackFilter ? maxPreAmp : maxAmp;
+  const ampRef = maxAmp;
   const ampToHeight = (amp) => {
     if (!(amp > 0) || !(ampRef > 0)) return 0;
     const db = 20 * Math.log10(Math.max(1e-12, amp / ampRef));
@@ -366,7 +386,7 @@ function drawNodeGraphHarmonicLinesDisplay(section) {
     }
   }
 
-  if (trackFilter && filterFc > 0) {
+  if (trackFilter) {
     ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
     ctx.lineWidth = faceInkPx(1.5, faceMin);
     ctx.beginPath();

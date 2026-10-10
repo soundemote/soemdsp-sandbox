@@ -150,7 +150,10 @@ $modules = @(
   @{ Name = "pluck_envelope_fb"; Simd = $false; Exports = @("soemdsp_pluck_envelope_fb_create", "soemdsp_pluck_envelope_fb_destroy", "soemdsp_pluck_envelope_fb_sample", "soemdsp_pluck_envelope_fb_version", "soemdsp_pluck_envelope_fb_metadata_json", "soemdsp_pluck_envelope_fb_metadata_json_size") }
   @{ Name = "ping_envelope"; Simd = $false; Exports = @("soemdsp_ping_envelope_create", "soemdsp_ping_envelope_destroy", "soemdsp_ping_envelope_sample", "soemdsp_ping_envelope_is_idle", "soemdsp_ping_envelope_version", "soemdsp_ping_envelope_metadata_json", "soemdsp_ping_envelope_metadata_json_size") }
   @{ Name = "power_decay"; Simd = $false; Exports = @("soemdsp_power_decay_create", "soemdsp_power_decay_destroy", "soemdsp_power_decay_sample", "soemdsp_power_decay_is_idle", "soemdsp_power_decay_version", "soemdsp_power_decay_metadata_json", "soemdsp_power_decay_metadata_json_size") }
-  @{ Name = "robin_sinepulse"; Simd = $false; Exports = @("soemdsp_robin_sinepulse_create", "soemdsp_robin_sinepulse_destroy", "soemdsp_robin_sinepulse_sample", "soemdsp_robin_sinepulse_env", "soemdsp_robin_sinepulse_is_idle", "soemdsp_robin_sinepulse_version", "soemdsp_robin_sinepulse_metadata_json", "soemdsp_robin_sinepulse_metadata_json_size") }
+  @{ Name = "exponential_skew"; Simd = $false; Exports = @("soemdsp_exponential_skew_create", "soemdsp_exponential_skew_destroy", "soemdsp_exponential_skew_sample", "soemdsp_exponential_skew_is_idle", "soemdsp_exponential_skew_version", "soemdsp_exponential_skew_metadata_json", "soemdsp_exponential_skew_metadata_json_size") }
+  @{ Name = "hyperbolic_decay"; Simd = $false; Exports = @("soemdsp_hyperbolic_decay_create", "soemdsp_hyperbolic_decay_destroy", "soemdsp_hyperbolic_decay_sample", "soemdsp_hyperbolic_decay_is_idle", "soemdsp_hyperbolic_decay_version", "soemdsp_hyperbolic_decay_metadata_json", "soemdsp_hyperbolic_decay_metadata_json_size") }
+  @{ Name = "exponential_mix"; Simd = $false; Exports = @("soemdsp_exponential_mix_create", "soemdsp_exponential_mix_destroy", "soemdsp_exponential_mix_sample", "soemdsp_exponential_mix_is_idle", "soemdsp_exponential_mix_version", "soemdsp_exponential_mix_metadata_json", "soemdsp_exponential_mix_metadata_json_size") }
+  @{ Name = "robin_sinepulse"; Simd = $false; Exports = @("soemdsp_robin_sinepulse_create", "soemdsp_robin_sinepulse_destroy", "soemdsp_robin_sinepulse_sample", "soemdsp_robin_sinepulse_env", "soemdsp_robin_sinepulse_freq", "soemdsp_robin_sinepulse_is_idle", "soemdsp_robin_sinepulse_version", "soemdsp_robin_sinepulse_metadata_json", "soemdsp_robin_sinepulse_metadata_json_size") }
   @{ Name = "robin_sinepulse_allpass"; Simd = $false; Exports = @("soemdsp_robin_sinepulse_allpass_create", "soemdsp_robin_sinepulse_allpass_destroy", "soemdsp_robin_sinepulse_allpass_set_params", "soemdsp_robin_sinepulse_allpass_process_chain", "soemdsp_robin_sinepulse_allpass_dry", "soemdsp_robin_sinepulse_allpass_out", "soemdsp_robin_sinepulse_allpass_sample", "soemdsp_robin_sinepulse_allpass_is_idle", "soemdsp_robin_sinepulse_allpass_num_stages", "soemdsp_robin_sinepulse_allpass_update_count", "soemdsp_robin_sinepulse_allpass_version", "soemdsp_robin_sinepulse_allpass_metadata_json", "soemdsp_robin_sinepulse_allpass_metadata_json_size") }
   @{ Name = "vactrol_envelope"; Simd = $false; Exports = @("soemdsp_vactrol_envelope_create", "soemdsp_vactrol_envelope_destroy", "soemdsp_vactrol_envelope_sample", "soemdsp_vactrol_envelope_version", "soemdsp_vactrol_envelope_metadata_json", "soemdsp_vactrol_envelope_metadata_json_size") }
   @{ Name = "exp_adsr"; Simd = $false; Exports = @("soemdsp_exp_adsr_create", "soemdsp_exp_adsr_destroy", "soemdsp_exp_adsr_sample", "soemdsp_exp_adsr_is_idle", "soemdsp_exp_adsr_version", "soemdsp_exp_adsr_metadata_json", "soemdsp_exp_adsr_metadata_json_size") }
@@ -196,6 +199,17 @@ $modules = @(
   @{ Name = "softwave"; Simd = $false; Exports = @("soemdsp_softwave_create", "soemdsp_softwave_destroy", "soemdsp_softwave_reset", "soemdsp_softwave_sample", "soemdsp_softwave_version", "soemdsp_softwave_metadata_json", "soemdsp_softwave_metadata_json_size") }
   @{ Name = "sine_warp"; Simd = $false; Exports = @("soemdsp_sine_warp_create", "soemdsp_sine_warp_destroy", "soemdsp_sine_warp_reset", "soemdsp_sine_warp_sample", "soemdsp_sine_warp_out", "soemdsp_sine_warp_version", "soemdsp_sine_warp_metadata_json", "soemdsp_sine_warp_metadata_json_size") }
   @{ Name = "filter_morph_oscillator"; Simd = $false; Exports = @("soemdsp_filter_morph_oscillator_create", "soemdsp_filter_morph_oscillator_set_seed", "soemdsp_filter_morph_oscillator_destroy", "soemdsp_filter_morph_oscillator_reset", "soemdsp_filter_morph_oscillator_sample", "soemdsp_filter_morph_oscillator_version") }
+  @{ Name = "softpop_oscillator"; Simd = $false; Exports = @(
+    "soemdsp_softpop_oscillator_create",
+    "soemdsp_softpop_oscillator_destroy",
+    "soemdsp_softpop_oscillator_reset",
+    "soemdsp_softpop_oscillator_sample",
+    "soemdsp_softpop_oscillator_left",
+    "soemdsp_softpop_oscillator_right",
+    "soemdsp_softpop_oscillator_version",
+    "soemdsp_softpop_oscillator_metadata_json",
+    "soemdsp_softpop_oscillator_metadata_json_size"
+  ) }
   @{ Name = "soem_reverb"; Simd = $false; Exports = @(
     "soemdsp_soem_reverb_create", "soemdsp_soem_reverb_destroy", "soemdsp_soem_reverb_reset",
     "soemdsp_soem_reverb_set_params", "soemdsp_soem_reverb_process",
@@ -697,6 +711,11 @@ if ($node) {
   & $node.Source "$root\scripts\smoke_graph_robin_sinepulse_allpass.mjs"
   if ($LASTEXITCODE -ne 0) {
     throw "Combined build: Robin Sinepulse Allpass smoke FAILED"
+  }
+  # Additive Generator harmonic mask: masked partials leave the Graph (Out never renders them).
+  & $node.Source "$root\scripts\smoke_graph_additive_mask.mjs"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Combined build: additive harmonic mask smoke FAILED"
   }
 } else {
   Write-Warning "node not found -- combined wasm smoke test SKIPPED. Install Node.js to enable it."

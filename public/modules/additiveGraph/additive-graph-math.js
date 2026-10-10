@@ -16,8 +16,8 @@ function additiveGraphWrap01(v) {
 }
 
 function additiveGraphRationalCurve(t, c) {
-  const x = additiveGraphClamp(t, 0, 1);
-  const skew = additiveGraphClamp(c, -0.9999, 0.9999);
+  const x = nodeGraphFiniteNumber(t);
+  const skew = nodeGraphFiniteNumber(c);
   const cv = skew * x;
   const den = 2 * cv - skew + 1;
   if (Math.abs(den) < 1e-12) return x;
@@ -26,7 +26,7 @@ function additiveGraphRationalCurve(t, c) {
 
 /** Odd around 0.5. Skew 0 = identity (linear). */
 function additiveGraphBipolarRationalCurve(t, c) {
-  const x = additiveGraphClamp(t, 0, 1);
+  const x = nodeGraphFiniteNumber(t);
   const u = x * 2 - 1;
   const a = u < 0 ? -u : u;
   const r = additiveGraphRationalCurve(a, c);
@@ -45,18 +45,92 @@ function additiveGraphNormalizeLinearFilterCurveMode(mode) {
 }
 
 function additiveGraphLinearFilterShape(t, skew, curveMode) {
-  const x = additiveGraphClamp(t, 0, 1);
-  const c = additiveGraphClamp(nodeGraphFiniteNumber(skew), -0.9999, 0.9999);
+  const x = nodeGraphFiniteNumber(t);
+  const c = nodeGraphFiniteNumber(skew);
   if (additiveGraphNormalizeLinearFilterCurveMode(curveMode) === 1) {
     return additiveGraphBipolarRationalCurve(x, c);
   }
   return additiveGraphRationalCurve(x, -c);
 }
 
+// Slope
+function additiveGraphResolveSlopeRange(harmonics, slopeStart, slopeEnd) {
+  const n = Math.max(1, Math.min(ADDITIVE_GRAPH_MAX_H, Math.round(nodeGraphFiniteNumber(harmonics, 1))));
+  const cap = 1024;
+  const start = Math.min(Math.max(nodeGraphFiniteNumber(slopeStart, 1), 1), cap);
+  const end = Math.max(Math.min(nodeGraphFiniteNumber(slopeEnd, 32), cap), start + 1e-6);
+  return { start, end, n };
+}
+
+function additiveGraphSlopeGain(ratio, slope, slopeStart, slopeEnd, skew, curveMode = 0) {
+  const x = additiveGraphClamp(
+    (nodeGraphFiniteNumber(ratio) - slopeStart) / Math.max(slopeEnd - slopeStart, 1e-9),
+    0,
+    1,
+  );
+  const s = additiveGraphClamp(nodeGraphFiniteNumber(slope, 1), 0, 1);
+  return 1 - s * additiveGraphLinearFilterShape(x, skew, curveMode);
+}
+
+function additiveGraphApplySlope(graph, slope, slopeStart, slopeEnd, skew, curveMode = 0) {
+  if (!graph || !graph.ratio || !graph.amplitude) return graph;
+  const s = additiveGraphClamp(nodeGraphFiniteNumber(slope, 1), 0, 1);
+  if (!(s > 0)) return graph;
+  const range = additiveGraphResolveSlopeRange(
+    graph.harmonicsExact ?? graph.harmonics, slopeStart, slopeEnd,
+  );
+  const to = graph.ampLerp?.to || null;
+  const H = graph.ratio.length | 0;
+  for (let i = 0; i < H; i += 1) {
+    const gain = additiveGraphSlopeGain(graph.ratio[i], s, range.start, range.end, skew, curveMode);
+    graph.amplitude[i] *= gain;
+    if (to && i < to.length) to[i] *= gain;
+  }
+  return graph;
+}
+
+function nodeGraphAdditiveGeneratorSyncSlopeRange(nodeId, patchNode, priorParams = {}) {
+  if (!patchNode || patchNode.type !== "additiveGenerator") return;
+  void priorParams;
+  const params = patchNode.params || {};
+  const cap = 1024;
+  const start = nodeGraphFiniteNumber(params.slopeStart, 1);
+  const end = nodeGraphFiniteNumber(params.slopeEnd, 32);
+  const next = {};
+  if (start > cap) next.slopeStart = cap;
+  if (end > cap) next.slopeEnd = cap;
+  for (const [key, value] of Object.entries(next)) {
+    if (Number(params[key]) === value) continue;
+    patchNode.params = { ...patchNode.params, [key]: value };
+    if (typeof nodeGraphWriteActiveCircuitPatchParam === "function") {
+      nodeGraphWriteActiveCircuitPatchParam(nodeId, key, value);
+    }
+    const slider = typeof nodeGraphNodeElement === "function"
+      ? nodeGraphNodeElement(nodeId)?.querySelector(`input[data-param="${key}"]`)
+      : null;
+    if (!slider) continue;
+    slider.dataset.domainValue = String(value);
+    slider.value = String(
+      typeof nodeSliderThumbDisplayValue === "function" ? nodeSliderThumbDisplayValue(slider, value) : value,
+    );
+    if (typeof syncNodeSliderReadout === "function") syncNodeSliderReadout(slider);
+  }
+}
+
+// Mirrors soemdsp::math::kExpLogCurveLimit. Callers pass −1…+1.
+const ADDITIVE_EXP_LOG_CURVE_LIMIT = 0.9999;
+
+function additiveGraphExpLogSkew(c) {
+  const n = nodeGraphFiniteNumber(c);
+  if (n > ADDITIVE_EXP_LOG_CURVE_LIMIT) return ADDITIVE_EXP_LOG_CURVE_LIMIT;
+  if (n < -ADDITIVE_EXP_LOG_CURVE_LIMIT) return -ADDITIVE_EXP_LOG_CURVE_LIMIT;
+  return n;
+}
+
 /** Exponential 0…1 map. c∈(−1…+1): + = slow start / fast end. */
 function additiveGraphExpCurve(t, c) {
-  const x = additiveGraphClamp(t, 0, 1);
-  const k = additiveGraphClamp(c, -0.9999, 0.9999) * 8;
+  const x = nodeGraphFiniteNumber(t);
+  const k = additiveGraphExpLogSkew(c) * 8;
   if (Math.abs(k) < 1e-6) return x;
   return (Math.exp(k * x) - 1) / (Math.exp(k) - 1);
 }
@@ -66,8 +140,8 @@ function additiveGraphExpCurve(t, c) {
  * so |c|→1 approaches Rational extremity (k up to ~48).
  */
 function additiveGraphExpCurveTight(t, c) {
-  const x = additiveGraphClamp(t, 0, 1);
-  const s = additiveGraphClamp(c, -0.9999, 0.9999);
+  const x = nodeGraphFiniteNumber(t);
+  const s = additiveGraphExpLogSkew(c);
   if (Math.abs(s) < 1e-6) return x;
   const k = s * (12 + 36 * s * s);
   return (Math.exp(k * x) - 1) / (Math.exp(k) - 1);
@@ -89,8 +163,8 @@ function additiveGraphNormalizeFrequencySkewCurveMode(mode) {
  * travel is usable (raw u=c×8 floors at c≈−0.125 and felt “dead” below that).
  */
 function additiveGraphLogCurve(t, c) {
-  const x = additiveGraphClamp(t, 0, 1);
-  const s = additiveGraphClamp(c, -0.9999, 0.9999);
+  const x = nodeGraphFiniteNumber(t);
+  const s = additiveGraphExpLogSkew(c);
   if (Math.abs(s) < 1e-6) return x;
   if (s > 0) {
     const u = s * 8;
@@ -124,7 +198,7 @@ function additiveGraphSkewMap(t, curve, mode) {
 /**
  * Basic harmonic waveforms for Additive Generator (Yellow Graph).
  * Indices: 0 Saw, 1 Square, 2 PulseCenter, 3 PulseLeft, 4 PulseRight,
- *          5 Tri, 6 RectSine.
+ *          5 Tri, 6 RectSine, 7 Even, 8 Odd.
  * PWM (−1…+1) applies only to Pulse*: 0 = 50% duty, ±1 → ~2%…~98%.
  * Saw / Square / Tri / RectSine ignore PWM.
  * Phase Rotation is on Additive Generator (baked into Graph phases).
@@ -170,6 +244,14 @@ function additiveGraphWaveformPartial(waveform, harmonic, pwm = 0) {
     case 6: // RectSine — 1/n², odds @0.25 / evens @0.75
       amplitude = 1 / (h * h);
       phase = odd ? 0.25 : 0.75;
+      break;
+    case 7: // Even
+      amplitude = n === 1 || !odd ? 1 : 0;
+      phase = 0;
+      break;
+    case 8: // Odd
+      amplitude = odd ? 1 : 0;
+      phase = 0;
       break;
     default:
       amplitude = 1 / h;
@@ -398,10 +480,7 @@ function additiveGraphApplyFrequencySkew(
   // Hard extremes keyed off Skew (all curves share knob sense).
   const hardHi = skewAmt >= 1 - 1e-12;
   const hardLo = skewAmt <= -1 + 1e-12;
-  // Curve kernels need |c|<1 for poles; only soft path (param should keep |skew|≤1).
-  const soft = !hardHi && !hardLo
-    ? additiveGraphClamp(curveArg, -0.9999, 0.9999)
-    : 0;
+  const soft = !hardHi && !hardLo ? nodeGraphFiniteNumber(curveArg) : 0;
   const to = new Float32Array(H);
   for (let i = 0; i < H; i += 1) {
     const r = Math.max(0, nodeGraphFiniteNumber(graph.ratio[i]));
@@ -1077,19 +1156,6 @@ function additiveGraphResolveFundamentalHz({
  * Cutoff Hz (LP @ 0 → silence). Slope −1…+1: |s| = width, sign reverses pass/stop.
  * Skew = rationalCurve bend (−1…+1). 0 = linear ramp.
  */
-/** Additive Out: the full-amplitude end of the slope is the first harmonic. */
-function additiveGraphTrackedFilterCutoffHz(fundHz, harmonic, slope01) {
-  const f0 = Math.max(0, nodeGraphFiniteNumber(fundHz));
-  const fc0 = Math.max(0, nodeGraphFiniteNumber(harmonic)) * f0;
-  if (!(fc0 > 0) || !(f0 > 0)) return fc0;
-  const mag = Math.abs(nodeGraphFiniteNumber(slope01));
-  const halfOct = mag <= 1e-6 ? 0 : 0.05 + mag * 5;
-  if (!(halfOct > 0)) return Math.max(fc0, f0);
-  const unity = fc0 * (2 ** -halfOct);
-  if (unity > 0 && unity < f0) return fc0 * (f0 / unity);
-  return fc0;
-}
-
 function additiveGraphFilterResponseGainRational(freqHz, mode, cutoffHz, slope01, skew, curveMode = 0) {
   const m = additiveGraphNormalizeFilterMode(mode);
   const fc = Math.max(0, nodeGraphFiniteNumber(cutoffHz));
@@ -1243,7 +1309,7 @@ function additiveGraphBubbleCascadeCurve(
   const n = Math.max(2, Math.round(nodeGraphFiniteNumber(samples, 128)));
   const cutRaw = Number(cutoff);
   const cut = Number.isFinite(cutRaw) ? additiveGraphClamp(cutRaw, 0, 1) : 1;
-  const curve = additiveGraphClamp(nodeGraphFiniteNumber(skewAmount), -0.9999, 0.9999);
+  const curve = nodeGraphFiniteNumber(skewAmount);
   const skew0 = Number(phaseSkew);
   const baseSkew = Number.isFinite(skew0) ? Math.max(0, skew0) : 0;
   const uRaw = Number(unskew);
@@ -1301,7 +1367,7 @@ function additiveGraphApplyGrowl(
   const rot = nodeGraphFiniteNumber(rotation);
   const skewAmt = Number(skew);
   const amount = Number.isFinite(skewAmt) && skewAmt > 0 ? skewAmt : 0;
-  const curve = additiveGraphClamp(nodeGraphFiniteNumber(skewCurve), -0.9999, 0.9999);
+  const curve = nodeGraphFiniteNumber(skewCurve);
   const mode = additiveGraphNormalizeSkewCurveMode(curveMode);
   const cutRaw = Number(cutoff);
   // Default open (1) when missing/non-finite — never treat NaN as silence.
@@ -1464,7 +1530,7 @@ function additiveGraphApplyBlaster(
   const kind = Math.max(0, Math.min(3, Math.round(nodeGraphFiniteNumber(curveKind))));
   const doInvert = Number(invert) >= 0.5;
   const depthAmt = nodeGraphFiniteNumber(depth);
-  const curveAmt = additiveGraphClamp(nodeGraphFiniteNumber(curve), -0.9999, 0.9999);
+  const curveAmt = nodeGraphFiniteNumber(curve);
   const offsetAmt = nodeGraphFiniteNumber(offset);
   const biasAmt = nodeGraphFiniteNumber(bias);
   const jumpAmt = nodeGraphFiniteNumber(jump);
@@ -2036,22 +2102,15 @@ function additiveGraphPhaseColor(phase01) {
   };
 }
 
-/**
- * Instantaneous Nyquist / speed-limit amp curve (not smoothed over time):
- *   hz < 0.75·Nyquist → 1
- *   0.75·Nyquist … Nyquist → linear 1→0
- *   hz ≥ Nyquist → 0
- * Phase still advances above Nyquist so harmonics stay coherent if they return.
- */
+// Nyquist
 function additiveGraphNyquistAmpGain(hz, sampleRate) {
   const sr = Math.max(1, nodeGraphFiniteNumber(sampleRate, 44100));
-  const nyquist = 0.5 * sr;
+  const ny = 0.5 * sr;
   const f = Math.abs(nodeGraphFiniteNumber(hz));
-  if (!(nyquist > 0) || !(f >= 0)) return 0;
-  if (f >= nyquist) return 0;
-  const rampStart = 0.75 * nyquist;
-  if (f <= rampStart) return 1;
-  return 1 - (f - rampStart) / Math.max(1e-12, nyquist - rampStart);
+  if (!(f < ny)) return 0;
+  const start = 0.75 * ny;
+  if (f <= start) return 1;
+  return (ny - f) / (ny - start);
 }
 
 /**
@@ -2154,18 +2213,7 @@ function additiveGraphSinTurn(phase01) {
   return -(a + (b - a) * f);
 }
 
-/** Optimize: 0 None, 1 Inaudible Harmonics (skip amp≤0, below hearing, or hz≥Nyquist). */
-function additiveGraphNormalizeOptimizeMode(mode) {
-  const n = Math.round(Number(mode));
-  if (n === 1) return 1;
-  const s = String(mode ?? "").trim().toLowerCase();
-  if (s === "1" || s === "inaudible" || s === "inaudibleharmonics" || s === "inaudible harmonics") {
-    return 1;
-  }
-  return 0;
-}
-
-/** Linear amp floor for Optimize Inaudible Harmonics (−80 dBFS ≈ 0.0001). */
+// Inaudible
 const ADDITIVE_GRAPH_INAUDIBLE_AMP = Math.pow(10, -80 / 20);
 
 /**
@@ -2207,12 +2255,10 @@ function additiveGraphBakeWaveform(graph, out, hCap = 64) {
 /**
  * Sum one sample. Mono = unpanned sum; Left/Right use pan (−1…+1).
  * *Lerp fields: linear from→to across the block. *Noise: WhiteNoise per sample.
- * optimizeMode 1: skip inaudible sin/pan work (amp≤0, below −80 dBFS, or hz≥Nyquist);
- * phaseAcc still advances.
  */
 function additiveGraphSumSample(
   graph, phaseAcc, frequencyHz, masterPhase, masterAmp, sampleRate,
-  blockFrame = 0, blockFrames = 1, optimizeMode = 0,
+  blockFrame = 0, blockFrames = 1,
 ) {
   if (!graph || !graph.harmonics) {
     return { y: 0, left: 0, right: 0, mono: 0, phaseAcc };
@@ -2252,8 +2298,6 @@ function additiveGraphSumSample(
     }
     phaseAcc = next;
   }
-  const skipInaudible = additiveGraphNormalizeOptimizeMode(optimizeMode) === 1;
-  const hearFloor = skipInaudible ? ADDITIVE_GRAPH_INAUDIBLE_AMP : 0;
   const hasPan = Boolean(graph.pan && graph.pan.length === H)
     || Boolean(graph.panLerp)
     || Boolean(graph.panNoise);
@@ -2288,9 +2332,15 @@ function additiveGraphSumSample(
   }
 
   for (let i = 0; i < H; i += 1) {
-    let partialAmp = hasAmpLerp && i < ampLerp.from.length && i < ampLerp.to.length
-      ? ampLerp.from[i] + (ampLerp.to[i] - ampLerp.from[i]) * lerpT
+    const aFrom = hasAmpLerp && i < ampLerp.from.length
+      ? nodeGraphFiniteNumber(ampLerp.from[i])
       : nodeGraphFiniteNumber(ampArr?.[i]);
+    const aTo = hasAmpLerp && i < ampLerp.to.length
+      ? nodeGraphFiniteNumber(ampLerp.to[i])
+      : aFrom;
+    let partialAmp = hasAmpLerp
+      ? aFrom + (aTo - aFrom) * lerpT
+      : aFrom;
     if (hasAmpNoise) {
       const w = additiveGraphWhiteNoiseSample(graph.ampNoise, i, 61);
       const amt = nodeGraphFiniteNumber(graph.ampNoise.amount);
@@ -2306,6 +2356,7 @@ function additiveGraphSumSample(
     }
     const hz = baseRatio * f0;
 
+    // Always tick phaseAcc so silent / ampLerp-from-0 / Odd zeros stay on the n×ƒ series.
     const inc = hz / sr;
     phaseAcc[i] = additiveGraphWrap01(phaseAcc[i] + inc);
 
@@ -2320,16 +2371,12 @@ function additiveGraphSumSample(
     const p = additiveGraphWrap01(phaseAcc[i] + partialPhase + mp);
     if (displayPhase) displayPhase[i] = p;
 
-    const heardAmp = partialAmp * ma;
-    const inaudible = skipInaudible && (
-      !(partialAmp > 0) || heardAmp < hearFloor || hz >= nyquist
-    );
-    if (inaudible) continue;
+    // Cheap skip: sine + pan only.
+    const nyq = additiveGraphNyquistAmpGain(hz, sr);
+    const heardAmp = partialAmp * ma * nyq;
+    if (!(partialAmp > 0) || heardAmp < ADDITIVE_GRAPH_INAUDIBLE_AMP || !(nyq > 0)) continue;
 
-    const gain = additiveGraphNyquistAmpGain(hz, sr);
-    if (gain <= 0) continue;
-
-    const s = additiveGraphSinTurn(p) * partialAmp * ma * gain;
+    const s = additiveGraphSinTurn(p) * heardAmp;
     mono += s;
 
     let pan = 0;

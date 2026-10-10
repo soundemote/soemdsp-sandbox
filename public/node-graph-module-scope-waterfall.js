@@ -468,40 +468,24 @@ function nodeGraphWaterfallBufferIndexAtAbs(buffer, absFrame) {
 
 /**
  * Map a sample window on the clock ring onto another channel.
- * Newest samples sit at the end, but rings are not the same length, so the
- * stereo B (and RGB B) window is the same absolute frames, not the same indexes.
- * Without an absolute clock, use that ring's own tail of the same count.
+ * Newest samples sit at the end of every ring. Use the same age from newest
+ * (fractional indexes kept) so Right/B gets one value per pixel the same way
+ * Left does. Absolute-frame mapping only matches when both rings started on
+ * the same clock; a miss pinned every column to that ring's tail, so Right
+ * drew one hold per frame while Left lerped across the window.
  */
 function nodeGraphWaterfallMapSampleWindow(live, buffer, start, end) {
   if (!buffer?.length) return null;
   if (!live?.length || buffer === live) return { start, end };
-  const absEndLive = nodeGraphWaterfallAbsEnd(live);
-  const absEndBuf = nodeGraphWaterfallAbsEnd(buffer);
-  if (!(absEndLive > 0) || !(absEndBuf > 0)) {
-    const count = Math.max(0, Number(end) - Number(start));
-    const bufEnd = buffer.length;
-    return { start: Math.max(0, bufEnd - count), end: bufEnd };
-  }
-  const abs0 = nodeGraphWaterfallAbsAtBufferIndex(live, start);
-  const abs1 = nodeGraphWaterfallAbsAtBufferIndex(live, end);
-  if (!Number.isFinite(abs0) || !Number.isFinite(abs1)) return null;
-  const i0 = nodeGraphWaterfallBufferIndexAtAbs(buffer, abs0);
-  const i1 = nodeGraphWaterfallBufferIndexAtAbs(buffer, abs1);
-  if (!Number.isFinite(i0) || !Number.isFinite(i1)) return null;
-  const lo = Math.min(i0, i1);
-  const hi = Math.max(i0, i1);
-  const clipLo = Math.max(0, lo);
-  const clipHi = Math.min(buffer.length, hi);
-  // Rings that started at different times do not share absolute frames.
-  // A miss used to drop the whole channel (Right stayed blank on Add too).
-  // Fall back to this ring's own newest samples of the same count.
-  if (!(clipHi > clipLo)) {
-    const count = Math.max(0, Number(end) - Number(start));
-    const bufEnd = buffer.length;
-    if (!(count > 0) || !(bufEnd > 0)) return null;
-    return { start: Math.max(0, bufEnd - count), end: bufEnd };
-  }
-  return { start: clipLo, end: clipHi };
+  const liveStart = Number(start);
+  const liveEnd = Number(end);
+  if (!Number.isFinite(liveStart) || !Number.isFinite(liveEnd)) return null;
+  const liveLen = live.length;
+  const bufLen = buffer.length;
+  return {
+    start: bufLen - (liveLen - liveStart),
+    end: bufLen - (liveLen - liveEnd),
+  };
 }
 
 /** Clock ring: the enabled channel whose absolute frame is furthest ahead.

@@ -163,6 +163,19 @@ function normalizeNodeGraphTextBoxLineHeight(value) {
   );
 }
 
+/**
+ * New line height: spacing at each hard newline (Enter), same 0.5–3 multiplier
+ * as Line height (which keeps spacing wrapped lines inside a paragraph).
+ * Missing (older patches) = follow that patch's Line height, so it looks unchanged.
+ */
+function normalizeNodeGraphTextBoxNewLineHeight(value, lineHeight = NODE_GRAPH_TEXT_BOX_DEFAULT_LINE_HEIGHT) {
+  const follow = normalizeNodeGraphTextBoxLineHeight(lineHeight);
+  if (value == null || value === "" || typeof value === "boolean" || !Number.isFinite(Number(value))) {
+    return follow;
+  }
+  return normalizeNodeGraphTextBoxLineHeight(value);
+}
+
 function nodeGraphTextBoxNormalizeHex(value, fallback) {
   const text = String(value || "").trim();
   if (/^#[0-9a-fA-F]{6}$/.test(text)) return text.toLowerCase();
@@ -208,6 +221,10 @@ function normalizeNodeGraphTextBoxLayout(layout = {}) {
       source.textWeight ?? source.boldness ?? source.fontWeight,
     ),
     lineHeight: normalizeNodeGraphTextBoxLineHeight(
+      source.lineHeight ?? source.lineSpacing ?? source.newlineSpacing,
+    ),
+    newLineHeight: normalizeNodeGraphTextBoxNewLineHeight(
+      source.newLineHeight,
       source.lineHeight ?? source.lineSpacing ?? source.newlineSpacing,
     ),
     textMode,

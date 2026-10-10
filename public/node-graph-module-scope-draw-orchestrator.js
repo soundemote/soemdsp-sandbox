@@ -107,6 +107,19 @@ const nodeGraphModuleScopeCustomRenderers = {
 
 function drawNodeGraphModuleScopeTypedItem(renderer, item, pixelRatio) {
   const displayRenderer = nodeGraphModuleDisplayRendererForSlot(item?.slot);
+  const nodeId = item?.slot?.nodeId;
+  if (typeof scopePaintShouldColdBootFace === "function" && scopePaintShouldColdBootFace(nodeId)) {
+    const canvas = (typeof nodeGraphModuleScopeLocalFallbackCanvas === "function"
+      && nodeGraphModuleScopeLocalFallbackCanvas(item.slot))
+      || item?.slot?.scopeElement?.querySelector?.("canvas")
+      || null;
+    if (typeof nodeGraphModuleScopeWipeCanvas === "function") {
+      nodeGraphModuleScopeWipeCanvas(canvas, { nodeId, displayType: displayRenderer });
+    } else if (typeof nodeGraphModuleScopeWipeNode === "function") {
+      nodeGraphModuleScopeWipeNode(nodeId);
+    }
+    return true;
+  }
   const customRenderer = nodeGraphModuleScopeCustomRenderers[displayRenderer];
   if (customRenderer) {
     customRenderer(renderer, item, pixelRatio);
@@ -507,7 +520,7 @@ function drawNodeGraphModuleScopes(options = {}) {
     nodeGraphModuleScopeKeepDrawLoopAlive(scopePaused);
     return;
   }
-  // Same Simulation FPS tick as phosphor / traces — one Pixel Grid write.
+  // Same Simulation FPS tick as phosphor / traces — one Scan Grid write.
   if (typeof nodeGraphRasterRgbArmIngest === "function") {
     nodeGraphRasterRgbArmIngest();
   }

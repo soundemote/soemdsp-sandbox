@@ -12,7 +12,8 @@ nodeGraphLiveModuleEvaluators.logisticMap = ({ runtime, node, nodeId, frame, fra
       rate: read("rate", 8),
       reset: mixInput(nodeId, "Reset"),
       sampleRate,
-      seed: read("seed", 0.5),
+      seed: read("seed", 0),
+      antialias: read("antialias", 0),
       state,
     }),
   };

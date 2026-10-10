@@ -408,3 +408,25 @@ function nodeGraphModuleScopeEnginePaused() {
 function nodeGraphModuleScopePhosphorFrozen() {
   return scopePaintIsFrozen();
 }
+
+function scopePaintIsEngineStopped() {
+  const live = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.live : null;
+  return !live?.node;
+}
+
+function scopePaintIsFacePoweredOff(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!id) return false;
+  if (typeof nodeGraphNodeDisplaysBypassed === "function") {
+    return nodeGraphNodeDisplaysBypassed(id);
+  }
+  if (typeof nodeGraphNodeIsBypassed === "function") {
+    return nodeGraphNodeIsBypassed(id);
+  }
+  const listed = typeof nodeGraphMvp !== "undefined" ? nodeGraphMvp?.patch?.bypassedNodes : null;
+  return Array.isArray(listed) && listed.includes(id);
+}
+
+function scopePaintShouldColdBootFace(nodeId) {
+  return scopePaintIsEngineStopped() || scopePaintIsFacePoweredOff(nodeId);
+}

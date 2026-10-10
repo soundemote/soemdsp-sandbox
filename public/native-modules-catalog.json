@@ -12,7 +12,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/LadderFilter.h",
       "wasm": "native_modules/active_filter/active_filter.wasm",
       "wasmUrl": "native_modules/active_filter/active_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "additive_osc",
@@ -25,7 +30,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/additive/additive.hpp",
       "wasm": "native_modules/additive_osc/additive_osc.wasm",
       "wasmUrl": "native_modules/additive_osc/additive_osc.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "alias_sine",
@@ -38,7 +48,12 @@
       "libUrl": "",
       "wasm": "native_modules/alias_sine/alias_sine.wasm",
       "wasmUrl": "native_modules/alias_sine/alias_sine.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "amp_curve",
@@ -51,7 +66,12 @@
       "libUrl": "",
       "wasm": "native_modules/amp_curve/amp_curve.wasm",
       "wasmUrl": "native_modules/amp_curve/amp_curve.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "amp_db",
@@ -64,7 +84,12 @@
       "libUrl": "",
       "wasm": "native_modules/amp_db/amp_db.wasm",
       "wasmUrl": "native_modules/amp_db/amp_db.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "antisaw",
@@ -77,7 +102,12 @@
       "libUrl": "",
       "wasm": "native_modules/antisaw/antisaw.wasm",
       "wasmUrl": "native_modules/antisaw/antisaw.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "archimedes",
@@ -90,7 +120,12 @@
       "libUrl": "",
       "wasm": "native_modules/archimedes/archimedes.wasm",
       "wasmUrl": "native_modules/archimedes/archimedes.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "arp",
@@ -103,7 +138,12 @@
       "libUrl": "",
       "wasm": "native_modules/arp/arp.wasm",
       "wasmUrl": "native_modules/arp/arp.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "attack_decay",
@@ -116,7 +156,12 @@
       "libUrl": "",
       "wasm": "native_modules/attack_decay/attack_decay.wasm",
       "wasmUrl": "native_modules/attack_decay/attack_decay.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "attenumax",
@@ -129,7 +174,12 @@
       "libUrl": "",
       "wasm": "native_modules/attenumax/attenumax.wasm",
       "wasmUrl": "native_modules/attenumax/attenumax.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "attenuverter",
@@ -142,7 +192,12 @@
       "libUrl": "",
       "wasm": "native_modules/attenuverter/attenuverter.wasm",
       "wasmUrl": "native_modules/attenuverter/attenuverter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "audio_player",
@@ -155,7 +210,12 @@
       "libUrl": "",
       "wasm": "native_modules/audio_player/audio_player.wasm",
       "wasmUrl": "native_modules/audio_player/audio_player.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "b2u",
@@ -168,7 +228,12 @@
       "libUrl": "",
       "wasm": "native_modules/b2u/b2u.wasm",
       "wasmUrl": "native_modules/b2u/b2u.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "basic_oscillator",
@@ -181,7 +246,12 @@
       "libUrl": "",
       "wasm": "native_modules/basic_oscillator/basic_oscillator.wasm",
       "wasmUrl": "native_modules/basic_oscillator/basic_oscillator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "basic_shape",
@@ -194,7 +264,12 @@
       "libUrl": "",
       "wasm": "native_modules/basic_shape/basic_shape.wasm",
       "wasmUrl": "native_modules/basic_shape/basic_shape.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "bessel",
@@ -207,7 +282,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h",
       "wasm": "native_modules/bessel/bessel.wasm",
       "wasmUrl": "native_modules/bessel/bessel.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "bias",
@@ -220,7 +300,12 @@
       "libUrl": "",
       "wasm": "native_modules/bias/bias.wasm",
       "wasmUrl": "native_modules/bias/bias.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "binary_clock",
@@ -233,7 +318,12 @@
       "libUrl": "",
       "wasm": "native_modules/binary_clock/binary_clock.wasm",
       "wasmUrl": "native_modules/binary_clock/binary_clock.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "blit",
@@ -246,7 +336,12 @@
       "libUrl": "",
       "wasm": "native_modules/blit/blit.wasm",
       "wasmUrl": "native_modules/blit/blit.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "bradley_2a",
@@ -259,7 +354,12 @@
       "libUrl": "",
       "wasm": "native_modules/bradley_2a/bradley_2a.wasm",
       "wasmUrl": "native_modules/bradley_2a/bradley_2a.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "butterworth",
@@ -272,7 +372,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h",
       "wasm": "native_modules/butterworth/butterworth.wasm",
       "wasmUrl": "native_modules/butterworth/butterworth.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "chaosfly",
@@ -285,7 +390,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/chaosfly/originalcode/Butterfly",
       "wasm": "native_modules/chaosfly/chaosfly.wasm",
       "wasmUrl": "native_modules/chaosfly/chaosfly.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "See notice",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#chaosfly",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "chaotic_phase_locking_filter",
@@ -298,7 +408,12 @@
       "libUrl": "",
       "wasm": "native_modules/chaotic_phase_locking_filter/chaotic_phase_locking_filter.wasm",
       "wasmUrl": "native_modules/chaotic_phase_locking_filter/chaotic_phase_locking_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "cheap_walk",
@@ -311,7 +426,12 @@
       "libUrl": "",
       "wasm": "native_modules/cheap_walk/cheap_walk.wasm",
       "wasmUrl": "native_modules/cheap_walk/cheap_walk.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "chebyshev",
@@ -324,7 +444,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h",
       "wasm": "native_modules/chebyshev/chebyshev.wasm",
       "wasmUrl": "native_modules/chebyshev/chebyshev.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "chord_memory",
@@ -337,7 +462,12 @@
       "libUrl": "",
       "wasm": "native_modules/chord_memory/chord_memory.wasm",
       "wasmUrl": "native_modules/chord_memory/chord_memory.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "chord_pad",
@@ -350,7 +480,12 @@
       "libUrl": "",
       "wasm": "native_modules/chord_pad/chord_pad.wasm",
       "wasmUrl": "native_modules/chord_pad/chord_pad.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "chord_sequencer",
@@ -363,7 +498,12 @@
       "libUrl": "",
       "wasm": "native_modules/chord_sequencer/chord_sequencer.wasm",
       "wasmUrl": "native_modules/chord_sequencer/chord_sequencer.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "chorus",
@@ -376,7 +516,12 @@
       "libUrl": "",
       "wasm": "native_modules/chorus/chorus.wasm",
       "wasmUrl": "native_modules/chorus/chorus.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "chua_attractor",
@@ -389,7 +534,12 @@
       "libUrl": "",
       "wasm": "native_modules/chua_attractor/chua_attractor.wasm",
       "wasmUrl": "native_modules/chua_attractor/chua_attractor.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "clock",
@@ -402,7 +552,12 @@
       "libUrl": "",
       "wasm": "native_modules/clock/clock.wasm",
       "wasmUrl": "native_modules/clock/clock.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "comb_resonator",
@@ -415,7 +570,12 @@
       "libUrl": "",
       "wasm": "native_modules/comb_resonator/comb_resonator.wasm",
       "wasmUrl": "native_modules/comb_resonator/comb_resonator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "comparator",
@@ -428,7 +588,12 @@
       "libUrl": "",
       "wasm": "native_modules/comparator/comparator.wasm",
       "wasmUrl": "native_modules/comparator/comparator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "cookbook_filter",
@@ -441,7 +606,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/filters/rosic_CookbookFilter.h",
       "wasm": "native_modules/cookbook_filter/cookbook_filter.wasm",
       "wasmUrl": "native_modules/cookbook_filter/cookbook_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "crossfade",
@@ -454,7 +624,12 @@
       "libUrl": "",
       "wasm": "native_modules/crossfade/crossfade.wasm",
       "wasmUrl": "native_modules/crossfade/crossfade.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "crossover",
@@ -467,7 +642,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/CrossOver4Way.h",
       "wasm": "native_modules/crossover/crossover.wasm",
       "wasmUrl": "native_modules/crossover/crossover.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "curve_attack_release",
@@ -480,7 +660,12 @@
       "libUrl": "",
       "wasm": "native_modules/curve_attack_release/curve_attack_release.wasm",
       "wasmUrl": "native_modules/curve_attack_release/curve_attack_release.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "degree_phrase",
@@ -493,7 +678,12 @@
       "libUrl": "",
       "wasm": "native_modules/degree_phrase/degree_phrase.wasm",
       "wasmUrl": "native_modules/degree_phrase/degree_phrase.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "degree_turing",
@@ -506,7 +696,12 @@
       "libUrl": "",
       "wasm": "native_modules/degree_turing/degree_turing.wasm",
       "wasmUrl": "native_modules/degree_turing/degree_turing.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "delay_effect",
@@ -519,7 +714,12 @@
       "libUrl": "",
       "wasm": "native_modules/delay_effect/delay_effect.wasm",
       "wasmUrl": "native_modules/delay_effect/delay_effect.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "delayed_trigger",
@@ -532,7 +732,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/timer/DelayedTrigger.hpp",
       "wasm": "native_modules/delayed_trigger/delayed_trigger.wasm",
       "wasmUrl": "native_modules/delayed_trigger/delayed_trigger.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "dsf_oscillator",
@@ -545,7 +750,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/DSFOscillator.hpp",
       "wasm": "native_modules/dsf_oscillator/dsf_oscillator.wasm",
       "wasmUrl": "native_modules/dsf_oscillator/dsf_oscillator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "ellipsoid",
@@ -558,7 +768,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/Ellipsoid.hpp",
       "wasm": "native_modules/ellipsoid/ellipsoid.wasm",
       "wasmUrl": "native_modules/ellipsoid/ellipsoid.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "elliptic",
@@ -571,7 +786,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/PrototypeDesigner.h",
       "wasm": "native_modules/elliptic/elliptic.wasm",
       "wasmUrl": "native_modules/elliptic/elliptic.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "ensemble",
@@ -584,7 +804,12 @@
       "libUrl": "",
       "wasm": "native_modules/ensemble/ensemble.wasm",
       "wasmUrl": "native_modules/ensemble/ensemble.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "eq_filter",
@@ -597,7 +822,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/StateVariableFilter.h",
       "wasm": "native_modules/eq_filter/eq_filter.wasm",
       "wasmUrl": "native_modules/eq_filter/eq_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "exp_adsr",
@@ -610,7 +840,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/envelope/ExponentialEnvelope.hpp",
       "wasm": "native_modules/exp_adsr/exp_adsr.wasm",
       "wasmUrl": "native_modules/exp_adsr/exp_adsr.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "exponential_delay",
@@ -623,7 +858,48 @@
       "libUrl": "",
       "wasm": "native_modules/exponential_delay/exponential_delay.wasm",
       "wasmUrl": "native_modules/exponential_delay/exponential_delay.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
+    },
+    {
+      "name": "exponential_mix",
+      "label": "Exponential Mix",
+      "targetType": "exponentialMix",
+      "kind": "envelope",
+      "source": "native_modules/exponential_mix/exponential_mix.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/exponential_mix/exponential_mix.cpp",
+      "localSourceUrl": "/native_modules/exponential_mix/exponential_mix.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/exponential_mix/exponential_mix.wasm",
+      "wasmUrl": "native_modules/exponential_mix/exponential_mix.wasm",
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
+    },
+    {
+      "name": "exponential_skew",
+      "label": "Exp Skew",
+      "targetType": "exponentialSkew",
+      "kind": "envelope",
+      "source": "native_modules/exponential_skew/exponential_skew.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/exponential_skew/exponential_skew.cpp",
+      "localSourceUrl": "/native_modules/exponential_skew/exponential_skew.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/exponential_skew/exponential_skew.wasm",
+      "wasmUrl": "native_modules/exponential_skew/exponential_skew.wasm",
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "fbm_field",
@@ -636,7 +912,12 @@
       "libUrl": "",
       "wasm": "native_modules/fbm_field/fbm_field.wasm",
       "wasmUrl": "native_modules/fbm_field/fbm_field.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "filter_morph_oscillator",
@@ -649,7 +930,12 @@
       "libUrl": "",
       "wasm": "native_modules/filter_morph_oscillator/filter_morph_oscillator.wasm",
       "wasmUrl": "native_modules/filter_morph_oscillator/filter_morph_oscillator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "flanger",
@@ -662,7 +948,12 @@
       "libUrl": "",
       "wasm": "native_modules/flanger/flanger.wasm",
       "wasmUrl": "native_modules/flanger/flanger.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "flower_child_envelope_follower",
@@ -675,7 +966,12 @@
       "libUrl": "",
       "wasm": "native_modules/flower_child_envelope_follower/flower_child_envelope_follower.wasm",
       "wasmUrl": "native_modules/flower_child_envelope_follower/flower_child_envelope_follower.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "flower_child_filter",
@@ -688,7 +984,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/flower_child_filter/originalcode/FlowerChildFilterCore.h",
       "wasm": "native_modules/flower_child_filter/flower_child_filter.wasm",
       "wasmUrl": "native_modules/flower_child_filter/flower_child_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "See notice",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#flower-child-filter",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "fractal_brownian_noise",
@@ -701,7 +1002,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/random/FractalBrownianMotion.hpp",
       "wasm": "native_modules/fractal_brownian_noise/fractal_brownian_noise.wasm",
       "wasmUrl": "native_modules/fractal_brownian_noise/fractal_brownian_noise.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "fractal_spiral",
@@ -714,7 +1020,12 @@
       "libUrl": "",
       "wasm": "native_modules/fractal_spiral/fractal_spiral.wasm",
       "wasmUrl": "native_modules/fractal_spiral/fractal_spiral.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "gain",
@@ -727,7 +1038,12 @@
       "libUrl": "",
       "wasm": "native_modules/gain/gain.wasm",
       "wasmUrl": "native_modules/gain/gain.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "graph_engine",
@@ -740,7 +1056,12 @@
       "libUrl": "",
       "wasm": "native_modules/graph_engine/graph_engine.wasm",
       "wasmUrl": "native_modules/graph_engine/graph_engine.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "graphic_eq",
@@ -753,7 +1074,12 @@
       "libUrl": "",
       "wasm": "native_modules/graphic_eq/graphic_eq.wasm",
       "wasmUrl": "native_modules/graphic_eq/graphic_eq.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "gravity_walker",
@@ -766,7 +1092,12 @@
       "libUrl": "",
       "wasm": "native_modules/gravity_walker/gravity_walker.wasm",
       "wasmUrl": "native_modules/gravity_walker/gravity_walker.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "harmonic_series",
@@ -779,7 +1110,12 @@
       "libUrl": "",
       "wasm": "native_modules/harmonic_series/harmonic_series.wasm",
       "wasmUrl": "native_modules/harmonic_series/harmonic_series.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "helmholtz",
@@ -792,7 +1128,12 @@
       "libUrl": "",
       "wasm": "native_modules/helmholtz/helmholtz.wasm",
       "wasmUrl": "native_modules/helmholtz/helmholtz.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "henon_map",
@@ -805,7 +1146,12 @@
       "libUrl": "",
       "wasm": "native_modules/henon_map/henon_map.wasm",
       "wasmUrl": "native_modules/henon_map/henon_map.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "human_filter",
@@ -818,7 +1164,30 @@
       "libUrl": "",
       "wasm": "native_modules/human_filter/human_filter.wasm",
       "wasmUrl": "native_modules/human_filter/human_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
+    },
+    {
+      "name": "hyperbolic_decay",
+      "label": "Hyperbolic",
+      "targetType": "hyperbolicDecay",
+      "kind": "envelope",
+      "source": "native_modules/hyperbolic_decay/hyperbolic_decay.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/hyperbolic_decay/hyperbolic_decay.cpp",
+      "localSourceUrl": "/native_modules/hyperbolic_decay/hyperbolic_decay.cpp",
+      "libUrl": "",
+      "wasm": "native_modules/hyperbolic_decay/hyperbolic_decay.wasm",
+      "wasmUrl": "native_modules/hyperbolic_decay/hyperbolic_decay.wasm",
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "hyperpluck",
@@ -831,7 +1200,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/PolyBLEP.hpp",
       "wasm": "native_modules/hyperpluck/hyperpluck.wasm",
       "wasmUrl": "native_modules/hyperpluck/hyperpluck.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "hypersaw2",
@@ -844,7 +1218,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/Hypersaw.hpp",
       "wasm": "native_modules/hypersaw2/hypersaw2.wasm",
       "wasmUrl": "native_modules/hypersaw2/hypersaw2.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "inertial_filter",
@@ -857,7 +1236,12 @@
       "libUrl": "",
       "wasm": "native_modules/inertial_filter/inertial_filter.wasm",
       "wasmUrl": "native_modules/inertial_filter/inertial_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "inv",
@@ -870,7 +1254,12 @@
       "libUrl": "",
       "wasm": "native_modules/inv/inv.wasm",
       "wasmUrl": "native_modules/inv/inv.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "jerobeam_blubb",
@@ -883,7 +1272,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamBlubb.h",
       "wasm": "native_modules/jerobeam_blubb/jerobeam_blubb.wasm",
       "wasmUrl": "native_modules/jerobeam_blubb/jerobeam_blubb.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "jerobeam_boing",
@@ -896,7 +1290,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamBoing.h",
       "wasm": "native_modules/jerobeam_boing/jerobeam_boing.wasm",
       "wasmUrl": "native_modules/jerobeam_boing/jerobeam_boing.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "jerobeam_kepler_bouwkamp",
@@ -909,7 +1308,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamKeplerBouwkamp.h",
       "wasm": "native_modules/jerobeam_kepler_bouwkamp/jerobeam_kepler_bouwkamp.wasm",
       "wasmUrl": "native_modules/jerobeam_kepler_bouwkamp/jerobeam_kepler_bouwkamp.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "jerobeam_mushroom",
@@ -922,7 +1326,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamMushroom.h",
       "wasm": "native_modules/jerobeam_mushroom/jerobeam_mushroom.wasm",
       "wasmUrl": "native_modules/jerobeam_mushroom/jerobeam_mushroom.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "jerobeam_nyquist_shannon",
@@ -935,7 +1344,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamNyquistShannon.h",
       "wasm": "native_modules/jerobeam_nyquist_shannon/jerobeam_nyquist_shannon.wasm",
       "wasmUrl": "native_modules/jerobeam_nyquist_shannon/jerobeam_nyquist_shannon.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "jerobeam_radar",
@@ -948,7 +1362,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamRadar.h",
       "wasm": "native_modules/jerobeam_radar/jerobeam_radar.wasm",
       "wasmUrl": "native_modules/jerobeam_radar/jerobeam_radar.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "jerobeam_spiral",
@@ -961,7 +1380,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamSpiral.h",
       "wasm": "native_modules/jerobeam_spiral/jerobeam_spiral.wasm",
       "wasmUrl": "native_modules/jerobeam_spiral/jerobeam_spiral.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "jerobeam_torus",
@@ -974,7 +1398,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamTorus.h",
       "wasm": "native_modules/jerobeam_torus/jerobeam_torus.wasm",
       "wasmUrl": "native_modules/jerobeam_torus/jerobeam_torus.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "jerobeam_wirdo_spiral",
@@ -987,7 +1416,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/JerobeamWirdoSpiral.h",
       "wasm": "native_modules/jerobeam_wirdo_spiral/jerobeam_wirdo_spiral.wasm",
       "wasmUrl": "native_modules/jerobeam_wirdo_spiral/jerobeam_wirdo_spiral.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "ladder_filter",
@@ -1000,7 +1434,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/LadderFilter.h",
       "wasm": "native_modules/ladder_filter/ladder_filter.wasm",
       "wasmUrl": "native_modules/ladder_filter/ladder_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "linear_attack_release",
@@ -1013,7 +1452,12 @@
       "libUrl": "",
       "wasm": "native_modules/linear_attack_release/linear_attack_release.wasm",
       "wasmUrl": "native_modules/linear_attack_release/linear_attack_release.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "linear_envelope",
@@ -1026,7 +1470,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/envelope/LinearEnvelope.hpp",
       "wasm": "native_modules/linear_envelope/linear_envelope.wasm",
       "wasmUrl": "native_modules/linear_envelope/linear_envelope.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "linkwitz_riley",
@@ -1039,7 +1488,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Scientific/EngineersFilter.h",
       "wasm": "native_modules/linkwitz_riley/linkwitz_riley.wasm",
       "wasmUrl": "native_modules/linkwitz_riley/linkwitz_riley.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "log_spiral",
@@ -1052,7 +1506,12 @@
       "libUrl": "",
       "wasm": "native_modules/log_spiral/log_spiral.wasm",
       "wasmUrl": "native_modules/log_spiral/log_spiral.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "logistic_map",
@@ -1065,7 +1524,12 @@
       "libUrl": "",
       "wasm": "native_modules/logistic_map/logistic_map.wasm",
       "wasmUrl": "native_modules/logistic_map/logistic_map.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "lookahead_limiter",
@@ -1078,7 +1542,12 @@
       "libUrl": "",
       "wasm": "native_modules/lookahead_limiter/lookahead_limiter.wasm",
       "wasmUrl": "native_modules/lookahead_limiter/lookahead_limiter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "lorenz_attractor",
@@ -1091,7 +1560,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/modulator/Attractor.hpp",
       "wasm": "native_modules/lorenz_attractor/lorenz_attractor.wasm",
       "wasmUrl": "native_modules/lorenz_attractor/lorenz_attractor.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "lut_cell",
@@ -1104,7 +1578,12 @@
       "libUrl": "",
       "wasm": "native_modules/lut_cell/lut_cell.wasm",
       "wasmUrl": "native_modules/lut_cell/lut_cell.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "metallic_ratio",
@@ -1117,7 +1596,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Math/Misc/RatioGenerator.h",
       "wasm": "native_modules/metallic_ratio/metallic_ratio.wasm",
       "wasmUrl": "native_modules/metallic_ratio/metallic_ratio.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "mid_side_encode",
@@ -1130,7 +1614,12 @@
       "libUrl": "",
       "wasm": "native_modules/mid_side_encode/mid_side_encode.wasm",
       "wasmUrl": "native_modules/mid_side_encode/mid_side_encode.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "min_max",
@@ -1143,7 +1632,12 @@
       "libUrl": "",
       "wasm": "native_modules/min_max/min_max.wasm",
       "wasmUrl": "native_modules/min_max/min_max.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "mix",
@@ -1156,7 +1650,12 @@
       "libUrl": "",
       "wasm": "native_modules/mix/mix.wasm",
       "wasmUrl": "native_modules/mix/mix.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "mix_stereo",
@@ -1169,7 +1668,12 @@
       "libUrl": "",
       "wasm": "native_modules/mix_stereo/mix_stereo.wasm",
       "wasmUrl": "native_modules/mix_stereo/mix_stereo.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "mode_resonator",
@@ -1182,7 +1686,12 @@
       "libUrl": "",
       "wasm": "native_modules/mode_resonator/mode_resonator.wasm",
       "wasmUrl": "native_modules/mode_resonator/mode_resonator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "noise_generator",
@@ -1195,7 +1704,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/random/NoiseGenerator.hpp",
       "wasm": "native_modules/noise_generator/noise_generator.wasm",
       "wasmUrl": "native_modules/noise_generator/noise_generator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "note_glide",
@@ -1208,7 +1722,12 @@
       "libUrl": "",
       "wasm": "native_modules/note_glide/note_glide.wasm",
       "wasmUrl": "native_modules/note_glide/note_glide.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "note_transpose",
@@ -1221,7 +1740,12 @@
       "libUrl": "",
       "wasm": "native_modules/note_transpose/note_transpose.wasm",
       "wasmUrl": "native_modules/note_transpose/note_transpose.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "papoulis_filter",
@@ -1234,7 +1758,12 @@
       "libUrl": "",
       "wasm": "native_modules/papoulis_filter/papoulis_filter.wasm",
       "wasmUrl": "native_modules/papoulis_filter/papoulis_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "passive_filter",
@@ -1247,7 +1776,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/General/OnePoleFilter.h",
       "wasm": "native_modules/passive_filter/passive_filter.wasm",
       "wasmUrl": "native_modules/passive_filter/passive_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "phase_disperse",
@@ -1260,7 +1794,12 @@
       "libUrl": "",
       "wasm": "native_modules/phase_disperse/phase_disperse.wasm",
       "wasmUrl": "native_modules/phase_disperse/phase_disperse.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "phaser",
@@ -1273,7 +1812,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Filters/Musical/StateVariableFilter.h",
       "wasm": "native_modules/phaser/phaser.wasm",
       "wasmUrl": "native_modules/phaser/phaser.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "phone_tone",
@@ -1286,7 +1830,12 @@
       "libUrl": "",
       "wasm": "native_modules/phone_tone/phone_tone.wasm",
       "wasmUrl": "native_modules/phone_tone/phone_tone.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "phosphillator",
@@ -1299,7 +1848,12 @@
       "libUrl": "",
       "wasm": "native_modules/phosphillator/phosphillator.wasm",
       "wasmUrl": "native_modules/phosphillator/phosphillator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "pi_spigot_noise",
@@ -1312,7 +1866,12 @@
       "libUrl": "",
       "wasm": "native_modules/pi_spigot_noise/pi_spigot_noise.wasm",
       "wasmUrl": "native_modules/pi_spigot_noise/pi_spigot_noise.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "ping_envelope",
@@ -1325,7 +1884,12 @@
       "libUrl": "",
       "wasm": "native_modules/ping_envelope/ping_envelope.wasm",
       "wasmUrl": "native_modules/ping_envelope/ping_envelope.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "ping_pong_delay",
@@ -1338,7 +1902,12 @@
       "libUrl": "",
       "wasm": "native_modules/ping_pong_delay/ping_pong_delay.wasm",
       "wasmUrl": "native_modules/ping_pong_delay/ping_pong_delay.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "pitch_quantizer",
@@ -1351,7 +1920,12 @@
       "libUrl": "",
       "wasm": "native_modules/pitch_quantizer/pitch_quantizer.wasm",
       "wasmUrl": "native_modules/pitch_quantizer/pitch_quantizer.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "pll",
@@ -1364,7 +1938,12 @@
       "libUrl": "",
       "wasm": "native_modules/pll/pll.wasm",
       "wasmUrl": "native_modules/pll/pll.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "pluck_envelope_fb",
@@ -1377,7 +1956,12 @@
       "libUrl": "",
       "wasm": "native_modules/pluck_envelope_fb/pluck_envelope_fb.wasm",
       "wasmUrl": "native_modules/pluck_envelope_fb/pluck_envelope_fb.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "polyblep",
@@ -1390,7 +1974,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/PolyBLEP.hpp",
       "wasm": "native_modules/polyblep/polyblep.wasm",
       "wasmUrl": "native_modules/polyblep/polyblep.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "power_decay",
@@ -1403,7 +1992,12 @@
       "libUrl": "",
       "wasm": "native_modules/power_decay/power_decay.wasm",
       "wasmUrl": "native_modules/power_decay/power_decay.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "pulse_explosion",
@@ -1416,7 +2010,12 @@
       "libUrl": "",
       "wasm": "native_modules/pulse_explosion/pulse_explosion.wasm",
       "wasmUrl": "native_modules/pulse_explosion/pulse_explosion.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "pumping_limiter",
@@ -1429,7 +2028,12 @@
       "libUrl": "",
       "wasm": "native_modules/pumping_limiter/pumping_limiter.wasm",
       "wasmUrl": "native_modules/pumping_limiter/pumping_limiter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "quadrature",
@@ -1442,7 +2046,12 @@
       "libUrl": "",
       "wasm": "native_modules/quadrature/quadrature.wasm",
       "wasmUrl": "native_modules/quadrature/quadrature.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "random_clock",
@@ -1455,7 +2064,12 @@
       "libUrl": "",
       "wasm": "native_modules/random_clock/random_clock.wasm",
       "wasmUrl": "native_modules/random_clock/random_clock.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "random_walk",
@@ -1468,7 +2082,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/random/FlexibleRandomWalk.hpp",
       "wasm": "native_modules/random_walk/random_walk.wasm",
       "wasmUrl": "native_modules/random_walk/random_walk.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "range",
@@ -1481,7 +2100,12 @@
       "libUrl": "",
       "wasm": "native_modules/range/range.wasm",
       "wasmUrl": "native_modules/range/range.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "rapt_elliptic_decimator",
@@ -1494,11 +2118,16 @@
       "libUrl": "",
       "wasm": "native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.wasm",
       "wasmUrl": "native_modules/rapt_elliptic_decimator/rapt_elliptic_decimator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "raster_rgb",
-      "label": "Pixel Grid",
+      "label": "Scan Grid,",
       "targetType": "rasterRgb",
       "kind": "processor",
       "source": "native_modules/raster_rgb/raster_rgb.cpp",
@@ -1507,7 +2136,12 @@
       "libUrl": "",
       "wasm": "native_modules/raster_rgb/raster_rgb.wasm",
       "wasmUrl": "native_modules/raster_rgb/raster_rgb.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "ray_bouncer",
@@ -1520,7 +2154,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rapt/Generators/RayBouncer.h",
       "wasm": "native_modules/ray_bouncer/ray_bouncer.wasm",
       "wasmUrl": "native_modules/ray_bouncer/ray_bouncer.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "resonator_filter",
@@ -1533,7 +2172,12 @@
       "libUrl": "",
       "wasm": "native_modules/resonator_filter/resonator_filter.wasm",
       "wasmUrl": "native_modules/resonator_filter/resonator_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "ring_mod",
@@ -1546,7 +2190,12 @@
       "libUrl": "",
       "wasm": "native_modules/ring_mod/ring_mod.wasm",
       "wasmUrl": "native_modules/ring_mod/ring_mod.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "robin_oscillator",
@@ -1559,7 +2208,12 @@
       "libUrl": "",
       "wasm": "native_modules/robin_oscillator/robin_oscillator.wasm",
       "wasmUrl": "native_modules/robin_oscillator/robin_oscillator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "robin_sinepulse",
@@ -1572,7 +2226,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/unfinished/rosic_MiscUnfinished.h",
       "wasm": "native_modules/robin_sinepulse/robin_sinepulse.wasm",
       "wasmUrl": "native_modules/robin_sinepulse/robin_sinepulse.wasm",
-      "wasmAvailable": false
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "robin_sinepulse_allpass",
@@ -1585,7 +2244,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/unfinished/rosic_MiscUnfinished.h",
       "wasm": "native_modules/robin_sinepulse_allpass/robin_sinepulse_allpass.wasm",
       "wasmUrl": "native_modules/robin_sinepulse_allpass/robin_sinepulse_allpass.wasm",
-      "wasmAvailable": false
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "robin_sinusoid",
@@ -1598,7 +2262,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/generators/rosic_SineOscillator.h",
       "wasm": "native_modules/robin_sinusoid/robin_sinusoid.wasm",
       "wasmUrl": "native_modules/robin_sinusoid/robin_sinusoid.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "robin_supersaw",
@@ -1611,7 +2280,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/Supersaw.hpp",
       "wasm": "native_modules/robin_supersaw/robin_supersaw.wasm",
       "wasmUrl": "native_modules/robin_supersaw/robin_supersaw.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "rotate_3d_to_2d",
@@ -1624,7 +2298,12 @@
       "libUrl": "",
       "wasm": "native_modules/rotate_3d_to_2d/rotate_3d_to_2d.wasm",
       "wasmUrl": "native_modules/rotate_3d_to_2d/rotate_3d_to_2d.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "sabrina_reverb",
@@ -1637,7 +2316,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp-sandbox/tree/master/native_modules/sabrina_reverb/originalcode",
       "wasm": "native_modules/sabrina_reverb/sabrina_reverb.wasm",
       "wasmUrl": "native_modules/sabrina_reverb/sabrina_reverb.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "See notice",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#sabrina-reverb",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "sample_delay",
@@ -1650,7 +2334,12 @@
       "libUrl": "",
       "wasm": "native_modules/sample_delay/sample_delay.wasm",
       "wasmUrl": "native_modules/sample_delay/sample_delay.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "sample_hold",
@@ -1663,7 +2352,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/timer/SampleAndHold.hpp",
       "wasm": "native_modules/sample_hold/sample_hold.wasm",
       "wasmUrl": "native_modules/sample_hold/sample_hold.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "sample_player",
@@ -1676,7 +2370,12 @@
       "libUrl": "",
       "wasm": "native_modules/sample_player/sample_player.wasm",
       "wasmUrl": "native_modules/sample_player/sample_player.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "shooting_star_explosion",
@@ -1689,7 +2388,12 @@
       "libUrl": "",
       "wasm": "native_modules/shooting_star_explosion/shooting_star_explosion.wasm",
       "wasmUrl": "native_modules/shooting_star_explosion/shooting_star_explosion.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "sinc",
@@ -1702,7 +2406,12 @@
       "libUrl": "",
       "wasm": "native_modules/sinc/sinc.wasm",
       "wasmUrl": "native_modules/sinc/sinc.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "sine_warp",
@@ -1715,7 +2424,12 @@
       "libUrl": "",
       "wasm": "native_modules/sine_warp/sine_warp.wasm",
       "wasmUrl": "native_modules/sine_warp/sine_warp.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "sine_wavetable",
@@ -1728,7 +2442,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/SineWavetable.hpp",
       "wasm": "native_modules/sine_wavetable/sine_wavetable.wasm",
       "wasmUrl": "native_modules/sine_wavetable/sine_wavetable.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "slew_limiter",
@@ -1741,7 +2460,12 @@
       "libUrl": "",
       "wasm": "native_modules/slew_limiter/slew_limiter.wasm",
       "wasmUrl": "native_modules/slew_limiter/slew_limiter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "smooth_graph",
@@ -1754,7 +2478,12 @@
       "libUrl": "",
       "wasm": "native_modules/smooth_graph/smooth_graph.wasm",
       "wasmUrl": "native_modules/smooth_graph/smooth_graph.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "snowflake",
@@ -1767,7 +2496,12 @@
       "libUrl": "",
       "wasm": "native_modules/snowflake/snowflake.wasm",
       "wasmUrl": "native_modules/snowflake/snowflake.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "soem_reverb",
@@ -1780,7 +2514,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/delay/Reverb.hpp",
       "wasm": "native_modules/soem_reverb/soem_reverb.wasm",
       "wasmUrl": "native_modules/soem_reverb/soem_reverb.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "soft_clipper",
@@ -1793,7 +2532,30 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/dynamics/SoftClipper.hpp",
       "wasm": "native_modules/soft_clipper/soft_clipper.wasm",
       "wasmUrl": "native_modules/soft_clipper/soft_clipper.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
+    },
+    {
+      "name": "softpop_oscillator",
+      "label": "Softpop Oscillator",
+      "targetType": "softpopOscillator",
+      "kind": "oscillator",
+      "source": "native_modules/softpop_oscillator/softpop_oscillator.cpp",
+      "sourceUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/native_modules/softpop_oscillator/softpop_oscillator.cpp",
+      "localSourceUrl": "/native_modules/softpop_oscillator/softpop_oscillator.cpp",
+      "libUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/SOFTPOP_PLAN.md",
+      "wasm": "native_modules/softpop_oscillator/softpop_oscillator.wasm",
+      "wasmUrl": "native_modules/softpop_oscillator/softpop_oscillator.wasm",
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "softwave",
@@ -1806,7 +2568,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/oscillator/DistortionOscillator.hpp",
       "wasm": "native_modules/softwave/softwave.wasm",
       "wasmUrl": "native_modules/softwave/softwave.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "speaker_protection",
@@ -1819,7 +2586,12 @@
       "libUrl": "",
       "wasm": "native_modules/speaker_protection/speaker_protection.wasm",
       "wasmUrl": "native_modules/speaker_protection/speaker_protection.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "speaker_protector2",
@@ -1832,7 +2604,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/dynamics/EarProtector.hpp",
       "wasm": "native_modules/speaker_protector2/speaker_protector2.wasm",
       "wasmUrl": "native_modules/speaker_protector2/speaker_protector2.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "step_graph",
@@ -1845,7 +2622,12 @@
       "libUrl": "",
       "wasm": "native_modules/step_graph/step_graph.wasm",
       "wasmUrl": "native_modules/step_graph/step_graph.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "superlove_filter",
@@ -1858,7 +2640,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/filter/Superlove.hpp",
       "wasm": "native_modules/superlove_filter/superlove_filter.wasm",
       "wasmUrl": "native_modules/superlove_filter/superlove_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "superlove_rev2",
@@ -1871,7 +2658,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/filter/Superlove.hpp",
       "wasm": "native_modules/superlove_rev2/superlove_rev2.wasm",
       "wasmUrl": "native_modules/superlove_rev2/superlove_rev2.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "surge_oscillator",
@@ -1884,7 +2676,12 @@
       "libUrl": "",
       "wasm": "native_modules/surge_oscillator/surge_oscillator.wasm",
       "wasmUrl": "native_modules/surge_oscillator/surge_oscillator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "tb303_filter",
@@ -1897,7 +2694,12 @@
       "libUrl": "https://github.com/RobinSchmidt/RS-MET/blob/work/Libraries/RobsJuceModules/rosic/filters/rosic_TeeBeeFilter.h",
       "wasm": "native_modules/tb303_filter/tb303_filter.wasm",
       "wasmUrl": "native_modules/tb303_filter/tb303_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "RS-MET (permission)",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md#rs-met",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "transport",
@@ -1910,7 +2712,12 @@
       "libUrl": "",
       "wasm": "native_modules/transport/transport.wasm",
       "wasmUrl": "native_modules/transport/transport.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "trigger_counter",
@@ -1923,7 +2730,12 @@
       "libUrl": "",
       "wasm": "native_modules/trigger_counter/trigger_counter.wasm",
       "wasmUrl": "native_modules/trigger_counter/trigger_counter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "trigger_divider",
@@ -1936,7 +2748,12 @@
       "libUrl": "",
       "wasm": "native_modules/trigger_divider/trigger_divider.wasm",
       "wasmUrl": "native_modules/trigger_divider/trigger_divider.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "tube_saturation",
@@ -1949,7 +2766,12 @@
       "libUrl": "",
       "wasm": "native_modules/tube_saturation/tube_saturation.wasm",
       "wasmUrl": "native_modules/tube_saturation/tube_saturation.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "turing_machine",
@@ -1962,7 +2784,12 @@
       "libUrl": "",
       "wasm": "native_modules/turing_machine/turing_machine.wasm",
       "wasmUrl": "native_modules/turing_machine/turing_machine.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "u2b",
@@ -1975,7 +2802,12 @@
       "libUrl": "",
       "wasm": "native_modules/u2b/u2b.wasm",
       "wasmUrl": "native_modules/u2b/u2b.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "vactrol_envelope",
@@ -1988,7 +2820,12 @@
       "libUrl": "",
       "wasm": "native_modules/vactrol_envelope/vactrol_envelope.wasm",
       "wasmUrl": "native_modules/vactrol_envelope/vactrol_envelope.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "vcvrack_superlove_filter",
@@ -2001,7 +2838,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/filter/Superlove.hpp",
       "wasm": "native_modules/vcvrack_superlove_filter/vcvrack_superlove_filter.wasm",
       "wasmUrl": "native_modules/vcvrack_superlove_filter/vcvrack_superlove_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "vectorscope_transform",
@@ -2014,7 +2856,12 @@
       "libUrl": "",
       "wasm": "native_modules/vectorscope_transform/vectorscope_transform.wasm",
       "wasmUrl": "native_modules/vectorscope_transform/vectorscope_transform.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "vibrato_generator",
@@ -2027,7 +2874,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/modulator/VibratoGenerator.hpp",
       "wasm": "native_modules/vibrato_generator/vibrato_generator.wasm",
       "wasmUrl": "native_modules/vibrato_generator/vibrato_generator.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "video_synth_raster",
@@ -2040,7 +2892,12 @@
       "libUrl": "",
       "wasm": "native_modules/video_synth_raster/video_synth_raster.wasm",
       "wasmUrl": "native_modules/video_synth_raster/video_synth_raster.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "videoscope",
@@ -2053,7 +2910,12 @@
       "libUrl": "",
       "wasm": "native_modules/videoscope/videoscope.wasm",
       "wasmUrl": "native_modules/videoscope/videoscope.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "voice_manager",
@@ -2066,7 +2928,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/plugin/VoiceManager.hpp",
       "wasm": "native_modules/voice_manager/voice_manager.wasm",
       "wasmUrl": "native_modules/voice_manager/voice_manager.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "wall_delay",
@@ -2079,7 +2946,12 @@
       "libUrl": "",
       "wasm": "native_modules/wall_delay/wall_delay.wasm",
       "wasmUrl": "native_modules/wall_delay/wall_delay.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "wavetable_2d",
@@ -2092,7 +2964,12 @@
       "libUrl": "",
       "wasm": "native_modules/wavetable_2d/wavetable_2d.wasm",
       "wasmUrl": "native_modules/wavetable_2d/wavetable_2d.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "wavetable_adsr",
@@ -2105,7 +2982,12 @@
       "libUrl": "",
       "wasm": "native_modules/wavetable_adsr/wavetable_adsr.wasm",
       "wasmUrl": "native_modules/wavetable_adsr/wavetable_adsr.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "wow_and_flutter",
@@ -2118,7 +3000,12 @@
       "libUrl": "https://github.com/soundemote/soemdsp/blob/main/include/soemdsp/modulator/WowAndFlutter.hpp",
       "wasm": "native_modules/wow_and_flutter/wow_and_flutter.wasm",
       "wasmUrl": "native_modules/wow_and_flutter/wow_and_flutter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "MIT",
+      "upstreamLicenseUrl": "https://github.com/soundemote/soemdsp/blob/main/LICENSE",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     },
     {
       "name": "yellowjacket_filter",
@@ -2131,7 +3018,12 @@
       "libUrl": "",
       "wasm": "native_modules/yellowjacket_filter/yellowjacket_filter.wasm",
       "wasmUrl": "native_modules/yellowjacket_filter/yellowjacket_filter.wasm",
-      "wasmAvailable": true
+      "wasmAvailable": true,
+      "license": "Soundemote Noncommercial",
+      "licenseUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE",
+      "upstreamLicense": "",
+      "upstreamLicenseUrl": "",
+      "noticeUrl": "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
     }
   ]
 }

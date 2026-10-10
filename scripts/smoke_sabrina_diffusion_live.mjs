@@ -33,6 +33,7 @@ function setParams(h, diffusionAmount) {
     0.83,
     0.001,
     0,
+    0, // lfoStyle Parabol
   );
 }
 

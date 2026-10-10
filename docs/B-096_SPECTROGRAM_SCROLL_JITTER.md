@@ -1,7 +1,7 @@
 # B-096 — Spectrogram: scroll is uneven (jittery tempo) after GPU shader port
 
 Report ID: B-096  
-Status: open  
+Status: fixed  
 Severity: see  
 Source: user 2026-10-06 (ArchIV), reported by Argi via LibraryCleaner  
 
@@ -28,12 +28,4 @@ Steady, even scroll.
 
 ## Investigation / fix shape
 
-Not started. Logged only; Argi said do not fix now. Docs-only bug report; no code change included.
-
-Possible fixes to evaluate:
-
-- Fractional head offset (sub-texel scroll like the waterfall's `uSub`).
-- A time-based column clock.
-- Check whether the old Canvas2D path had the same quantization and the larger GPU path just makes it visible.
-
-Constraint: app display rule — JS only copies what C++ publishes; no JS scaling and no JS timing invented for audio-derived signals.
+Whole-pixel emit stayed. Leftover hop-time (`scrollDebtSec / secPerBufPx`) is now `uSub`, same leftover-time scroll as Instant Waterfall. No extra clock: hop duration still comes from published hopSize/sampleRate. Past-newest sliver is brightness-0 LUT (`uPlate`). Canvas2D blit uses the same sub-pixel offset. Cache `spectro-sub-1`.

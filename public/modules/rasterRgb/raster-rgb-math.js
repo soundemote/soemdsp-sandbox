@@ -119,6 +119,17 @@ function nodeGraphRasterRgbAsVideo01(value) {
   return n;
 }
 
+function nodeGraphRasterRgbOutPolarityIsBipolar(opts = {}) {
+  const p = opts.polarity;
+  if (p === 1 || p === "1" || p === true) return false;
+  if (typeof p === "string") {
+    const s = p.trim().toLowerCase();
+    if (s === "unipolar") return false;
+    if (s === "bipolar") return true;
+  }
+  return true;
+}
+
 function nodeGraphRasterRgbProcessSample(r, g, b, opts = {}) {
   const bipolar = r < 0 || g < 0 || b < 0 || r > 1 || g > 1 || b > 1;
   let R = bipolar ? nodeGraphRasterRgbAsVideo01(r) : nodeGraphRasterRgbClamp01(r);
@@ -132,10 +143,12 @@ function nodeGraphRasterRgbProcessSample(r, g, b, opts = {}) {
   R = rotated.r;
   G = rotated.g;
   B = rotated.b;
-  return {
-    R,
-    G,
-    B,
-    rgba: 0.2126 * R + 0.7152 * G + 0.0722 * B,
-  };
+  let rgba = 0.2126 * R + 0.7152 * G + 0.0722 * B;
+  if (nodeGraphRasterRgbOutPolarityIsBipolar(opts)) {
+    R = 2 * R - 1;
+    G = 2 * G - 1;
+    B = 2 * B - 1;
+    rgba = 2 * rgba - 1;
+  }
+  return { R, G, B, rgba };
 }

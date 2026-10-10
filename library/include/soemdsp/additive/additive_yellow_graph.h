@@ -39,7 +39,7 @@ static const int kDefaultHarmonics = 32;
 // Sample-accurate Bubble Cutoff strip (matches graph_engine kMaxBlockFrames).
 static const int kCutoffStripMax = 128;
 
-// Optimize Inaudible Harmonics: −80 dBFS linear floor (matches JS).
+// Inaudible
 // −60 was killing quiet upper partials that still add air/sparkle.
 static const float kInaudibleAmp = 0.0001f; // 10^(-80/20)
 
@@ -184,20 +184,17 @@ static inline float clamp_f(float v, float lo, float hi) {
   return (float)soemdsp_maths::clamp((double)v, (double)lo, (double)hi);
 }
 
-// Rational 0…1 map. c∈(−1…+1).
+// Rational map. No range clamp on t or c.
 static inline float skew_rational(float t, float c) {
-  const float x = clamp_f(t, 0.0f, 1.0f);
-  const float skew = clamp_f(c, -0.9999f, 0.9999f);
-  const float cv = skew * x;
-  const float den = 2.0f * cv - skew + 1.0f;
-  if (soemdsp_maths::dsp_fabs((double)den) < 1e-12) return x;
-  return (cv + x) / den;
+  const float cv = c * t;
+  const float den = 2.0f * cv - c + 1.0f;
+  if (soemdsp_maths::dsp_fabs((double)den) < 1e-12) return t;
+  return (cv + t) / den;
 }
 
 // Odd around 0.5. c=0 is identity (linear).
 static inline float skew_bipolar_rational(float t, float c) {
-  const float x = clamp_f(t, 0.0f, 1.0f);
-  const float u = x * 2.0f - 1.0f;
+  const float u = t * 2.0f - 1.0f;
   const float a = u < 0.0f ? -u : u;
   const float r = skew_rational(a, c);
   const float s = u < 0.0f ? -r : r;
@@ -208,25 +205,21 @@ static inline float linear_filter_shape(float t, float skew, int curveMode) {
   return curveMode == 1 ? skew_bipolar_rational(t, skew) : skew_rational(t, -skew);
 }
 
+// Slope
+static inline float slope_gain(float ratio, float slope, float start, float end, float skew, int curveMode) {
+  const float span = end - start > 1e-9f ? end - start : 1e-9f;
+  const float x = clamp_f((ratio - start) / span, 0.0f, 1.0f);
+  return 1.0f - clamp_f(slope, 0.0f, 1.0f) * linear_filter_shape(x, skew, curveMode);
+}
+
 // Exponential 0…1 map. c∈(−1…+1): + = slow start / fast end.
 static inline float skew_exp(float t, float c) {
-  const float x = clamp_f(t, 0.0f, 1.0f);
-  const double k = (double)clamp_f(c, -0.9999f, 0.9999f) * 8.0;
-  if (soemdsp_maths::dsp_fabs(k) < 1e-6) return x;
-  return (float)((soemdsp_maths::dsp_exp(k * (double)x) - 1.0) / (soemdsp_maths::dsp_exp(k) - 1.0));
+  return (float)soemdsp::math::exp_curve01((double)t, (double)c);
 }
 
 // Logarithmic 0…1 map. c∈(−1…+1): + = fast start / slow end.
 static inline float skew_log(float t, float c) {
-  const float x = clamp_f(t, 0.0f, 1.0f);
-  const float s = clamp_f(c, -0.9999f, 0.9999f);
-  if (soemdsp_maths::dsp_fabs((double)s) < 1e-6) return x;
-  if (s > 0.0f) {
-    const double u = (double)s * 8.0;
-    return (float)(soemdsp_maths::dsp_ln(1.0 + u * (double)x) / soemdsp_maths::dsp_ln(1.0 + u));
-  }
-  const double u = (double)(-s) * 8.0;
-  return (float)(1.0 - soemdsp_maths::dsp_ln(1.0 + u * (1.0 - (double)x)) / soemdsp_maths::dsp_ln(1.0 + u));
+  return (float)soemdsp::math::log_curve01((double)t, (double)c);
 }
 
 // Growl Skew Curve: 0 Rational, 1 Exponential, 2 Logarithmic, 3 Linear.
@@ -256,7 +249,7 @@ static inline float bubble_effective_phase_skew(float phaseSkew, float unskew, f
   return skew + (unskew - skew) * cut;
 }
 
-// Waveforms 0–6: Saw / Square / PulseCenter / PulseLeft / PulseRight / Tri / RectSine.
+// Waveforms 0–8: Saw / Square / PulseCenter / PulseLeft / PulseRight / Tri / RectSine / Even / Odd.
 static inline void waveform_partial(
   int waveform, int harmonic, float pwm, float* ampOut, float* phaseOut, float* ratioOut
 ) {
@@ -300,6 +293,14 @@ static inline void waveform_partial(
       amplitude = 1.0f / (float)(h * h);
       phase = odd ? 0.25f : 0.75f;
       break;
+    case 7: // Even
+      amplitude = (h == 1 || !odd) ? 1.0f : 0.0f;
+      phase = 0.0f;
+      break;
+    case 8: // Odd
+      amplitude = odd ? 1.0f : 0.0f;
+      phase = 0.0f;
+      break;
     default:
       amplitude = 1.0f / (float)h;
       phase = odd ? 0.5f : 0.0f;
@@ -315,17 +316,16 @@ static inline void waveform_partial(
   *ratioOut = (float)h;
 }
 
-// Soft Nyquist skirt: full until 0.75·Nyquist, linear 1→0 to Nyquist.
+// Last quarter of the spectrum: full until 0.75·Nyquist, then a straight
+// line to 0 at Nyquist. Above Nyquist is silent.
 static inline float nyquist_amp_gain(float hz, float sampleRate) {
   const float sr = sampleRate > 1.0f ? sampleRate : 1.0f;
-  const float nyquist = 0.5f * sr;
+  const float ny = 0.5f * sr;
   const float f = hz < 0.0f ? -hz : hz;
-  if (!(nyquist > 0.0f) || !(f >= 0.0f)) return 0.0f;
-  if (f >= nyquist) return 0.0f;
-  const float rampStart = 0.75f * nyquist;
-  if (f <= rampStart) return 1.0f;
-  const float denom = nyquist - rampStart > 1e-12f ? (nyquist - rampStart) : 1e-12f;
-  return 1.0f - (f - rampStart) / denom;
+  if (!(f < ny)) return 0.0f;
+  const float start = 0.75f * ny;
+  if (f <= start) return 1.0f;
+  return (ny - f) / (ny - start);
 }
 
 // HarmonicFade: 0 Instant / 1 Smoothed / 2 Decimal.
@@ -401,7 +401,13 @@ inline void build_from_waveform(
   (void)exact; // face uses host params.harmonics; slots are amplitude-scaled
 }
 
-// Seed a new Out phaseAcc slot when H grows.
+static inline bool slot_sounds(const GraphPayload& g, int i) {
+  if (i < 0 || i >= kMaxHarmonics) return false;
+  if (g.hasAmpLerp) return (g.ampFrom[i] > 0.0f) || (g.ampTo[i] > 0.0f);
+  return g.amplitude[i] > 0.0f;
+}
+
+// Seed a new Out phaseAcc slot when H grows, or when Lock unmutes a silent slot.
 // mode 0 lock: (ratio[i]/ratio[0]) * fundPhase — stays harmonic with running bank.
 // mode 1 free: 0 — unlocked entry (the “nice” desync from keeping old phases).
 // mode 2 random: uniform [0,1) via LCG.
@@ -481,7 +487,7 @@ inline void apply_blaster(
   if (kind > 3) kind = 3;
   const bool doInvert = invert >= 0.5f;
   const float depthAmt = (depth * 0.0f == 0.0f) ? depth : 0.0f;
-  const float curveAmt = clamp_f((curve * 0.0f == 0.0f) ? curve : 0.0f, -0.9999f, 0.9999f);
+  const float curveAmt = (curve * 0.0f == 0.0f) ? curve : 0.0f;
   const float offsetAmt = (offset * 0.0f == 0.0f) ? offset : 0.0f;
   const float biasAmt = (bias * 0.0f == 0.0f) ? bias : 0.0f;
   const float jumpAmt = (jump * 0.0f == 0.0f) ? jump : 0.0f;
@@ -592,7 +598,7 @@ inline void apply_bubble(
   const float u = (unskew * 0.0f == 0.0f) ? unskew : 0.0f;
   const float eff = bubble_effective_phase_skew(baseSkew, u, cut);
   const float amount = (eff * 0.0f == 0.0f && eff > 0.0f) ? eff : 0.0f;
-  const float curve = clamp_f(skewAmount, -0.9999f, 0.9999f);
+  const float curve = (skewAmount * 0.0f == 0.0f) ? skewAmount : 0.0f;
   const float edge = cut * (float)H;
   const float H_eff = edge > 1e-12f ? edge : 1e-12f;
   // Sample-accurate path: keep pre-cutoff amps; Out gates with cutoffStrip[i].
@@ -657,12 +663,7 @@ static inline float dsp_exp2_f(float x) {
 
 // FrequencySkew Exp: tighter than Bubble (*8) — k up to ~48.
 static inline float skew_exp_tight(float t, float c) {
-  const float x = clamp_f(t, 0.0f, 1.0f);
-  const float s = clamp_f(c, -0.9999f, 0.9999f);
-  if (soemdsp_maths::dsp_fabs((double)s) < 1e-6) return x;
-  const float k = s * (12.0f + 36.0f * s * s);
-  return (float)((soemdsp_maths::dsp_exp((double)k * (double)x) - 1.0)
-    / (soemdsp_maths::dsp_exp((double)k) - 1.0));
+  return (float)soemdsp::math::exp_curve_tight01((double)t, (double)c);
 }
 
 // Filter mode: 0 LP / 1 BP / 2 HP (matches UI choice order).
@@ -760,7 +761,7 @@ static inline float filter_response_gain_rational(
   const float mag = slope < 0.0f ? -slope : slope;
   const bool reverse = slope < 0.0f;
   const float f = freqHz > 0.0f ? freqHz : 0.0f;
-  const float skewC = clamp_f(skew, -0.9999f, 0.9999f);
+  const float skewC = (skew * 0.0f == 0.0f) ? skew : 0.0f;
   const int cm = curveMode == 1 ? 1 : 0;
   const float halfOct = mag <= 1e-6f ? 0.0f : (0.05f + mag * 5.0f);
 
@@ -1107,7 +1108,7 @@ inline void apply_frequency_skew(
   const float newSpan = newHi - newLo;
   const bool hardHi = skewAmt >= 1.0f - 1e-12f;
   const bool hardLo = skewAmt <= -1.0f + 1e-12f;
-  const float soft = (!hardHi && !hardLo) ? clamp_f(curveArg, -0.9999f, 0.9999f) : 0.0f;
+  const float soft = (!hardHi && !hardLo) ? curveArg : 0.0f;
 
   for (int i = 0; i < H; i += 1) {
     float r = g.ratio[i];
@@ -1572,8 +1573,6 @@ inline void apply_noisy_amp(
 
 // Sum one sample. phaseAcc length ≥ g.harmonics (caller-owned).
 // GraphPayload is non-const so WhiteNoise recipe LCGs advance each sample.
-// optimize!=0: skip sin/pan when amp≤0, below −80 dBFS after master, or hz≥Nyquist
-// (phaseAcc still advances). Soft Nyquist skirt always applied on the audible path.
 // blockFrame/blockFrames: quantum lerp progress within the block.
 inline void sum_sample(
   GraphPayload& g,
@@ -1585,7 +1584,6 @@ inline void sum_sample(
   float* mono,
   float* left,
   float* right,
-  int optimize = 0,
   int blockFrame = 0,
   int blockFrames = 1
 ) {
@@ -1601,11 +1599,8 @@ inline void sum_sample(
 
   const int H = g.harmonics < kMaxHarmonics ? g.harmonics : kMaxHarmonics;
   const float sr = sampleRate > 1.0f ? sampleRate : 1.0f;
-  const float nyquist = 0.5f * sr;
   const float f0 = (frequencyHz * 0.0f == 0.0f) ? frequencyHz : 0.0f;
   const float ma = clamp_f(masterAmp, 0.0f, 1.0f);
-  const bool skipInaudible = optimize != 0;
-  const float hearFloor = skipInaudible ? kInaudibleAmp : 0.0f;
   const int nBlock = blockFrames > 1 ? blockFrames : 1;
   const int fBlock = blockFrame < 0 ? 0 : blockFrame;
   const float lerpT = nBlock <= 1 ? 1.0f : (float)fBlock / (float)(nBlock - 1);
@@ -1629,10 +1624,13 @@ inline void sum_sample(
   }
 
   for (int i = 0; i < H; i += 1) {
+    float aFrom = g.hasAmpLerp ? g.ampFrom[i] : g.amplitude[i];
+    float aTo = g.hasAmpLerp ? g.ampTo[i] : g.amplitude[i];
+    if (!(aFrom * 0.0f == 0.0f)) aFrom = 0.0f;
+    if (!(aTo * 0.0f == 0.0f)) aTo = 0.0f;
     float partialAmp = g.hasAmpLerp
-      ? (g.ampFrom[i] + (g.ampTo[i] - g.ampFrom[i]) * lerpTc)
-      : g.amplitude[i];
-    if (!(partialAmp * 0.0f == 0.0f)) partialAmp = 0.0f;
+      ? (aFrom + (aTo - aFrom) * lerpTc)
+      : aFrom;
     if (sampleCutoff) {
       partialAmp *= harmonic_count_gain(i, cutoffEdge);
     }
@@ -1651,7 +1649,8 @@ inline void sum_sample(
     }
     const float hz = baseRatio * f0;
 
-    // incrementCycles is cycles/sample on the fundamental (same unit as hz/sr).
+    // Always tick phaseAcc so silent / ampLerp-from-0 / Odd zeros stay on the n×ƒ series.
+    // Skipping the tick here caused a permanent 1-sample lag (slope vs 4-partial smoke).
     const double incIn = (incrementCycles == incrementCycles) ? incrementCycles : 0.0;
     const double inc = (double)baseRatio * ((double)f0 / (double)sr + incIn);
     phaseAcc[i] = soemdsp_maths::wrap01(phaseAcc[i] + inc);
@@ -1667,15 +1666,12 @@ inline void sum_sample(
     }
     const float p = wrap01f((float)phaseAcc[i] + wrap01f(partialPhase));
 
-    const float heardAmp = partialAmp * ma;
-    if (skipInaudible && (!(partialAmp > 0.0f) || heardAmp < hearFloor || hz >= nyquist)) {
-      continue;
-    }
+    // Cheap skip: sine + pan only. Odd/Square amp-0 slots and inaudible/Nyquist stay phase-locked.
+    const float nyq = nyquist_amp_gain(hz, sr);
+    const float heardAmp = partialAmp * ma * nyq;
+    if (!(partialAmp > 0.0f) || heardAmp < kInaudibleAmp || !(nyq > 0.0f)) continue;
 
-    const float gain = nyquist_amp_gain(hz, sr);
-    if (gain <= 0.0f) continue;
-
-    const float s = (float)soemdsp_maths::dsp_sin_turns((double)p) * partialAmp * ma * gain;
+    const float s = (float)soemdsp_maths::dsp_sin_turns((double)p) * heardAmp;
     mOut += s;
 
     float pan = g.hasPanLerp

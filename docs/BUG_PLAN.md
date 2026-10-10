@@ -146,7 +146,7 @@ When fixing: mark `fixed`, one-line what changed, run `python scripts\smoke_test
 | B-093 | hear | fixed | Gravity Walker: Seed ignored until Reset / Steps wrap |
 | B-094 | hear | fixed (local, uncommitted) | Curve AR, Curve ADSR, Linear ADSR, Linear AR ignore gate velocity |
 | B-095 | hear | open | Slew: S curve looks like a double S instead of one smooth S |
-| B-096 | see | open | Spectrogram: scroll is uneven (jittery tempo) after GPU shader port |
+| B-096 | see | fixed | Spectrogram: scroll is uneven (jittery tempo) after GPU shader port |
 | B-097 | see | open | Instant Waterfall: blank after WebGL context lost and restored |
 ---
 
@@ -1117,15 +1117,14 @@ ative_modules/polyblep/polyblep.cpp; library/include/soemdsp/math/analog_filter_
 - Fix shape: Not started. Logged only; do not tackle. Docs-only; no code fix in this report.
 
 ### B-096 — Spectrogram: scroll is uneven (jittery tempo) after GPU shader port
-- Status: open
+- Status: fixed
 - Severity: see
 - Source: user 2026-10-06 (ArchIV), reported by Argi via LibraryCleaner
 - Doc: `docs/B-096_SPECTROGRAM_SCROLL_JITTER.md`
-- Files: `public/modules/spectrogram/spectrogram-gl.js` (new), `spectrogram-display.js`.
+- Files: `public/modules/spectrogram/spectrogram-gl.js`, `spectrogram-display.js`.
 - What: After the Spectrogram GPU port (DISPLAY_SHADER_PLAN M1) the scroll alternates slightly fast / slightly slow, like a badly tapped tempo.
-- Likely cause (unconfirmed): whole-pixel column advance per frame (1,2,1,2 or 0,1) when hop/History timing is not a multiple of the frame rate; port did not reuse the waterfall's sub-texel `uSub` scroll.
-- Expected: Steady, even scroll.
-- Fix shape: Not started. Logged only; Argi said do not fix now. Evaluate fractional head offset (`uSub`-style) or time-based column clock; check whether Canvas2D had the same quantization. Respect display rule (JS copies C++ output only; no JS scaling/timing). Docs-only; no code fix in this report.
+- Cause: whole-pixel column advance per frame (1,2,1,2 or 0,1) when hop/History timing is not a multiple of the frame rate.
+- Fix: leftover hop-time as `uSub` (waterfall leftover-time scroll). Cache `spectro-sub-1`.
 ### B-097 — Instant Waterfall: blank after WebGL context lost and restored
 - Status: open
 - Severity: see

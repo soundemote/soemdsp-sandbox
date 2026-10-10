@@ -206,7 +206,7 @@ const css = `
     align-self: stretch;
     background: rgba(0, 0, 0, 0.38);
     border: 0;
-    border-left: 1px solid var(--color-widget-control-border);
+    border-right: 1px solid var(--color-widget-control-border);
     border-radius: 0;
     box-sizing: content-box;
     color: var(--color-widget-hex-ink);
@@ -572,6 +572,25 @@ function findPlaneUV(_h, color) {
   return planeUvFromHsl(color);
 }
 
+function isHbsChannels(ch) {
+  return ch === "hsl" || ch === "hbs";
+}
+
+function hbsToHex(hue, brightness, saturation) {
+  if (typeof nodeGraphHueBrightnessRgb01 === "function") {
+    const rgb = nodeGraphHueBrightnessRgb01(hue, brightness, saturation);
+    const hx = (n) => Math.round(Math.min(1, Math.max(0, Number(n) || 0)) * 255)
+      .toString(16)
+      .padStart(2, "0");
+    return `#${hx(rgb[0])}${hx(rgb[1])}${hx(rgb[2])}`.toUpperCase();
+  }
+  return hslToHex({
+    h: hue,
+    s: saturation * 100,
+    l: brightness * 100,
+  });
+}
+
 function hslLampRgb(hue, u, v) {
   const s = clamp(u, 0, 1);
   const l = clamp(v, 0, 1);
@@ -600,8 +619,8 @@ export class SoundColorWidget {
       this.channels = "bw";
     } else if (options.channels === "hue" || options.hueOnly === true) {
       this.channels = "hue";
-    } else if (options.channels === "hsl") {
-      this.channels = "hsl";
+    } else if (options.channels === "hsl" || options.channels === "hbs") {
+      this.channels = "hbs";
     } else {
       this.channels = "full";
     }
@@ -619,7 +638,7 @@ export class SoundColorWidget {
     // Spectrum left-edge origin. Selected hue is always origin + 180° (center).
     this.hueSampleT = HUE_CENTER_T;
     this.hueOrigin = originForCenteredHue(this.color.h);
-    this.planeUV = this.channels === "hsl"
+    this.planeUV = isHbsChannels(this.channels)
       ? { u: clamp(this.color.s / 100, 0, 1), v: clamp(this.color.l / 100, 0, 1) }
       : findPlaneUV(this.color.h, this.color);
     this.drag = null;
@@ -668,7 +687,12 @@ export class SoundColorWidget {
 
   getColor() {
     const next = enrichedColor(this.color);
-    if (this.pinnedHex) {
+    if (isHbsChannels(this.channels)) {
+      next.hex = this.pinnedHex || hbsToHex(this.color.h, this.color.l / 100, this.color.s / 100);
+      if (typeof nodeGraphHueBrightnessCss === "function") {
+        next.css = nodeGraphHueBrightnessCss(this.color.h, this.color.l / 100, 1, this.color.s / 100);
+      }
+    } else if (this.pinnedHex) {
       next.hex = this.pinnedHex;
     }
     return next;
@@ -683,7 +707,7 @@ export class SoundColorWidget {
       next = { h: 0, s: 0, l: next.l, a: 1 };
     } else if (this.channels === "hue") {
       next = { h: next.h, s: 100, l: 50, a: 1 };
-    } else if (this.channels === "hsl") {
+    } else if (isHbsChannels(this.channels)) {
       next = {
         h: wrapHueDeg(next.h),
         s: clamp(Number(next.s), 0, 100),
@@ -698,7 +722,7 @@ export class SoundColorWidget {
       this.hueSampleT = HUE_CENTER_T;
       this.hueOrigin = originForCenteredHue(this.color.h);
     }
-    if (!options.preservePlaneUV && this.channels === "hsl") {
+    if (!options.preservePlaneUV && isHbsChannels(this.channels)) {
       this.planeUV = { u: this.color.s / 100, v: this.color.l / 100 };
     } else if (!options.preservePlaneUV && this.channels !== "hue") {
       this.planeUV = findPlaneUV(this.color.h, this.color);
@@ -720,7 +744,7 @@ export class SoundColorWidget {
     // normalizeColor clamps 0…360; store wrapped 0…360 for plane/CSS.
     const abs = wrapHueDeg(h);
     const uv = this.planeUV || { u: 0.5, v: 0.5 };
-    if (this.channels === "hsl") {
+    if (isHbsChannels(this.channels)) {
       this.setColor({ h: abs, s: this.color.s, l: this.color.l }, emitChange, {
         preserveHueSample: true,
         preservePlaneUV: true,
@@ -754,8 +778,8 @@ export class SoundColorWidget {
       this.host.innerHTML = `
         <div class="scw-root">
           <span class="scw-label" role="group">
-            <span class="scw-label-text"><span class="scw-label-glyph"></span></span>
             <input class="scw-hex" type="text" spellcheck="false" maxlength="7" autocomplete="off" aria-label="Hex color">
+            <span class="scw-label-text"><span class="scw-label-glyph"></span></span>
             <span class="scw-copy-toast" aria-live="polite"></span>
           </span>
           <button type="button" class="scw-control scw-plane" data-part="plane" aria-label="Color plane">
@@ -780,13 +804,15 @@ export class SoundColorWidget {
     if (glyph) {
       glyph.textContent = titled ? this.label : "";
     }
-    const hex = this.pinnedHex || hslToHex(this.color);
+    const hex = this.pinnedHex || (isHbsChannels(this.channels)
+      ? hbsToHex(this.color.h, this.color.l / 100, this.color.s / 100)
+      : hslToHex(this.color));
     const titleStrip = this.root.querySelector(".scw-label");
     if (titleStrip) {
       // Full-opaque swatch + smart B/W title at ~30% so the color shows through the label.
       const ink = contrastInkForColor(this.color);
       titleStrip.dataset.hex = hex;
-      titleStrip.style.setProperty("--scw-final-color", this.channels === "hsl" && typeof nodeGraphHueBrightnessCss === "function"
+      titleStrip.style.setProperty("--scw-final-color", isHbsChannels(this.channels) && typeof nodeGraphHueBrightnessCss === "function"
         ? nodeGraphHueBrightnessCss(this.color.h, this.color.l / 100, 1, this.color.s / 100)
         : colorCss(this.color));
       titleStrip.style.setProperty("--color-widget-label-ink", ink);
@@ -806,7 +832,7 @@ export class SoundColorWidget {
     const ariaName = titled ? this.label : "Color";
     const plane = this.root.querySelector(".scw-plane");
     if (plane && this.channels !== "hue") {
-      plane.setAttribute("aria-label", this.channels === "hsl"
+      plane.setAttribute("aria-label", isHbsChannels(this.channels)
         ? `${ariaName} saturation and brightness`
         : `${ariaName} saturation and value`);
       plane.style.setProperty("--scw-plane-u", `${(this.planeUV.u * 100).toFixed(2)}%`);
@@ -867,7 +893,7 @@ export class SoundColorWidget {
           const t = v;
           const g = Math.round(t * 255);
           rgb = { r: g, g, b: g };
-        } else if (this.channels === "hsl") {
+        } else if (isHbsChannels(this.channels)) {
           rgb = hslLampRgb(hue, u, v);
         } else {
           rgb = planeRgb(hue, u, v);
@@ -967,7 +993,7 @@ export class SoundColorWidget {
       this.setColor({ h: 0, s: 0, l: Math.round(v * 100) }, true, { preservePlaneUV: true });
       return;
     }
-    if (this.channels === "hsl") {
+    if (isHbsChannels(this.channels)) {
       this.setColor({ h: this.color.h, s: u * 100, l: v * 100 }, true, { preservePlaneUV: true });
       return;
     }
@@ -1028,11 +1054,11 @@ export class SoundColorWidget {
       const h = wrapHueDeg(this.defaultHue);
       this.hueSampleT = HUE_CENTER_T;
       this.hueOrigin = originForCenteredHue(h);
-      if (this.channels === "hue" || this.channels === "hsl") {
+      if (this.channels === "hue" || isHbsChannels(this.channels)) {
         this.setColor({
           h,
-          s: this.channels === "hsl" ? this.color.s : 100,
-          l: this.channels === "hsl" ? this.color.l : 50,
+          s: isHbsChannels(this.channels) ? this.color.s : 100,
+          l: isHbsChannels(this.channels) ? this.color.l : 50,
         }, true, {
           preserveHueSample: true,
           preservePlaneUV: true,
@@ -1047,7 +1073,7 @@ export class SoundColorWidget {
       return;
     }
     if (resetClick && part === "plane" && this.channels !== "hue") {
-      if (this.channels === "hsl") {
+      if (isHbsChannels(this.channels)) {
         this.planeUV = { u: 1, v: 0.5 };
         this.setColor({ h: this.color.h, s: 100, l: 50 }, true, { preservePlaneUV: true });
         return;

@@ -84,8 +84,6 @@ static void dc_strip(float* buf, int n) {
 static double warp_phase(double t, double warp) {
   t = wrap01(t);
   double skew = safe(warp);
-  if (skew > 0.9999) skew = 0.9999;
-  if (skew < -0.9999) skew = -0.9999;
   if (skew == 0.0) return t;
   const double cv = skew * t;
   const double den = 2.0 * cv - skew + 1.0;

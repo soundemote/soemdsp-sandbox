@@ -28,6 +28,8 @@ const NODE_GRAPH_ARP_KEYS_DISPLAY_DEFAULTS = Object.freeze({
   previousColor: nodeGraphArpKeysHueHex(165),
   previousBrightness: 0.28,
   previousFadeSeconds: 0.5,
+  trail: 0.35,
+  ghost: 0.4,
   // Music Player: "square" button is labeled Pill (CSS corner-shape: round).
   cornerShape: "squircle",
   cornerRadius: 0,
@@ -123,6 +125,18 @@ function normalizeNodeGraphArpKeysSettings(settings, defaults = NODE_GRAPH_ARP_K
     ),
     previousBrightness: nodeGraphArpKeysClamp01(src.previousBrightness, d.previousBrightness),
     previousFadeSeconds: nodeGraphArpKeysClampFade(src.previousFadeSeconds, d.previousFadeSeconds),
+    trail: nodeGraphArpKeysClamp01(
+      src.trail != null
+        ? src.trail
+        : (nodeGraphArpKeysClampFade(src.previousFadeSeconds, d.previousFadeSeconds) <= 0 ? 0 : d.trail),
+      d.trail,
+    ),
+    ghost: nodeGraphArpKeysClamp01(
+      src.ghost != null
+        ? src.ghost
+        : (nodeGraphArpKeysClampFade(src.previousFadeSeconds, d.previousFadeSeconds) <= 0 ? 0 : d.ghost),
+      d.ghost,
+    ),
     strokeSaturation: nodeGraphArpKeysClamp01(src.strokeSaturation, 1),
     fontSaturation: nodeGraphArpKeysClamp01(src.fontSaturation, 1),
     inactiveFillSaturation: nodeGraphArpKeysClamp01(src.inactiveFillSaturation, 1),
@@ -172,31 +186,51 @@ function buildNodeGraphArpKeysDisplaySettingsBodyHtml() {
       squareId: "nodeArpKeysCornerSquareButton",
       squircleId: "nodeArpKeysCornerSquircleButton",
       radiusId: "nodeArpKeysCornerRadiusInput",
-      spacingId: "nodeArpKeysEdgeSpacingInput",
+      includeSpacing: false,
     })
     : "";
+  const colorWidgets = [
+    hueRow("Stroke", "strokeBrightness", "strokeColor", 165),
+    hueRow("Font", "fontBrightness", "fontColor", 165),
+    hueRow("Inactive fill", "inactiveFillBrightness", "inactiveFillColor", 0),
+    hueRow("Active fill", "activeFillBrightness", "activeFillColor", 165),
+    hueRow("Inactive text", "inactiveTextBrightness", "inactiveTextColor", 165),
+    hueRow("Active text", "activeTextBrightness", "activeTextColor", 0),
+    hueRow("Previously activated", "previousBrightness", "previousColor", 165),
+  ];
+  const wrapHbs = typeof nodeGraphDisplaySettingsHbsRow === "function"
+    ? nodeGraphDisplaySettingsHbsRow
+    : (cells) => cells.join("");
   return `
     <div class="node-led-display-settings-panel" data-arp-keys-display-settings-panel>
-      ${hueRow("Stroke", "strokeBrightness", "strokeColor", 165)}
       <label class="node-led-settings-row node-sample-waveform-settings-row node-sample-waveform-tune-row">
-        <span>Stroke thickness</span>
+        <span>Padding</span>
+        <span class="node-sample-waveform-control-widgets">
+          <input id="nodeArpKeysEdgeSpacingInput" type="range" min="0" max="1" step="0.01" title="Inset from the face edge. 0 = flush. 1 = half the short side.">
+        </span>
+      </label>
+      <label class="node-led-settings-row node-sample-waveform-settings-row node-sample-waveform-tune-row">
+        <span>Stroke</span>
         <span class="node-sample-waveform-control-widgets">
           <input id="nodeArpKeysStrokeThicknessInput" type="range" min="0" max="1" step="0.01" title="0 = 1px hairline. 1 = the short side of the face. Follows module size, canvas size, and zoom.">
         </span>
       </label>
-      ${hueRow("Font", "fontBrightness", "fontColor", 165)}
-      ${hueRow("Inactive fill", "inactiveFillBrightness", "inactiveFillColor", 0)}
-      ${hueRow("Active fill", "activeFillBrightness", "activeFillColor", 165)}
-      ${hueRow("Inactive text", "inactiveTextBrightness", "inactiveTextColor", 165)}
-      ${hueRow("Active text", "activeTextBrightness", "activeTextColor", 0)}
-      ${hueRow("Previously activated", "previousBrightness", "previousColor", 165)}
+      ${corners}
       <label class="node-led-settings-row node-sample-waveform-settings-row node-sample-waveform-tune-row">
-        <span>Fadeout</span>
+        <span>Ghost</span>
         <span class="node-sample-waveform-control-widgets">
-          <input id="nodeArpKeysFadeSecondsInput" type="range" min="0" max="8" step="0.01" title="Seconds the previously activated fill takes to fade to the inactive fill. 0 is instant.">
+          <input id="nodeArpKeysGhostInput" type="range" min="0" max="1" step="0.01" title="Deposits at full Previously-activated, then super-exp drain. Higher = longer hang. 0 = no ghost pile.">
         </span>
       </label>
-      ${corners}
+      <label class="node-led-settings-row node-sample-waveform-settings-row node-sample-waveform-tune-row">
+        <span>Trail</span>
+        <span class="node-sample-waveform-control-widgets">
+          <input id="nodeArpKeysTrailInput" type="range" min="0" max="1" step="0.01" title="Linear recursive drain of the hot leftover. 0 = wipe. 1 = 4 seconds 1→0. Ghost cannot add to this.">
+        </span>
+      </label>
+      ${wrapHbs(colorWidgets.slice(0, 3))}
+      ${wrapHbs(colorWidgets.slice(3, 6))}
+      ${wrapHbs(colorWidgets.slice(6))}
     </div>`;
 }
 
@@ -247,10 +281,15 @@ function syncNodeGraphArpKeysDisplaySettingsControls(root, settings) {
   if (thickness && document.activeElement !== thickness) {
     thickness.value = String(s.strokeThickness);
   }
-  const fade = root.querySelector?.("#nodeArpKeysFadeSecondsInput")
-    || document.getElementById("nodeArpKeysFadeSecondsInput");
-  if (fade && document.activeElement !== fade) {
-    fade.value = String(s.previousFadeSeconds);
+  const trail = root.querySelector?.("#nodeArpKeysTrailInput")
+    || document.getElementById("nodeArpKeysTrailInput");
+  if (trail && document.activeElement !== trail) {
+    trail.value = String(s.trail);
+  }
+  const ghost = root.querySelector?.("#nodeArpKeysGhostInput")
+    || document.getElementById("nodeArpKeysGhostInput");
+  if (ghost && document.activeElement !== ghost) {
+    ghost.value = String(s.ghost);
   }
   if (typeof syncNodeGraphHueTitleSteppers === "function") {
     syncNodeGraphHueTitleSteppers(root);
@@ -271,12 +310,12 @@ function bindNodeGraphArpKeysDisplaySettingsBody(host) {
     }
   };
   host.addEventListener("input", (event) => {
-    if (event.target?.closest?.("[data-trace-display-field], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput, #nodeArpKeysStrokeThicknessInput, #nodeArpKeysFadeSecondsInput")) {
+    if (event.target?.closest?.("[data-trace-display-field], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput, #nodeArpKeysStrokeThicknessInput, #nodeArpKeysTrailInput, #nodeArpKeysGhostInput")) {
       apply("none", false);
     }
   });
   host.addEventListener("change", (event) => {
-    if (event.target?.closest?.("[data-trace-display-field], [data-trace-display-color], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput, #nodeArpKeysStrokeThicknessInput, #nodeArpKeysFadeSecondsInput")) {
+    if (event.target?.closest?.("[data-trace-display-field], [data-trace-display-color], #nodeArpKeysCornerRadiusInput, #nodeArpKeysEdgeSpacingInput, #nodeArpKeysStrokeThicknessInput, #nodeArpKeysTrailInput, #nodeArpKeysGhostInput")) {
       apply("immediate", true);
     }
   });
@@ -331,10 +370,15 @@ function readNodeGraphArpKeysDisplaySettingsForm(root, current) {
   if (thickness) {
     next.strokeThickness = Number(thickness.value);
   }
-  const fade = panel?.querySelector?.("#nodeArpKeysFadeSecondsInput")
-    || document.getElementById("nodeArpKeysFadeSecondsInput");
-  if (fade) {
-    next.previousFadeSeconds = Number(fade.value);
+  const trail = panel?.querySelector?.("#nodeArpKeysTrailInput")
+    || document.getElementById("nodeArpKeysTrailInput");
+  if (trail) {
+    next.trail = Number(trail.value);
+  }
+  const ghost = panel?.querySelector?.("#nodeArpKeysGhostInput")
+    || document.getElementById("nodeArpKeysGhostInput");
+  if (ghost) {
+    next.ghost = Number(ghost.value);
   }
   const squareOn = panel?.querySelector?.("#nodeArpKeysCornerSquareButton")?.classList.contains("active")
     || document.getElementById("nodeArpKeysCornerSquareButton")?.classList.contains("active");

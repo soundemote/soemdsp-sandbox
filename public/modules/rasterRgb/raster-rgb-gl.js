@@ -30,165 +30,87 @@
 // Fallback: returns false → raster-rgb-display.js keeps the Canvas2D path.
 // The pixel buffer stays on the CPU, so a new / restored context simply
 // re-uploads it on the next present.
+//
+// Present GLSL lives next to the wasm:
+//   native_modules/raster_rgb/raster_rgb.vert.glsl
+//   native_modules/raster_rgb/raster_rgb.{source,blur,down,composite}.frag.glsl
 
 (function initRasterRgbGl(global) {
   const SIGMA_DIRECT = 6; // px; above this, blur at a halved level
-  const MAX_TAPS_RADIUS = 24; // ceil(3 · SIGMA_DIRECT) + margin
+  const MAX_TAPS_RADIUS = 24; // ceil(3 · SIGMA_DIRECT) + margin; must match blur.frag loop
   const MAX_LEVELS = 8;
+  const GLSL_REV = "1";
 
-  const VS = `
-attribute vec2 aPos;
-void main() {
-  gl_Position = vec4(aPos, 0.0, 1.0);
-}
-`;
+  const glsl = {
+    vs: "",
+    source: "",
+    blur: "",
+    down: "",
+    composite: "",
+    promise: null,
+    failed: false,
+  };
 
-  const PRECISION = `
-#ifdef GL_FRAGMENT_PRECISION_HIGH
-precision highp float;
-#else
-precision mediump float;
-#endif
-`;
-
-  // GL rows count up from the bottom: face row y = uFace.y - 1 - row.
-  const SOURCE_FS = `${PRECISION}
-uniform sampler2D uRaw;      // bufW × bufH RGBA8, row 0 = top
-uniform sampler2D uLut;      // 256 × 1, grade LUT in .r
-uniform vec2 uBuf;           // bufW, bufH
-uniform vec2 uFace;          // cw, ch
-uniform vec4 uDest;          // dx, dy, dw, dh (face px, top-left origin)
-uniform float uHue;          // hue shift in cycles, 0 = off
-
-float wrapHue(float n) {
-  return n - floor(n);
-}
-
-float hslChannel(float p, float q, float t) {
-  if (t < 0.0) t += 1.0;
-  if (t > 1.0) t -= 1.0;
-  if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
-  if (t < 0.5) return q;
-  if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
-  return p;
-}
-
-// nodeGraphRasterRgbHueRotate (raster-rgb-math.js).
-vec3 hueRotate(vec3 c, float hShift) {
-  float mx = max(c.r, max(c.g, c.b));
-  float mn = min(c.r, min(c.g, c.b));
-  float l = (mx + mn) * 0.5;
-  float d = mx - mn;
-  float h = 0.0;
-  float s = 0.0;
-  if (d > 1e-9) {
-    s = l > 0.5 ? d / (2.0 - mx - mn) : d / (mx + mn);
-    if (mx == c.r) {
-      h = ((c.g - c.b) / d + (c.g < c.b ? 6.0 : 0.0)) / 6.0;
-    } else if (mx == c.g) {
-      h = ((c.b - c.r) / d + 2.0) / 6.0;
-    } else {
-      h = ((c.r - c.g) / d + 4.0) / 6.0;
+  function glslUrls(fileName) {
+    let embedBase = "";
+    try {
+      const path = String(window.location.pathname || "");
+      const idx = path.indexOf("/soemdsp-sandbox");
+      if (idx >= 0) embedBase = `${path.slice(0, idx)}/soemdsp-sandbox/`;
+    } catch (_error) {
+      embedBase = "";
     }
+    const rel = `native_modules/raster_rgb/${fileName}?v=scan-glsl-${GLSL_REV}`;
+    return [
+      embedBase ? `${embedBase}${rel}` : "",
+      `./${rel}`,
+      `/${rel}`,
+      `/soemdsp-sandbox/${rel}`,
+    ].filter(Boolean);
   }
-  h = wrapHue(h + hShift);
-  if (s <= 0.0) return vec3(l);
-  float q = l < 0.5 ? l * (1.0 + s) : l + s - l * s;
-  float p = 2.0 * l - q;
-  return clamp(vec3(
-    hslChannel(p, q, h + 1.0 / 3.0),
-    hslChannel(p, q, h),
-    hslChannel(p, q, h - 1.0 / 3.0)
-  ), 0.0, 1.0);
-}
 
-float lut(float v) {
-  float i = floor(v * 255.0 + 0.5);
-  return texture2D(uLut, vec2((i + 0.5) / 256.0, 0.5)).r;
-}
-
-void main() {
-  float x = floor(gl_FragCoord.x);
-  float y = uFace.y - 1.0 - floor(gl_FragCoord.y);
-  if (x < uDest.x || x >= uDest.x + uDest.z || y < uDest.y || y >= uDest.y + uDest.w) {
-    gl_FragColor = vec4(0.0);
-    return;
-  }
-  // drawImage, smoothing off: dest pixel centre → floor(source coordinate).
-  // Skia picks the lower texel when the centre lands exactly on a texel
-  // edge; the small bias reproduces that.
-  vec2 t = floor((vec2(x, y) + 0.5 - uDest.xy) * uBuf / uDest.zw - 1.0 / 1024.0);
-  t = clamp(t, vec2(0.0), uBuf - 1.0);
-  vec3 raw = texture2D(uRaw, (t + 0.5) / uBuf).rgb;
-  vec3 c = vec3(lut(raw.r), lut(raw.g), lut(raw.b));
-  if (uHue != 0.0) c = hueRotate(c, uHue);
-  gl_FragColor = vec4(c, 1.0);
-}
-`;
-
-  // One separable Gaussian pass, premultiplied RGBA. Taps outside the valid
-  // range read as transparent; weights normalise over every tap (CSS / Skia
-  // blur). Outputs keep a 1px margin round the level image (the blur of the
-  // transparent surround), so the bilinear upsample fades correctly at the
-  // face edges instead of clamping to the edge texel.
-  const BLUR_FS = `${PRECISION}
-uniform sampler2D uTex;
-uniform vec2 uTexSize;   // allocated input texture size
-uniform float uInOffset; // texel of level pixel 0 in the input (0, or 1 with margin)
-uniform vec2 uInMin;     // valid input range in level px [min, max)
-uniform vec2 uInMax;
-uniform vec2 uAxis;      // (1,0) or (0,1)
-uniform float uSigma;    // px at this level
-uniform float uRadius;   // taps each side
-void main() {
-  vec2 p = gl_FragCoord.xy - 1.0; // output has a 1px margin
-  float inv2s2 = 1.0 / (2.0 * uSigma * uSigma);
-  vec4 sum = vec4(0.0);
-  float wsum = 0.0;
-  for (int k = -${MAX_TAPS_RADIUS}; k <= ${MAX_TAPS_RADIUS}; k++) {
-    float fk = float(k);
-    if (abs(fk) > uRadius) continue;
-    float w = exp(-fk * fk * inv2s2);
-    wsum += w;
-    vec2 q = p + uAxis * fk;
-    if (q.x >= uInMin.x && q.y >= uInMin.y && q.x < uInMax.x && q.y < uInMax.y) {
-      sum += texture2D(uTex, (q + uInOffset) / uTexSize) * w;
+  async function fetchGlsl(fileName) {
+    const urls = glslUrls(fileName);
+    for (let i = 0; i < urls.length; i += 1) {
+      try {
+        const res = await fetch(urls[i], { cache: "no-cache" });
+        if (!res.ok) continue;
+        const text = await res.text();
+        if (text && text.indexOf("void main()") >= 0) return text;
+      } catch (_error) {
+        // next candidate
+      }
     }
+    return "";
   }
-  gl_FragColor = sum / wsum;
-}
-`;
 
-  // 2×2 box: one bilinear tap on the shared corner of the four source texels.
-  const DOWN_FS = `${PRECISION}
-uniform sampler2D uTex;
-uniform vec2 uTexSize;
-void main() {
-  gl_FragColor = texture2D(uTex, (floor(gl_FragCoord.xy) * 2.0 + 1.0) / uTexSize);
-}
-`;
-
-  const COMPOSITE_FS = `${PRECISION}
-uniform sampler2D uImage;   // blurred image (or the sharp source)
-uniform sampler2D uGlow;
-uniform vec2 uImageUv;      // face px → uv: p * uv + off (level scale + margin)
-uniform vec2 uImageOff;
-uniform vec2 uGlowUv;
-uniform vec2 uGlowOff;
-uniform float uGlowAlpha;   // 0 = no glow layer
-uniform vec3 uPlate;
-void main() {
-  vec2 p = gl_FragCoord.xy;
-  vec4 img = texture2D(uImage, p * uImageUv + uImageOff);
-  vec3 c = img.rgb + uPlate * (1.0 - img.a);
-  if (uGlowAlpha > 0.0) {
-    c += uGlowAlpha * texture2D(uGlow, p * uGlowUv + uGlowOff).rgb;
+  function loadGlsl() {
+    if (glsl.promise) return glsl.promise;
+    glsl.promise = (async () => {
+      const vs = await fetchGlsl("raster_rgb.vert.glsl");
+      const source = await fetchGlsl("raster_rgb.source.frag.glsl");
+      const blur = await fetchGlsl("raster_rgb.blur.frag.glsl");
+      const down = await fetchGlsl("raster_rgb.down.frag.glsl");
+      const composite = await fetchGlsl("raster_rgb.composite.frag.glsl");
+      if (!vs || !source || !blur || !down || !composite) {
+        glsl.failed = true;
+        console.warn("[raster-rgb-gl] missing native_modules/raster_rgb/*.glsl");
+        return null;
+      }
+      glsl.vs = vs;
+      glsl.source = source;
+      glsl.blur = blur;
+      glsl.down = down;
+      glsl.composite = composite;
+      global.NODE_GRAPH_RASTER_RGB_GL_SOURCE_FS = source;
+      global.NODE_GRAPH_RASTER_RGB_GL_BLUR_FS = blur;
+      return glsl;
+    })();
+    return glsl.promise;
   }
-  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
-}
-`;
 
-  /** @type {WeakMap<WebGLRenderingContext, object>} */
+  loadGlsl();
+
   const entries = new WeakMap();
   /** Per buffer state: raw + LUT textures (WeakMap: dropped states free them). */
   const stateGpu = new WeakMap();
@@ -210,7 +132,7 @@ void main() {
   }
 
   function link(gl, fsSrc, uniforms) {
-    const vs = compile(gl, gl.VERTEX_SHADER, VS);
+    const vs = compile(gl, gl.VERTEX_SHADER, glsl.vs);
     const fs = compile(gl, gl.FRAGMENT_SHADER, fsSrc);
     if (!vs || !fs) {
       if (vs) gl.deleteShader(vs);
@@ -238,6 +160,11 @@ void main() {
   function entryFor(dev) {
     const gl = dev?.gl;
     if (!gl || gl.isContextLost()) return null;
+    if (glsl.failed) return null;
+    if (!glsl.vs || !glsl.source || !glsl.blur || !glsl.down || !glsl.composite) {
+      loadGlsl();
+      return null;
+    }
     let entry = entries.get(gl);
     if (entry) return entry.ok ? entry : null;
     entry = { ok: false };
@@ -248,10 +175,10 @@ void main() {
         entries.delete(gl);
       }, false);
     }
-    const source = link(gl, SOURCE_FS, ["uRaw", "uLut", "uBuf", "uFace", "uDest", "uHue"]);
-    const blur = link(gl, BLUR_FS, ["uTex", "uTexSize", "uInOffset", "uInMin", "uInMax", "uAxis", "uSigma", "uRadius"]);
-    const down = link(gl, DOWN_FS, ["uTex", "uTexSize"]);
-    const composite = link(gl, COMPOSITE_FS, [
+    const source = link(gl, glsl.source, ["uRaw", "uLut", "uBuf", "uFace", "uDest", "uHue", "uFlipY"]);
+    const blur = link(gl, glsl.blur, ["uTex", "uTexSize", "uInOffset", "uInMin", "uInMax", "uAxis", "uSigma", "uRadius"]);
+    const down = link(gl, glsl.down, ["uTex", "uTexSize"]);
+    const composite = link(gl, glsl.composite, [
       "uImage", "uGlow", "uImageUv", "uImageOff", "uGlowUv", "uGlowOff", "uGlowAlpha", "uPlate",
     ]);
     if (!source || !blur || !down || !composite) return null;
@@ -324,15 +251,17 @@ void main() {
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     const pix = state.pixels;
-    const bytes = pix instanceof Uint8Array ? pix : new Uint8Array(pix.buffer, pix.byteOffset, pix.byteLength);
-    gl.bindTexture(gl.TEXTURE_2D, g.raw);
-    if (g.w !== state.width || g.h !== state.height) {
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, state.width, state.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
-      g.w = state.width;
-      g.h = state.height;
-    } else {
-      // The ingest writes scattered pixels; one sub-upload of the whole plate.
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, state.width, state.height, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
+    if (pix) {
+      const bytes = pix instanceof Uint8Array ? pix : new Uint8Array(pix.buffer, pix.byteOffset, pix.byteLength);
+      gl.bindTexture(gl.TEXTURE_2D, g.raw);
+      if (g.w !== state.width || g.h !== state.height) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, state.width, state.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
+        g.w = state.width;
+        g.h = state.height;
+      } else {
+        // The ingest writes scattered pixels; one sub-upload of the whole plate.
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, state.width, state.height, gl.RGBA, gl.UNSIGNED_BYTE, bytes);
+      }
     }
     const { lut, key } = lutFor(state, grade);
     if (g.lutKey !== key) {
@@ -445,10 +374,17 @@ void main() {
    * the Canvas2D present uses. Returns false when the caller must fall back.
    */
   function nodeGraphRasterRgbGlPresent(state, grade, destCtx, opts) {
-    if (!state?.pixels || !destCtx || !opts) return false;
+    if (!destCtx || !opts) return false;
+    const picTex = opts.sourceTex || null;
+    const picW = opts.sourceW | 0;
+    const picH = opts.sourceH | 0;
+    const usePic = Boolean(picTex) && picW > 0 && picH > 0;
+    if (!usePic && !state?.pixels) return false;
     const cw = opts.cw | 0;
     const ch = opts.ch | 0;
-    if (!state.width || !state.height || !nodeGraphRasterRgbGlUsable(cw, ch)) return false;
+    const bufW = usePic ? picW : (state.width | 0);
+    const bufH = usePic ? picH : (state.height | 0);
+    if (!bufW || !bufH || !nodeGraphRasterRgbGlUsable(cw, ch)) return false;
     const dev = nodeGraphPictureDevice();
     const gl = dev.gl;
     const entry = entryFor(dev);
@@ -465,7 +401,7 @@ void main() {
       // stays inside written (transparent) pixels.
       const W0 = Math.ceil(cw / unit) * unit;
       const H0 = Math.ceil(ch / unit) * unit;
-      const g = syncState(gl, state, grade);
+      const g = syncState(gl, state || { pixels: null, width: bufW, height: bufH }, grade);
 
       gl.disable(gl.DEPTH_TEST);
       gl.disable(gl.BLEND);
@@ -478,14 +414,15 @@ void main() {
       const sp = entry.source;
       gl.useProgram(sp.program);
       gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, g.raw);
+      gl.bindTexture(gl.TEXTURE_2D, usePic ? picTex : g.raw);
       gl.uniform1i(sp.u.uRaw, 0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, g.lut);
       gl.uniform1i(sp.u.uLut, 1);
-      gl.uniform2f(sp.u.uBuf, state.width, state.height);
+      gl.uniform2f(sp.u.uBuf, bufW, bufH);
       gl.uniform2f(sp.u.uFace, cw, ch);
       gl.uniform4f(sp.u.uDest, opts.dx, opts.dy, opts.dw, opts.dh);
+      gl.uniform1f(sp.u.uFlipY, usePic ? 1 : 0);
       const hue = nodeGraphFiniteNumber(grade?.hue);
       const rotate = Math.abs(hue) > 1e-9 && typeof nodeGraphRasterRgbHueRotate === "function";
       gl.uniform1f(sp.u.uHue, rotate ? hue : 0);
@@ -566,6 +503,4 @@ void main() {
 
   global.nodeGraphRasterRgbGlUsable = nodeGraphRasterRgbGlUsable;
   global.nodeGraphRasterRgbGlPresent = nodeGraphRasterRgbGlPresent;
-  global.NODE_GRAPH_RASTER_RGB_GL_SOURCE_FS = SOURCE_FS;
-  global.NODE_GRAPH_RASTER_RGB_GL_BLUR_FS = BLUR_FS;
 })(typeof globalThis !== "undefined" ? globalThis : window);

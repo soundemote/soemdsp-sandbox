@@ -270,7 +270,7 @@ registerNodeGraphChromelessModule("fbmField", {
     category: "noise",
     description:
       "Value-noise fBm field (native WASM). Face and X/Y/Z share one domain mapping "
-      + "(Scroll / Volume). WebGL only presents the mono grid + gradient.",
+      + "(Scroll / Volume). Face is a per-pixel GLSL field; X/Y/Z are three probes.",
     notes: [
       "fbf",
       "LayoutB",

@@ -84,6 +84,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "phosphorLight"
     || formType === "xyPad"
     || formType === "dot"
+    || formType === "vectorRgbFace"
   )) {
     label = "\u26AA Size";
     title = formType === "scope1dTrace"
@@ -102,6 +103,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "lineBurn"
     || formType === "phosphorLight"
     || formType === "xyPad"
+    || formType === "vectorRgbFace"
   )) {
     label = "\uD83D\uDCA1 Bright";
     title = (formType === "scope1dTrace" || formType === "scope2dTrace")
@@ -120,6 +122,7 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     || formType === "lineBurn"
     || formType === "phosphorLight"
     || formType === "xyPad"
+    || formType === "vectorRgbFace"
   )) {
     label = "Pixel density";
     title = "1 = native face buffer. Below 1 = chunky lo-fi grid (nearest-neighbor).";
@@ -211,6 +214,10 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Blur";
     title = "Smoothstep edge softness 0…1 (0 = hard edge, 1 = soft skirt). Baked into the stamp bitmap.";
   }
+  if (formType === "vectorRgbFace" && key === "lineThickness") {
+    label = "Line";
+    title = "Stroke between samples 0…1. 0 = dots only. Raise to fill the path so the beam reads as a line.";
+  }
   if ((formType === "vectorDot" || formType === "pulseDot" || formType === "lcdDot") && key === "dot1Size") {
     label = "Size";
     title = "Dot diameter as a fraction of the face min side.";
@@ -263,13 +270,17 @@ function nodeGraphDisplaySettingsBuildStepperRowHtml(key, formType = null, optio
     label = "Ghost";
     title = "Extreme analog (super-exp) residual hang 0…1 (not brightness). With Trail at 0 this is the full hang algorithm. Bright only sets deposit light.";
   }
+  if (formType === "numberReadout" && key === "ghostBlend") {
+    label = "Ghost blend";
+    title = "0…1 all-8 plate under the live digits, colored with Ghost Gradient stop t=0. Residual hang still uses the full gradient.";
+  }
   if (formType === "numberReadout" && (key === "trail" || key === "residual")) {
     label = "Trail";
     title = "Mix from Ghost-only toward linear, then freeze. 0 = Ghost only; 0.5 = half linear / half Ghost; 0.75 = full linear; 1 = never decay pixels.";
   }
   if (formType === "numberReadout" && key === "burnAmount") {
     label = "Burn ⨯";
-    title = "Residual deposit gain vs LED Bright (default 1). Deposit peak = Bright × this control. 0.5 = half deposit; 2 = double. Live LED light is unchanged.";
+    title = "Deposit energy 0…1 on each number change. 0 = print at 0 brightness (skip). 1 = print at energy 1 (Ghost Gradient stop t=1.0). Live LED Bright is unchanged.";
   }
   if (formType === "numberReadout" && key === "unlitSegments") {
     label = "Ghost";
@@ -412,32 +423,31 @@ function nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml(options = {}) {
   const satField = String(options.satField || nodeGraphHueTitleSatFieldName(stepField));
   return `
     <div
-      class="hue-title-stepper"
-      data-hue-title-stepper
+      class="node-trace-display-hbs-widget"
+      data-hbs-widget
       data-trace-display-control-row
       data-hue-title-step-field="${nodeGraphDisplaySettingsEscapeHtml(stepField)}"
       data-hue-title-sat-field="${nodeGraphDisplaySettingsEscapeHtml(satField)}"
       data-hue-title-color-field="${nodeGraphDisplaySettingsEscapeHtml(colorField)}"${tipAttr}>
-      <button
-        type="button"
-        class="hue-title-stepper-title"
-        data-hue-title-swatch
-        aria-label="${nodeGraphDisplaySettingsEscapeHtml(`${title} hue — drag to change, double-click to type`)}"
-        title="Drag to change hue. Double-click to type. Ctrl-click resets to red.">
-        <span class="hue-title-stepper-label">${nodeGraphDisplaySettingsEscapeHtml(title)}</span>
-      </button>
-      <span class="metadata-stepper-control">
-        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(stepField)}" data-trace-display-step-direction="-1" aria-label="Decrease ${nodeGraphDisplaySettingsEscapeHtml(title)} brightness">-</button>
-        <input type="text" inputmode="${meta.inputmode || "decimal"}" data-trace-display-field="${nodeGraphDisplaySettingsEscapeHtml(stepField)}"${idAttr} readonly value="0.5" aria-label="${nodeGraphDisplaySettingsEscapeHtml(title)} brightness" title="Brightness. Ctrl-click sets 0.5.">
-        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(stepField)}" data-trace-display-step-direction="1" aria-label="Increase ${nodeGraphDisplaySettingsEscapeHtml(title)} brightness">+</button>
-      </span>
-      <span class="metadata-stepper-control">
-        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(satField)}" data-trace-display-step-direction="-1" aria-label="Decrease ${nodeGraphDisplaySettingsEscapeHtml(title)} saturation">-</button>
-        <input type="text" inputmode="decimal" data-trace-display-field="${nodeGraphDisplaySettingsEscapeHtml(satField)}" readonly value="1" aria-label="${nodeGraphDisplaySettingsEscapeHtml(title)} saturation" title="Saturation. Ctrl-click sets 1.">
-        <button type="button" data-trace-display-step-target="${nodeGraphDisplaySettingsEscapeHtml(satField)}" data-trace-display-step-direction="1" aria-label="Increase ${nodeGraphDisplaySettingsEscapeHtml(title)} saturation">+</button>
-      </span>
+      <div
+        class="node-trace-display-color-widget-host"
+        data-trace-display-color-widget="${nodeGraphDisplaySettingsEscapeHtml(colorField)}"
+        data-hbs-channels="hbs"
+        data-hbs-label="${nodeGraphDisplaySettingsEscapeHtml(title)}"
+        role="group"
+        aria-label="${nodeGraphDisplaySettingsEscapeHtml(title)}"></div>
+      <input type="hidden" data-trace-display-field="${nodeGraphDisplaySettingsEscapeHtml(stepField)}"${idAttr} value="0.5">
+      <input type="hidden" data-trace-display-field="${nodeGraphDisplaySettingsEscapeHtml(satField)}" value="1">
       <input type="hidden" data-trace-display-color="${nodeGraphDisplaySettingsEscapeHtml(colorField)}"${colorIdAttr} value="${defaultHex}">
     </div>`;
+}
+
+function nodeGraphDisplaySettingsHbsRow(cells) {
+  const list = (Array.isArray(cells) ? cells : [cells]).filter(Boolean);
+  if (!list.length) {
+    return "";
+  }
+  return `<div class="node-trace-display-hbs-row">${list.join("")}</div>`;
 }
 
 
@@ -475,12 +485,12 @@ function nodeGraphDisplaySettingsBuildPackingToggleRowHtml(keys) {
       className: "node-trace-display-packing-latch",
     };
   });
-  // Clear is always last: restart burn-in / Pixel Grid plate.
+  // Clear is always last: restart burn-in / Scan Grid plate.
   // Multi-select: wipes every display currently targeted by this panel.
   buttons.push({
     label: "Clear",
     title:
-      "Wipe the selected face(s) — phosphor residual or Pixel Grid plate. "
+      "Wipe the selected face(s) — phosphor residual or Scan Grid plate. "
       + "When several modules share this Display Settings panel, clears all of them.",
     id: "nodeTraceDisplayClearPhosphor",
     action: "clearPhosphor",
@@ -601,7 +611,7 @@ function nodeGraphDisplaySettingsColorRowMeta(key, formType = null, options = {}
     aria = "Text Box background color";
     base = { ...base, defaultValue: "#020407" };
   } else if (formType === "rasterRgbFace" && key === "backgroundColor") {
-    aria = "Pixel Grid background color";
+    aria = "Scan Grid background color";
     base = { ...base, defaultValue: "#000000" };
   } else if (formType === "waterfall" && options.xyz && key === "dot1Color") {
     aria = "X";
@@ -938,6 +948,70 @@ function paintNodeGraphStampPreviewCanvas(canvas, settings = {}, side = "", kind
       context.fill();
     }
     canvas.style.imageRendering = density < 0.999 || blur < 0.02 ? "pixelated" : "";
+    return;
+  }
+
+  // LED / LCD / Pulse Dot: draw the SDF stamp into the 96px plate.
+  // Do not size the scratch from the live face buffer — a 5–8px face canvas
+  // made a 5×5 pixelated preview, off-center from GL Y-flip on an odd buf.
+  if (kind === "vectorDot" || kind === "pulseDot" || kind === "lcdDot") {
+    const plateSide = Math.min(plate.width, plate.height);
+    const size01 = nodeGraphStampPreviewUnit(settings.dot1Size ?? settings.size, 0.5);
+    const blur01 = nodeGraphStampPreviewUnit(settings.lineThickness, 0);
+    if (!(size01 > 0)) {
+      fillEmpty();
+      return;
+    }
+    const stampShape = typeof normalizeTraceStampShape === "function"
+      ? normalizeTraceStampShape(settings.shape)
+      : String(settings.shape || "circle");
+    const shapeParam = Math.max(0, Math.min(1, nodeGraphFiniteNumber(
+      settings.shapeParam ?? (stampShape === "oval" ? settings.pill : settings.squircle),
+    )));
+    const stretch = stampShape === "oval" ? shapeParam : 0;
+    const pad = 3;
+    const maxR = Math.max(1, plateSide * 0.5 - pad);
+    const radius = Math.max(1, maxR * size01);
+    const ext = typeof nodeGraphVectorDotStampExtents === "function"
+      ? nodeGraphVectorDotStampExtents(plateSide, plateSide, size01, stretch)
+      : { rx: radius * (1 + stretch * 2), ry: radius };
+    const cx = plate.width * 0.5;
+    const cy = plate.height * 0.5;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = 1;
+    context.imageSmoothingEnabled = density >= 0.999;
+    context.fillStyle = bgHex;
+    context.fillRect(0, 0, plate.width, plate.height);
+    const color = nodeGraphStampPreviewTraceColor(settings, side, kind);
+    const bright = Math.max(0, Math.min(1, nodeGraphFiniteNumber(settings.dot1Brightness ?? settings.brightness, 1)));
+    if (typeof TraceDotSprite !== "undefined" && typeof TraceDotSprite.draw === "function") {
+      if (kind === "lcdDot") {
+        TraceDotSprite.draw(context, cx, cy, radius, blur01, {
+          color,
+          amount: 1,
+          rx: Math.max(1, ext.rx),
+          ry: Math.max(1, ext.ry),
+          shape: stampShape,
+          shapeParam,
+          saturation: nodeGraphFiniteNumber(settings.dot1Saturation ?? settings.colorSaturation, 1),
+        }, bright);
+      } else {
+        const hue = typeof nodeGraphHueDegFromHex === "function"
+          ? nodeGraphHueDegFromHex(color)
+          : 25;
+        TraceDotSprite.draw(context, cx, cy, radius, blur01, {
+          hue,
+          amount: bright,
+          rx: Math.max(1, ext.rx),
+          ry: Math.max(1, ext.ry),
+          shape: stampShape,
+          shapeParam,
+          saturation: nodeGraphFiniteNumber(settings.dot1Saturation ?? settings.colorSaturation, 1),
+        }, 1);
+      }
+    }
+    canvas.style.imageRendering = density < 0.999 ? "pixelated" : "auto";
     return;
   }
 
@@ -1602,42 +1676,31 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     && inkColors.includes("secondaryColor")
     && inkColors.includes("tertiaryColor");
   if (quadInk) {
-    rows.push(`
-      <div class="node-trace-display-lr-row node-trace-display-lr-color-row" data-trace-display-lr-row>
-        <div class="node-trace-display-lr-pair is-quad">
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("backgroundColor", type)}
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type)}
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("secondaryColor", type)}
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("strokeColor", type)}
-        </div>
-      </div>`);
+    rows.push(nodeGraphDisplaySettingsHbsRow([
+      nodeGraphDisplaySettingsBuildColorRowHtml("backgroundColor", type),
+      nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type),
+      nodeGraphDisplaySettingsBuildColorRowHtml("secondaryColor", type),
+      nodeGraphDisplaySettingsBuildColorRowHtml("strokeColor", type),
+    ]));
   } else if (monoInk) {
-    rows.push(`
-      <div class="node-trace-display-lr-row node-trace-display-lr-color-row" data-trace-display-lr-row>
-        <div class="node-trace-display-lr-pair is-xyz">
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("backgroundColor", type)}
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type)}
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("strokeColor", type)}
-        </div>
-      </div>`);
+    rows.push(nodeGraphDisplaySettingsHbsRow([
+      nodeGraphDisplaySettingsBuildColorRowHtml("backgroundColor", type),
+      nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type),
+      nodeGraphDisplaySettingsBuildColorRowHtml("strokeColor", type),
+    ]));
   } else if (xyzColorTriple) {
-    rows.push(`
-      <div class="node-trace-display-lr-row node-trace-display-lr-color-row" data-trace-display-lr-row>
-        <div class="node-trace-display-lr-pair is-xyz">
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type, { xyz: true })}
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("secondaryColor", type, { xyz: true })}
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("tertiaryColor", type, { xyz: true })}
-        </div>
-      </div>`);
+    rows.push(nodeGraphDisplaySettingsHbsRow([
+      nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type, { xyz: true }),
+      nodeGraphDisplaySettingsBuildColorRowHtml("secondaryColor", type, { xyz: true }),
+      nodeGraphDisplaySettingsBuildColorRowHtml("tertiaryColor", type, { xyz: true }),
+    ]));
   } else if (stereoColorPair) {
-    rows.push(`
-      <div class="node-trace-display-lr-row node-trace-display-lr-color-row" data-trace-display-lr-row>
-        <div class="node-trace-display-lr-pair">
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type, { stereo: true })}
-          ${nodeGraphDisplaySettingsBuildColorRowHtml("secondaryColor", type, { stereo: true })}
-        </div>
-      </div>`);
+    rows.push(nodeGraphDisplaySettingsHbsRow([
+      nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type, { stereo: true }),
+      nodeGraphDisplaySettingsBuildColorRowHtml("secondaryColor", type, { stereo: true }),
+    ]));
   }
+  const leftoverColors = [];
   for (const key of inkColors) {
     if ((quadInk || monoInk) && (key === "backgroundColor" || key === "dot1Color" || key === "secondaryColor" || key === "strokeColor")) {
       continue;
@@ -1651,9 +1714,12 @@ function buildNodeGraphInstantTraceDisplaySettingsBodyHtml(type, node, allowKey)
     if (inkHueTitle && key === "dot1Color") {
       continue;
     }
-    rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type, {
+    leftoverColors.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type, {
       stereo: stereoInk,
     }));
+  }
+  if (leftoverColors.length) {
+    rows.push(nodeGraphDisplaySettingsHbsRow(leftoverColors));
   }
   if (
     typeof nodeGraphDisplaySettingsFormTypeUsesGradient === "function"
@@ -1956,6 +2022,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     if (type === "numberReadout" && section === "dot1") {
       continue;
     }
+    if (type === "lcdDot" && section === "dot1") {
+      continue;
+    }
     if ((type === "roundShapeFace" || type === "basicShapeFace" || type === "softwaveOscFace") && section === "dot1") {
       continue;
     }
@@ -2021,8 +2090,9 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
       }
     }
     if (type === "lcdDot" && section === "waterfall") {
+      const lcdDotModule = node?.type === "lcdDot";
       fieldKeys = [
-        "dot1Size",
+        ...(lcdDotModule ? [] : ["dot1Size"]),
         "lineThickness",
         "shapeParam",
         "backgroundBrightness",
@@ -2063,19 +2133,19 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         choiceKeys = [];
         colorKeys = [];
       } else {
-        // Value LED: Digits -> Decimals -> Padding -> Bright -> Ghost -> Trail -> Burn x.
+        // Value LED: Digits -> Decimals -> Padding -> LED -> Background -> Ghost -> Trail -> Burn x.
         fieldKeys = [
           "digits",
           "decimals",
           "facePadding",
           "dot1Brightness",
-          // Sat lives on the shared hue-title LED color row (not a duplicate stepper).
+          "backgroundBrightness",
           "ghost",
+          "ghostBlend",
           "trail",
           "burnAmount",
         ].filter((key) => activeFields.has(key));
-        colorKeys = ["backgroundColor"]
-          .filter((key) => activeColors.has(key));
+        colorKeys = [];
         // Sign UI is showMinus / showPlus toggles (not polarity choice).
         choiceKeys = [];
       }
@@ -2151,6 +2221,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     }
 
     const rows = [];
+    const hbsCells = [];
     // Sync | Clear sit *below* Dot Budget on phosphor faces.
     const packingCandidates = NODE_GRAPH_DISPLAY_PACKING_TOGGLE_KEYS.filter((key) => toggleKeys.includes(key));
     const packingKeys = packingCandidates;
@@ -2158,7 +2229,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     // Preferred order: choices → toggles (except packing) → fields → packing → colors.
     // Spectrogram: one column, one row per control (label | dropdown).
     // Other faces may pack 2+ short choices into a two-column grid.
-    if (type === "spectrogramBurn" || choiceKeys.length < 2) {
+    if (type === "spectrogramBurn" || type === "spectrumLine" || choiceKeys.length < 2) {
       for (const key of choiceKeys) {
         rows.push(nodeGraphDisplaySettingsBuildChoiceRowHtml(key));
       }
@@ -2180,22 +2251,29 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     }
     for (const key of fieldKeys) {
       // Individual Sat steppers are redundant — hue-title row already has Sat.
-      if ((type === "numberReadout" || type === "lcdDot")
+      if ((type === "numberReadout" || type === "lcdDot" || type === "vectorDot" || type === "pulseDot")
         && (key === "backgroundSaturation" || key === "dot1Saturation" || key === "colorSaturation")) {
         continue;
       }
       if (type === "numberReadout" && key === "backgroundBrightness") {
-        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+        const nrBgType = typeof nodeGraphPatchNode === "function"
+          && typeof nodeGraphTraceDisplaySettingsTargetNodeId === "function"
+          ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
+          : null;
+        const lcdPlate = nrBgType === "valueLcd" || nrBgType === "helmholtzPitch";
+        hbsCells.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: "Background",
           stepField: "backgroundBrightness",
           colorField: "backgroundColor",
           formType: type,
           defaultHueHex: typeof nodeGraphHueUnitHex === "function"
-            ? nodeGraphHueUnitHex(typeof nodeGraphValueLcdDefaultHueDeg === "number"
-              ? nodeGraphValueLcdDefaultHueDeg
-              : 82)
-            : "#a2ff00",
-          titleAttr: "LCD plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
+            ? nodeGraphHueUnitHex(lcdPlate
+              ? (typeof nodeGraphValueLcdDefaultHueDeg === "number" ? nodeGraphValueLcdDefaultHueDeg : 82)
+              : 240)
+            : (lcdPlate ? "#a2ff00" : "#0000ff"),
+          titleAttr: lcdPlate
+            ? "LCD plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue."
+            : "LED plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue. Sat is on this row.",
         }));
         continue;
       }
@@ -2205,7 +2283,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
           ? nodeGraphPatchNode(nodeGraphTraceDisplaySettingsTargetNodeId())?.type
           : null;
         const lcdInk = nrNodeType === "valueLcd" || nrNodeType === "helmholtzPitch";
-        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+        hbsCells.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: lcdInk ? "Foreground" : "LED",
           stepField: "dot1Brightness",
           colorField: "dot1Color",
@@ -2222,7 +2300,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         continue;
       }
       if ((type === "vectorDot" || type === "pulseDot" || type === "lcdDot") && key === "backgroundBrightness") {
-        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+        hbsCells.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: type === "lcdDot" ? "Background" : "BG",
           stepField: "backgroundBrightness",
           colorField: "backgroundColor",
@@ -2234,12 +2312,12 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
             : (type === "lcdDot" ? "#a2ff00" : "#0055ff"),
           titleAttr: type === "lcdDot"
             ? "LCD plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue."
-            : "Plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue.",
+            : "Plate brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue. Sat is on this row.",
         }));
         continue;
       }
       if ((type === "vectorDot" || type === "pulseDot" || type === "lcdDot") && key === "dot1Brightness") {
-        rows.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
+        hbsCells.push(nodeGraphDisplaySettingsBuildHueTitleStepperRowHtml({
           title: type === "lcdDot" ? "Foreground" : "Dot",
           stepField: "dot1Brightness",
           colorField: "dot1Color",
@@ -2249,7 +2327,7 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
             : (type === "lcdDot" ? "#00aaff" : "#ff8000"),
           titleAttr: type === "lcdDot"
             ? "LCD ink brightness 0…1 (black → full hue at 0.5 → white). Drag the title to change hue."
-            : "Dot brightness gain 0…1 (black → full hue at 0.5 → white). Signal energy scales this. Drag the title to change hue.",
+            : "Dot brightness gain 0…1 (black → full hue at 0.5 → white). Signal energy scales this. Drag the title to change hue. Sat is on this row.",
         }));
         rows.push(nodeGraphStampPreviewHtml(false, type));
         continue;
@@ -2268,24 +2346,22 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
         lamps.push(["dot", "Dot", "dotHue", "dotBrightness", "dotSaturation"]);
       }
       lamps.push(["background", "Background", "backgroundHue", "backgroundBrightness", "backgroundSaturation"]);
-      const cells = lamps.map(([id, label, hue, bright, sat]) => `
+      hbsCells.push(...lamps.map(([id, label, hue, bright, sat]) => `
           <div class="node-trace-display-hsl-lamp node-trace-display-color-widget-host" data-hsl-lamp="${id}" data-hsl-label="${label}">
             <input type="hidden" data-trace-display-field="${hue}" value="">
             <input type="hidden" data-trace-display-field="${bright}" value="">
             <input type="hidden" data-trace-display-field="${sat}" value="">
-          </div>`).join("");
-      const cols = lamps.length === 3 ? " is-xyz" : "";
-      rows.push(`
-          <div class="node-trace-display-lr-row node-trace-display-lr-color-row" data-hsl-lamp-row>
-            <div class="node-trace-display-lr-pair${cols}">${cells}</div>
-          </div>`);
+          </div>`));
     }
     // Sync | Clear — one row under Dot Budget (1D + 2D phosphor).
     if (packingKeys.length || type === "lineBurn" || type === "scope2d" || type === "xyPad") {
       rows.push(nodeGraphDisplaySettingsBuildPackingToggleRowHtml(packingKeys));
     }
     for (const key of colorKeys) {
-      rows.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type));
+      hbsCells.push(nodeGraphDisplaySettingsBuildColorRowHtml(key, type));
+    }
+    if (hbsCells.length) {
+      rows.push(nodeGraphDisplaySettingsHbsRow(hbsCells));
     }
     // Value LED: Ghost Gradient under Background. Value LCD skips (reflective ink model).
     if (type === "numberReadout" && section === "waterfall"
@@ -2316,25 +2392,28 @@ function buildNodeGraphDisplaySettingsBodyHtml(formType, node = null) {
     if (stereoColors.length) {
       parts.push(
         `<div class="metadata-field-section node-trace-display-stereo-colors-section">${
-          stereoColors.map((key) => nodeGraphDisplaySettingsBuildColorRowHtml(key, type, { stereo: true })).join("")
+          nodeGraphDisplaySettingsHbsRow(
+            stereoColors.map((key) => nodeGraphDisplaySettingsBuildColorRowHtml(key, type, { stereo: true })),
+          )
         }</div>`,
       );
     }
   }
 
   if (type === "value") {
-    parts.push(`<div class="metadata-field-section node-trace-display-value-colors-section"><div class="node-trace-display-lr-pair">${
-      nodeGraphDisplaySettingsBuildColorRowHtml("backgroundColor", type)
-    }${
-      nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type)
-    }</div></div>`);
+    parts.push(`<div class="metadata-field-section node-trace-display-value-colors-section">${
+      nodeGraphDisplaySettingsHbsRow([
+        nodeGraphDisplaySettingsBuildColorRowHtml("backgroundColor", type),
+        nodeGraphDisplaySettingsBuildColorRowHtml("dot1Color", type),
+      ])
+    }</div>`);
   }
 
   if (type === "knobFace" && typeof buildNodeGraphKnobFaceLayersDisplaySettingsHtml === "function") {
     parts.push(buildNodeGraphKnobFaceLayersDisplaySettingsHtml());
   }
 
-  // Pixel Grid: Clear packing row (wipe rolling W×H plate + re-arm ingest).
+  // Scan Grid: Clear packing row (wipe rolling W×H plate + re-arm ingest).
   if (type === "rasterRgbFace") {
     parts.push(
       `<div class="metadata-field-section node-trace-display-packing-section">${

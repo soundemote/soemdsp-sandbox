@@ -67,7 +67,7 @@ NodeLiveAudioProcessor.prototype.compileScopeCapture = function compileScopeCapt
       const nodeId = captureNodeIds[i];
       const captureType = String(this.nodes.get(nodeId)?.type || "");
       // Output Instant Waterfall uses visual-sink L/R rings fed from the
-      // pre-Volume arrival mix — see mixOutputDisplayArrival.
+      // post-Volume mix — see mixOutputDisplayArrival.
       if (captureType === "output") {
         continue;
       }
@@ -161,7 +161,7 @@ NodeLiveAudioProcessor.prototype.captureModuleScopeFrame = function captureModul
         sourceSampleRate: engineRate,
         writeSampleRate: engineRate / visualStride,
       };
-      // Output face: arrival mix (mono folded in, pan applied). Volume is audio-only.
+      // Output face: arrival mix (mono folded in, pan + Volume). Same as speakers.
       const sinkType = String(sink.type || this.nodes.get(sink.nodeId)?.type || "");
       if (sinkType === "output") {
         const mixed = this.mixOutputDisplayArrival?.(sink, (connection) => this.readRuntimePortOutput(
@@ -227,9 +227,18 @@ NodeLiveAudioProcessor.prototype.outputDisplayPanGains = function outputDisplayP
     return { left: Math.cos(p * Math.PI * 0.5), right: 1 };
 };
 
+/** Same mute floor as graph_engine db_to_lin. */
+NodeLiveAudioProcessor.prototype.outputVolumeDbToLin = function outputVolumeDbToLin(db) {
+    const x = Number(db);
+    if (!Number.isFinite(x) || x <= -140) {
+      return 0;
+    }
+    return Math.exp(x * 0.11512925464970229);
+};
+
 /**
  * Output face mix: cables as they arrive, mono summed into both sides, pan
- * applied, Volume NOT applied. Speaker audio stays in native process_output.
+ * and Volume applied — same as native process_output / speakers.
  */
 NodeLiveAudioProcessor.prototype.mixOutputDisplayArrival = function mixOutputDisplayArrival(sink, readConnection) {
     const inputs = sink?.inputs || [];
@@ -251,8 +260,9 @@ NodeLiveAudioProcessor.prototype.mixOutputDisplayArrival = function mixOutputDis
     }
     const node = this.nodes?.get?.(sink?.nodeId);
     const gains = this.outputDisplayPanGains(node?.params?.pan);
-    const left = (monoIn + leftIn) * gains.left;
-    const right = (monoIn + rightIn) * gains.right;
+    const vol = this.outputVolumeDbToLin(node?.params?.volume);
+    const left = (monoIn + leftIn) * gains.left * vol;
+    const right = (monoIn + rightIn) * gains.right * vol;
     return {
       mono: (left + right) * 0.5,
       left,
@@ -260,7 +270,7 @@ NodeLiveAudioProcessor.prototype.mixOutputDisplayArrival = function mixOutputDis
     };
 };
 
-/** Write Output Instant Waterfall rings (pre-Volume L/R and Mono). */
+/** Write Output Instant Waterfall rings (post-Volume L/R and Mono). */
 NodeLiveAudioProcessor.prototype.writeOutputVisualSinkSample = function writeOutputVisualSinkSample(
   sink,
   mono,

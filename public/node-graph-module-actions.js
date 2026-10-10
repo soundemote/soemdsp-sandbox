@@ -2807,6 +2807,15 @@ function toggleNodeGraphModulesEnabledForIds(targetNodeIds, options = {}) {
       ? (nonOutputIds.length > 1 ? "modules enabled" : "module enabled")
       : (nonOutputIds.length > 1 ? "modules disabled" : "module disabled"),
   });
+  if (!wantEnabled && typeof nodeGraphModuleScopeWipeNode === "function") {
+    for (const id of nonOutputIds) {
+      try {
+        nodeGraphModuleScopeWipeNode(id);
+      } catch (_error) {
+        // Best-effort face cold-boot on power-off.
+      }
+    }
+  }
   if (options.configureMenu !== false) {
     configureNodeSceneContextMenu("module");
   }
@@ -3260,8 +3269,14 @@ function openNodeGraphNativeModuleCodeFromContext() {
     }
     return;
   }
-  // Prefer local sandbox paths — GitHub master often lacks branch-only natives
-  // (Ping Envelope, Hypersaw2, …) and 404s as "no code found".
+  // GitHub first (Code). Local sandbox path is fallback if sourceUrl is empty.
+  if (entry.sourceUrl) {
+    nodeGraphOpenUrlInNewTab(entry.sourceUrl);
+    if (typeof setNodeInteractionHelp === "function") {
+      setNodeInteractionHelp(`Opened ${entry.source || entry.sourceUrl}.`);
+    }
+    return;
+  }
   const localHref = typeof nodeGraphLocalSourceHrefForEntry === "function"
     ? nodeGraphLocalSourceHrefForEntry(entry)
     : "";
@@ -3269,13 +3284,6 @@ function openNodeGraphNativeModuleCodeFromContext() {
     nodeGraphOpenUrlInNewTab(localHref);
     if (typeof setNodeInteractionHelp === "function") {
       setNodeInteractionHelp(`Opened local ${entry.source || localHref}.`);
-    }
-    return;
-  }
-  if (entry.sourceUrl) {
-    nodeGraphOpenUrlInNewTab(entry.sourceUrl);
-    if (typeof setNodeInteractionHelp === "function") {
-      setNodeInteractionHelp(`Opened ${entry.source || entry.sourceUrl}.`);
     }
     return;
   }

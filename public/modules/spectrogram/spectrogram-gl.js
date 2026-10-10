@@ -43,6 +43,8 @@ uniform sampler2D uMeta;   // RGBA float, 2 texels per column
 uniform sampler2D uLut;    // RGBA8, 256 x uLutRows
 uniform vec2 uSize;        // buffer W (= ring rows), H
 uniform float uHead;       // ring row of the oldest (leftmost) column
+uniform float uSub;        // leftover hop-time in buffer pixels [0,1)
+uniform vec3 uPlate;       // brightness-0 LUT (right sliver while uSub > 0)
 uniform float uRingTexW;   // texels per ring row
 uniform float uLutRows;
 
@@ -95,7 +97,14 @@ float grade01(float x, float contrast, float brightness) {
 }
 
 void main() {
-  float px = floor(gl_FragCoord.x);
+  // Same leftover-time scroll as Instant Waterfall uSub: hop duration stays
+  // in seconds; the remainder of one buffer pixel slides the plate left.
+  float x = gl_FragCoord.x + uSub;
+  if (x >= uSize.x) {
+    gl_FragColor = vec4(uPlate, 1.0);
+    return;
+  }
+  float px = floor(x);
   // GL rows count up from the bottom; face row 0 is the top.
   float yTop = uSize.y - 1.0 - floor(gl_FragCoord.y);
   float row = mod(px + uHead, uSize.x);
@@ -215,6 +224,8 @@ void main() {
       uLut: gl.getUniformLocation(program, "uLut"),
       uSize: gl.getUniformLocation(program, "uSize"),
       uHead: gl.getUniformLocation(program, "uHead"),
+      uSub: gl.getUniformLocation(program, "uSub"),
+      uPlate: gl.getUniformLocation(program, "uPlate"),
       uRingTexW: gl.getUniformLocation(program, "uRingTexW"),
       uLutRows: gl.getUniformLocation(program, "uLutRows"),
     };
@@ -545,7 +556,7 @@ void main() {
    * copy that rect onto the face. Returns false when the caller must use the
    * Canvas2D path instead.
    */
-  function spectrogramGlRingPresent(ring, bufW, bufH, destCtx, destW, destH) {
+  function spectrogramGlRingPresent(ring, bufW, bufH, destCtx, destW, destH, subPx, plateRgb) {
     if (!ring || !destCtx) return false;
     const w = bufW | 0;
     const h = bufH | 0;
@@ -577,6 +588,15 @@ void main() {
     gl.uniform1i(entry.u.uLut, 2);
     gl.uniform2f(entry.u.uSize, w, h);
     gl.uniform1f(entry.u.uHead, ring.head);
+    const sub = Number(subPx);
+    gl.uniform1f(entry.u.uSub, Number.isFinite(sub) && sub > 0 ? Math.min(0.999, sub) : 0);
+    const pr = plateRgb && plateRgb.length >= 3 ? plateRgb : [0, 0, 0];
+    gl.uniform3f(
+      entry.u.uPlate,
+      nodeGraphFiniteNumber(pr[0]),
+      nodeGraphFiniteNumber(pr[1]),
+      nodeGraphFiniteNumber(pr[2]),
+    );
     gl.uniform1f(entry.u.uRingTexW, ring.stride / 4);
     gl.uniform1f(entry.u.uLutRows, LUT_ROWS);
     gl.drawArrays(gl.TRIANGLES, 0, 6);

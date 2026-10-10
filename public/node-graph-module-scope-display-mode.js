@@ -235,6 +235,7 @@ function nodeGraphModuleDisplayTypeHasLocalSettings(displayType) {
     "xyPad",
     "spectrogramBurn",
     "videoscopeBurn",
+    "spectrumLine",
     "oscilloscopeBankBurn",
     // Hypersaw / Hypersaw2 / RobinSupersaw face — line thickness only.
     "hypersawBurn",

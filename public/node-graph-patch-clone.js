@@ -431,6 +431,12 @@ function cloneNodeGraphTypedDisplaySettings(node) {
       return typeof normalizeNodeGraphXyPadDisplaySettings === "function"
         ? { traceDisplaySettings: normalizeNodeGraphXyPadDisplaySettings(bag) }
         : { traceDisplaySettings: bag || {} };
+    case "spectrumLine":
+      return {
+        traceDisplaySettings: typeof normalizeNodeGraphSpectrumLineSettings === "function"
+          ? normalizeNodeGraphSpectrumLineSettings(bag, node)
+          : (bag || {}),
+      };
     case "spectrogramBurn": {
       const merged = { ...(bag || {}) };
       if (merged.fftSize == null && node.params?.fftSize != null) {

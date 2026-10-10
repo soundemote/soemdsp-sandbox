@@ -44,13 +44,11 @@ static SineWarpState gPool[kMaxInstances];
 
 // soemdsp::math::poly_blep / poly_blamp.
 
-// wavetable2d warp_phase / project rational_curve01 (s clamped ±0.9999).
+// wavetable2d warp_phase / project rational_curve01. No skew clamp.
 static inline double warp_phase(double t, double warp) {
   t = wrap01(t);
   double s = warp;
   if (is_nan(s)) s = 0.0;
-  if (s > 0.9999) s = 0.9999;
-  if (s < -0.9999) s = -0.9999;
   if (s == 0.0) return t;
   // warp(t,s) = t(1+s) / (1-s+2*s*t)
   const double den = 1.0 - s + 2.0 * s * t;
@@ -63,8 +61,6 @@ static inline double warp_prime(double t, double warp) {
   t = wrap01(t);
   double s = warp;
   if (is_nan(s)) s = 0.0;
-  if (s > 0.9999) s = 0.9999;
-  if (s < -0.9999) s = -0.9999;
   if (s == 0.0) return 1.0;
   const double den = 1.0 - s + 2.0 * s * t;
   const double d2 = den * den;

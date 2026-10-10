@@ -642,11 +642,6 @@ NodeLiveAudioProcessor.prototype._setPlanImpl = function _setPlanImpl(plan, mess
         if (!ids.has(id)) this.stftBlurStates.delete(id);
       }
     }
-    if (this.softpopOscillatorStates) {
-      for (const id of [...this.softpopOscillatorStates.keys()]) {
-        if (!ids.has(id)) this.softpopOscillatorStates.delete(id);
-      }
-    }
     for (const id of [...this.yellowjacketFilterStates.keys()]) {
       if (!ids.has(id)) {
         this.destroyStereoFilterNativeState(this.yellowjacketFilterStates.get(id), (s) => this.destroyYellowjacketFilterNativeState(s));

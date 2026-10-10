@@ -19,6 +19,7 @@
 #include <soemdsp/debug/debug.h>
 #include <soemdsp/math/scalar_helpers.h>
 #include <soemdsp/math/noise.h>
+#include <soemdsp/math/noise_colors.h>
 #include <soemdsp/math/seed.h>
 #include <soemdsp/math/poly_blep.h>
 #include <soemdsp/math/midi_hz.h>
@@ -31,6 +32,7 @@
 #include <soemdsp/math/analog_filter_trig.h>
 #include <soemdsp/math/pan.h>
 #include <soemdsp/filter/scientific_iir.h>
+#include <soemdsp/filter/tpt_svf.h>
 #include <soemdsp/additive/additive_yellow_graph.h>
 #include <soemdsp/musical/musical_pitch.h>
 #include <soemdsp/musical/polyphony_voices.h>

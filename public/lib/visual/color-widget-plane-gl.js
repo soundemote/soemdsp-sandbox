@@ -163,7 +163,7 @@ void main() {
 
     let mode = 0;
     const ch = String(channels || "full");
-    if (ch === "hsl") mode = 1;
+    if (ch === "hsl" || ch === "hbs") mode = 1;
     else if (ch === "bw") mode = 2;
 
     const gl = device.gl;

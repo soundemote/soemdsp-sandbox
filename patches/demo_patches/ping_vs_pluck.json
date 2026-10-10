@@ -121,8 +121,7 @@
     "category": "",
     "description": "",
     "emoji": "",
-    "program": 0,
-    "tags": "circle"
+    "program": 0
   },
   "masterSeed": 29063448,
   "modularOnlyControlsVisible": false,
@@ -1008,7 +1007,7 @@
         }
       },
       "params": {
-        "offset": -1,
+        "offset": 1,
         "displaySource": 0
       },
       "type": "toggleButton",
@@ -1375,9 +1374,9 @@
         }
       },
       "params": {
-        "model": "Short",
+        "model": "Long",
         "recalculateOnTrigger": 1,
-        "attack": 0,
+        "attack": 0.00003442843400150908,
         "decay": 1,
         "amplitude": 1
       },
@@ -1560,7 +1559,7 @@
         }
       },
       "params": {
-        "mode": 1
+        "mode": 0
       },
       "type": "ampCurve",
       "alias": "Out → amplitude",

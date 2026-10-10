@@ -93,6 +93,9 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   pluckEnvelope: "silence",
   pingEnvelope: "silence",
   powerDecay: "silence",
+  exponentialSkew: "silence",
+  hyperbolicDecay: "silence",
+  exponentialMix: "silence",
   flowerChildEnvelopeFollower: "silence",
   vactrol: "silence",
   // Generators / sequencers → mute
@@ -155,6 +158,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   noiseGenerator: "silence",
   piSpigotNoise: "silence",
   fractalBrownianNoise: "silence",
+  fbmField: "silence",
   samplePlayer: "silence",
   wavetable2d: "silence",
   sampleLooper: "silence",
@@ -229,6 +233,7 @@ const NODE_GRAPH_BYPASS_TYPE_OVERRIDES = Object.freeze({
   pitchQuantizer: "pass",
   // Analyzer Thru
   spectrogram: "pass",
+  spectrum1d: "pass",
   vectorRgb: "pass",
   rasterRgb: "pass",
   gradientVectorscope: "pass",

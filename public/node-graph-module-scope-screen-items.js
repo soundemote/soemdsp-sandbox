@@ -340,7 +340,7 @@ function nodeGraphModuleScopeScreenItems(workspace, canvas, pixelRatio) {
           } else if (selfPaint === "pluginSliderFace" && typeof paintNodeGraphSliderFaceLive === "function") {
             paintNodeGraphSliderFaceLive(slot.scopeElement, slot.nodeId, null);
           } else if (selfPaint === "rasterRgbFace" || slot?.type === "rasterRgb") {
-            // Pixel Grid paints after the Simulation FPS gate — not on collect.
+            // Scan Grid paints after the Simulation FPS gate — not on collect.
           } else if (
             selfPaint === "waterfall"
             || selfPaint === "dot"

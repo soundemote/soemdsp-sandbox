@@ -22,6 +22,43 @@ NATIVE_MODULE_HEADER_RE = re.compile(
     r"^\s*//\s*soemdsp-native-([a-zA-Z0-9_-]+)\s*:\s*(.*?)\s*$"
 )
 
+SANDBOX_LICENSE = "Soundemote Noncommercial"
+SANDBOX_LICENSE_URL = (
+    "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE"
+)
+NOTICE_URL = (
+    "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
+)
+SOEMDSP_LICENSE_URL = (
+    "https://github.com/soundemote/soemdsp/blob/main/LICENSE"
+)
+
+
+def license_fields_for_module(headers: dict[str, str], lib_url: str, module_name: str) -> dict[str, str]:
+    """Short Module Settings labels + links. Header keys override URL-derived defaults."""
+    license_label = headers.get("license") or SANDBOX_LICENSE
+    license_url = headers.get("license-url") or SANDBOX_LICENSE_URL
+    upstream = headers.get("upstream-license") or ""
+    upstream_url = headers.get("upstream-license-url") or ""
+    if not upstream and lib_url:
+        if "soundemote/soemdsp/" in lib_url:
+            upstream = "MIT"
+            upstream_url = upstream_url or SOEMDSP_LICENSE_URL
+        elif "RobinSchmidt/RS-MET" in lib_url:
+            upstream = "RS-MET (permission)"
+            upstream_url = upstream_url or f"{NOTICE_URL}#rs-met"
+        elif "soemdsp-sandbox" in lib_url and "originalcode" in lib_url:
+            anchor = module_name.replace("_", "-")
+            upstream = "See notice"
+            upstream_url = upstream_url or f"{NOTICE_URL}#{anchor}"
+    return {
+        "license": license_label,
+        "licenseUrl": license_url,
+        "upstreamLicense": upstream,
+        "upstreamLicenseUrl": upstream_url,
+        "noticeUrl": NOTICE_URL,
+    }
+
 
 def native_module_entry_from_source(source_path: Path) -> dict[str, object] | None:
     headers: dict[str, str] = {}
@@ -38,7 +75,8 @@ def native_module_entry_from_source(source_path: Path) -> dict[str, object] | No
     wasm_path = source_path.with_suffix(".wasm")
     relative_source = source_path.relative_to(ROOT).as_posix()
     relative_wasm = wasm_path.relative_to(ROOT).as_posix()
-    return {
+    lib_url = headers.get("lib") or ""
+    entry: dict[str, object] = {
         "name": name,
         "label": label,
         "targetType": target_type,
@@ -46,11 +84,13 @@ def native_module_entry_from_source(source_path: Path) -> dict[str, object] | No
         "source": relative_source,
         "sourceUrl": f"https://github.com/soundemote/soemdsp-sandbox/blob/master/{relative_source}",
         "localSourceUrl": f"/{relative_source}",
-        "libUrl": headers.get("lib") or "",
+        "libUrl": lib_url,
         "wasm": relative_wasm,
         "wasmUrl": relative_wasm,
         "wasmAvailable": wasm_path.exists(),
     }
+    entry.update(license_fields_for_module(headers, lib_url, name))
+    return entry
 
 
 def main() -> None:

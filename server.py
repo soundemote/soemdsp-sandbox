@@ -598,7 +598,8 @@ class SandboxServer(BaseHTTPRequestHandler):
         # localSourceUrl is same-origin so the Code button works for natives
         # that exist locally but are not on GitHub master yet.
         local_source = f"/{relative_source}"
-        return {
+        lib_url = headers.get("lib") or ""
+        entry: dict[str, object] = {
             "name": name,
             "label": label,
             "targetType": target_type,
@@ -606,10 +607,49 @@ class SandboxServer(BaseHTTPRequestHandler):
             "source": relative_source,
             "sourceUrl": f"https://github.com/soundemote/soemdsp-sandbox/blob/master/{relative_source}",
             "localSourceUrl": local_source,
-            "libUrl": headers.get("lib") or "",
+            "libUrl": lib_url,
             "wasm": relative_wasm,
             "wasmUrl": relative_wasm,
             "wasmAvailable": wasm_path.exists(),
+        }
+        entry.update(self.native_module_license_fields(headers, lib_url, name))
+        return entry
+
+    def native_module_license_fields(
+        self, headers: dict[str, str], lib_url: str, module_name: str
+    ) -> dict[str, str]:
+        """Short Module Settings labels + links. Mirrors generate_native_modules_catalog.py."""
+        sandbox_license = "Soundemote Noncommercial"
+        sandbox_license_url = (
+            "https://github.com/soundemote/soemdsp-sandbox/blob/master/LICENSE"
+        )
+        notice_url = (
+            "https://github.com/soundemote/soemdsp-sandbox/blob/master/docs/THIRD_PARTY.md"
+        )
+        soemdsp_license_url = (
+            "https://github.com/soundemote/soemdsp/blob/main/LICENSE"
+        )
+        license_label = headers.get("license") or sandbox_license
+        license_url = headers.get("license-url") or sandbox_license_url
+        upstream = headers.get("upstream-license") or ""
+        upstream_url = headers.get("upstream-license-url") or ""
+        if not upstream and lib_url:
+            if "soundemote/soemdsp/" in lib_url:
+                upstream = "MIT"
+                upstream_url = upstream_url or soemdsp_license_url
+            elif "RobinSchmidt/RS-MET" in lib_url:
+                upstream = "RS-MET (permission)"
+                upstream_url = upstream_url or f"{notice_url}#rs-met"
+            elif "soemdsp-sandbox" in lib_url and "originalcode" in lib_url:
+                anchor = module_name.replace("_", "-")
+                upstream = "See notice"
+                upstream_url = upstream_url or f"{notice_url}#{anchor}"
+        return {
+            "license": license_label,
+            "licenseUrl": license_url,
+            "upstreamLicense": upstream,
+            "upstreamLicenseUrl": upstream_url,
+            "noticeUrl": notice_url,
         }
 
     def serve_native_modules(self) -> None:

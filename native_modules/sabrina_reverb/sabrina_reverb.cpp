@@ -1,7 +1,7 @@
 // soemdsp-native-module: sabrina_reverb
 // soemdsp-native-label: Sabrina Reverb
 // soemdsp-native-target: reverbEffect
-// soemdsp-native-kind: effect
+// soemdsp-native-kind: effect
 // soemdsp-native-lib: https://github.com/soundemote/soemdsp-sandbox/tree/master/native_modules/sabrina_reverb/originalcode
 // Reference VST sources: native_modules/sabrina_reverb/originalcode/{Sabrina.cpp,Sabrina.h}
 
@@ -78,6 +78,8 @@ struct SabrinaDelay {
   // Stored random values so applyDelayGeometry can reuse them without advancing the RNG
   double rndOffset;
   double rndMod;
+  unsigned int fbmSeed;
+  int lfoStyle; // 0 Parabol (original), 1 FBM
 };
 
 struct SabrinaState {
@@ -102,6 +104,7 @@ struct SabrinaState {
   double lfoAmplitude;
   double lfoBaseSpeed;
   double lfoVariation;
+  int lfoStyle; // 0 Parabol (original), 1 FBM
   int seed;
   // Ramped copies of the params that feed delay-line offsets/LFO speed --
   // advanced one step per sample in advanceSabrinaSmoothing so the geometry
@@ -160,6 +163,8 @@ void initializeDelay(SabrinaDelay& delay, int seed, double sampleRate) {
   delay.rndMod = rnd(delay);
   delay.modInc = 0.0;
   delay.lfopercent = 0.0;
+  delay.lfoStyle = 0;
+  delay.fbmSeed = seed_to_rng_state((unsigned int)seed);
   setOffsetSize(delay, 0.06, sampleRate * 4.0);
   initializeMod(delay, 1.0, 0.001, sampleRate);
 }
@@ -178,10 +183,17 @@ double readDelay(const SabrinaDelay& delay, double where) {
   return delay.buffer[before] * (1.0 - mix) + delay.buffer[after] * mix;
 }
 
+double sabrinaModUni(SabrinaDelay& delay) {
+  delay.modInc += delay.modSpeed;
+  if (delay.lfoStyle == 1) {
+    return fbm1d(delay.modInc, 4, 0.5, 1.0, delay.fbmSeed);
+  }
+  return parabol(delay.modInc) * 0.5 + 0.5;
+}
+
 double delaySample(SabrinaDelay& delay, double input) {
   const double safeInput = finite(input) ? input : 0.0;
-  delay.modInc += delay.modSpeed;
-  const double lfo = parabol(delay.modInc) * 0.5 + 0.5;
+  const double lfo = sabrinaModUni(delay);
   const double readPosition = delay.driver - delay.offset - delay.offset * lfo * delay.lfopercent;
   delay.driver = (delay.driver + 1) % kMaxDelaySamples;
   const double delayed = readDelay(delay, readPosition);
@@ -191,8 +203,7 @@ double delaySample(SabrinaDelay& delay, double input) {
 
 double diffuseSample(SabrinaDelay& delay, double input) {
   const double safeInput = finite(input) ? input : 0.0;
-  delay.modInc += delay.modSpeed;
-  const double lfo = parabol(delay.modInc) * 0.5 + 0.5;
+  const double lfo = sabrinaModUni(delay);
   const double readPosition = delay.driver - delay.offset - delay.offset * lfo * delay.lfopercent;
   delay.driver = (delay.driver + 1) % kMaxDelaySamples;
   const double delayed = readDelay(delay, readPosition);
@@ -223,18 +234,37 @@ v128_t parabolPairSimd(v128_t value) {
 // single vector load that could touch both. What vectorizes is the
 // arithmetic around it: the modulation increment, the parabol/LFO calc, the
 // read-position calc, and (for diffusion) the feedback combine.
+void sabrinaModUniPair(SabrinaDelay& delayL, SabrinaDelay& delayR, double& lfoL, double& lfoR) {
+  delayL.modInc += delayL.modSpeed;
+  delayR.modInc += delayR.modSpeed;
+  if (delayL.lfoStyle == 1 || delayR.lfoStyle == 1) {
+    lfoL = delayL.lfoStyle == 1
+      ? fbm1d(delayL.modInc, 4, 0.5, 1.0, delayL.fbmSeed)
+      : parabol(delayL.modInc) * 0.5 + 0.5;
+    lfoR = delayR.lfoStyle == 1
+      ? fbm1d(delayR.modInc, 4, 0.5, 1.0, delayR.fbmSeed)
+      : parabol(delayR.modInc) * 0.5 + 0.5;
+    return;
+  }
+  const v128_t modInc = wasm_f64x2_make(delayL.modInc, delayR.modInc);
+  const v128_t lfo = wasm_f64x2_add(
+    wasm_f64x2_mul(parabolPairSimd(modInc), wasm_f64x2_splat(0.5)),
+    wasm_f64x2_splat(0.5)
+  );
+  double lanes[2];
+  wasm_v128_store(lanes, lfo);
+  lfoL = lanes[0];
+  lfoR = lanes[1];
+}
+
 void delaySamplePairSimd(SabrinaDelay& delayL, SabrinaDelay& delayR, double inputL, double inputR, double& outL, double& outR) {
   const double safeInputL = finite(inputL) ? inputL : 0.0;
   const double safeInputR = finite(inputR) ? inputR : 0.0;
 
-  const v128_t modSpeed = wasm_f64x2_make(delayL.modSpeed, delayR.modSpeed);
-  const v128_t modInc = wasm_f64x2_add(wasm_f64x2_make(delayL.modInc, delayR.modInc), modSpeed);
-  double modIncLanes[2];
-  wasm_v128_store(modIncLanes, modInc);
-  delayL.modInc = modIncLanes[0];
-  delayR.modInc = modIncLanes[1];
-
-  const v128_t lfo = wasm_f64x2_add(wasm_f64x2_mul(parabolPairSimd(modInc), wasm_f64x2_splat(0.5)), wasm_f64x2_splat(0.5));
+  double lfoL = 0.0;
+  double lfoR = 0.0;
+  sabrinaModUniPair(delayL, delayR, lfoL, lfoR);
+  const v128_t lfo = wasm_f64x2_make(lfoL, lfoR);
   const v128_t offset = wasm_f64x2_make(delayL.offset, delayR.offset);
   const v128_t lfopercent = wasm_f64x2_make(delayL.lfopercent, delayR.lfopercent);
   const v128_t driver = wasm_f64x2_make(static_cast<double>(delayL.driver), static_cast<double>(delayR.driver));
@@ -258,14 +288,10 @@ void diffuseSamplePairSimd(SabrinaDelay& delayL, SabrinaDelay& delayR, double in
   const double safeInputL = finite(inputL) ? inputL : 0.0;
   const double safeInputR = finite(inputR) ? inputR : 0.0;
 
-  const v128_t modSpeed = wasm_f64x2_make(delayL.modSpeed, delayR.modSpeed);
-  const v128_t modInc = wasm_f64x2_add(wasm_f64x2_make(delayL.modInc, delayR.modInc), modSpeed);
-  double modIncLanes[2];
-  wasm_v128_store(modIncLanes, modInc);
-  delayL.modInc = modIncLanes[0];
-  delayR.modInc = modIncLanes[1];
-
-  const v128_t lfo = wasm_f64x2_add(wasm_f64x2_mul(parabolPairSimd(modInc), wasm_f64x2_splat(0.5)), wasm_f64x2_splat(0.5));
+  double lfoL = 0.0;
+  double lfoR = 0.0;
+  sabrinaModUniPair(delayL, delayR, lfoL, lfoR);
+  const v128_t lfo = wasm_f64x2_make(lfoL, lfoR);
   const v128_t offset = wasm_f64x2_make(delayL.offset, delayR.offset);
   const v128_t lfopercent = wasm_f64x2_make(delayL.lfopercent, delayR.lfopercent);
   const v128_t driver = wasm_f64x2_make(static_cast<double>(delayL.driver), static_cast<double>(delayR.driver));
@@ -391,8 +417,13 @@ void applyDelayGeometry(SabrinaState& state) {
 // would freeze the network. Always stamp feedback from the live value.
 void applyLiveDiffusionAmount(SabrinaState& state) {
   const double liveFeedback = state.diffusionAmount;
+  const int style = state.lfoStyle;
   for (int index = 0; index < kDiffusionCount; index += 1) {
     state.delays[index].feedback = liveFeedback;
+    state.delays[index].lfoStyle = style;
+  }
+  for (int index = kDiffusionCount; index < kDelayCount; index += 1) {
+    state.delays[index].lfoStyle = style;
   }
 }
 
@@ -562,6 +593,7 @@ void resetState(SabrinaState& state, double sampleRate) {
   state.lfoAmplitude = 0.07;
   state.lfoBaseSpeed = 0.83;
   state.lfoVariation = 0.001;
+  state.lfoStyle = 0;
   state.smoothedDiffusionSize = state.diffusionSize;
   state.smoothedDelaySize = state.delaySize;
   state.smoothedLfoAmplitude = state.lfoAmplitude;
@@ -621,7 +653,8 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
   double lfoAmplitude,
   double lfoBaseSpeed,
   double lfoVariation,
-  double seed
+  double seed,
+  double lfoStyle
 ) {
   SabrinaState* state = stateForHandle(handle);
   if (!state) {
@@ -647,6 +680,10 @@ extern "C" void soemdsp_sabrina_reverb_set_params(
   assignIf(state->lfoAmplitude, clamp(lfoAmplitude, 0.0, 1.0));
   assignIf(state->lfoBaseSpeed, clamp(lfoBaseSpeed, 0.0, 1.0));
   assignIf(state->lfoVariation, clamp(lfoVariation, 0.0, 1.0));
+  const int nextStyle = lfoStyle >= 0.5 ? 1 : 0;
+  if (nextStyle != state->lfoStyle) {
+    state->lfoStyle = nextStyle;
+  }
 
   const int seedInt = static_cast<int>(seed + 0.5);
   if (seedInt != state->seed) {
@@ -772,5 +809,5 @@ extern "C" int soemdsp_sabrina_reverb_is_idle(int handle) {
 }
 
 extern "C" int soemdsp_sabrina_reverb_version() {
-  return 4;
+  return 5;
 }

@@ -1,5 +1,97 @@
 // Scope wipe / clear buffer helpers (Phase D).
 // Load after scopes.js. Extract-only.
+//
+// Face wipe registry (DISPLAY_SHADER_PLAN W1): GL residual lives off the 2D
+// canvas. Each displayType registers one wipe. Stop / power-off call that
+// instead of growing `if (typeof wipeX)` hooks.
+
+const nodeGraphModuleScopeFaceWipes = Object.create(null);
+
+function nodeGraphModuleScopeRegisterFaceWipe(displayType, wipeFn) {
+  const key = String(displayType || "").trim();
+  if (!key || typeof wipeFn !== "function") {
+    return;
+  }
+  nodeGraphModuleScopeFaceWipes[key] = wipeFn;
+}
+
+function nodeGraphModuleScopeDisplayTypeForNode(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!id) return "";
+  const node = typeof nodeGraphPatchNode === "function" ? nodeGraphPatchNode(id) : null;
+  const type = String(node?.type || "").trim();
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[type]
+    : null;
+  return String(
+    def?.displayType
+    || def?.displayModes?.[0]?.renderer
+    || def?.displayModes?.[0]?.key
+    || "",
+  ).trim();
+}
+
+function nodeGraphModuleScopeDisplayTypeForCanvas(canvas) {
+  if (!canvas) return "";
+  const host = canvas.closest?.("[data-node-type], [data-node]");
+  const nodeId = host?.dataset?.node || "";
+  const fromNode = nodeGraphModuleScopeDisplayTypeForNode(nodeId);
+  if (fromNode) return fromNode;
+  const type = String(host?.dataset?.nodeType || "").trim();
+  const def = typeof nodeGraphModuleDefinitions === "object"
+    ? nodeGraphModuleDefinitions[type]
+    : null;
+  return String(
+    def?.displayType
+    || def?.displayModes?.[0]?.renderer
+    || def?.displayModes?.[0]?.key
+    || "",
+  ).trim();
+}
+
+function nodeGraphModuleScopeWipeCanvas(canvas, options = {}) {
+  const displayType = String(options.displayType || nodeGraphModuleScopeDisplayTypeForCanvas(canvas) || "").trim();
+  const fn = displayType ? nodeGraphModuleScopeFaceWipes[displayType] : null;
+  if (typeof fn !== "function") {
+    return false;
+  }
+  const bg = options.bg
+    || (typeof nodeGraphModuleScopePlateBackgroundForElement === "function" && canvas
+      ? nodeGraphModuleScopePlateBackgroundForElement(canvas)
+      : "#000000");
+  try {
+    fn(canvas, bg, options);
+  } catch (_error) {
+    // Best-effort.
+  }
+  return true;
+}
+
+function nodeGraphModuleScopeWipeNode(nodeId) {
+  const id = String(nodeId || "").trim();
+  if (!id || typeof document === "undefined") {
+    return;
+  }
+  const displayType = nodeGraphModuleScopeDisplayTypeForNode(id);
+  const host = document.querySelector(`[data-node="${id}"]`);
+  const canvases = host ? host.querySelectorAll("canvas") : [];
+  if (canvases.length) {
+    for (const canvas of canvases) {
+      if (!(canvas instanceof HTMLCanvasElement)) continue;
+      if (!nodeGraphModuleScopeWipeCanvas(canvas, { nodeId: id, displayType, face: host })) {
+        const ctx = canvas.getContext?.("2d");
+        const bg = typeof nodeGraphModuleScopePlateBackgroundForElement === "function"
+          ? nodeGraphModuleScopePlateBackgroundForElement(canvas)
+          : "#000000";
+        if (ctx && canvas.width > 0 && canvas.height > 0 && typeof nodeGraphFacePlateFillCanvas === "function") {
+          nodeGraphFacePlateFillCanvas(ctx, canvas, bg);
+        }
+      }
+    }
+    return;
+  }
+  nodeGraphModuleScopeWipeCanvas(null, { nodeId: id, displayType, face: host });
+}
 
 function wipeNodeGraphModuleScopeScreensToColdBoot() {
   if (typeof document === "undefined") {
@@ -68,7 +160,7 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
   const phosphorKeys = ["_phosphorEnergyGl", "_xyPadPhosphorEnergyGl"];
   const canvases = new Set();
   for (const canvas of document.querySelectorAll(
-    "canvas.node-module-scope-local-fallback-canvas, canvas.node-xy-pad-canvas, canvas.node-spectrogram-canvas, canvas.node-sample-waveform-canvas",
+    "canvas.node-module-scope-local-fallback-canvas, canvas.node-xy-pad-canvas, canvas.node-spectrogram-canvas, canvas.node-sample-waveform-canvas, canvas.node-fbm-field-canvas, canvas.node-raster-rgb-canvas",
   )) {
     if (canvas instanceof HTMLCanvasElement) {
       canvases.add(canvas);
@@ -95,15 +187,18 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
   }
   for (const canvas of canvases) {
     // Shared workspace overlays are cleared by clearNodeGraphModuleScopeCanvas().
-    // Number Readout has its own idle-LCD wipe (do not solid-plate over it).
     if (
       canvas.id === "nodeModuleScopeCanvas"
       || canvas.classList?.contains("node-module-scope-light-canvas")
       || canvas.classList?.contains("node-room-dimmer-canvas")
-      || canvas.classList?.contains("node-number-readout-canvas")
-      || canvas.classList?.contains("node-raster-rgb-canvas")
       || canvas.classList?.contains("node-filter-curve-canvas")
     ) {
+      continue;
+    }
+    const bg = typeof nodeGraphModuleScopePlateBackgroundForElement === "function"
+      ? nodeGraphModuleScopePlateBackgroundForElement(canvas)
+      : "#000000";
+    if (nodeGraphModuleScopeWipeCanvas(canvas, { bg })) {
       continue;
     }
     for (const key of phosphorKeys) {
@@ -117,37 +212,17 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       }
       canvas[key] = null;
     }
-    // Waterfall history (all variants) lives in GL history textures + hold /
-    // tape state, not the 2d plate. WebGL faces have no 2d context and skip
-    // the plate fill below, so without this Play re-presented the old history.
     if (typeof nodeGraphWaterfallWipeHistory === "function") {
       nodeGraphWaterfallWipeHistory(canvas);
-    }
-    if (canvas._numberReadoutLastValueText !== undefined) {
-      canvas._numberReadoutLastValueText = "";
-      canvas._numberReadoutLastTextChangeAt = 0;
-      canvas._nodeGraphNumberReadoutText = "";
-    }
-    if (canvas._numberReadoutResidualPresent) {
-      const rctx = canvas._numberReadoutResidualPresent.getContext?.("2d");
-      rctx?.clearRect(
-        0,
-        0,
-        canvas._numberReadoutResidualPresent.width,
-        canvas._numberReadoutResidualPresent.height,
-      );
     }
     const context = canvas.getContext?.("2d");
     if (!context || !(canvas.width > 0) || !(canvas.height > 0)) {
       continue;
     }
-    // Metronome (and similar) skip redraw when cache keys match — drop them
-    // so the next paint restores BPM / gate after this plate fill.
     if (canvas._nodeGraphTransportBpmDigits !== undefined) {
       canvas._nodeGraphTransportBpmDigits = null;
       canvas._nodeGraphTransportGateDrawn = null;
     }
-    const bg = nodeGraphModuleScopePlateBackgroundForElement(canvas);
     if (typeof nodeGraphFacePlateFillCanvas === "function") {
       nodeGraphFacePlateFillCanvas(context, canvas, bg);
     } else {
@@ -159,21 +234,14 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
       context.restore();
     }
   }
-  // Last: idle LCD plate + unlit segments + dimmer strength (not a solid blank).
-  wipeNodeGraphNumberReadoutScreensToColdBoot();
-  // Fractal Brownian Field uses its own WebGL canvas (not 2d / phosphor).
-  // Stop rAF + plate pure black.
-  if (typeof wipeNodeGraphFbmFieldScreensToColdBoot === "function") {
-    try {
-      wipeNodeGraphFbmFieldScreensToColdBoot();
-    } catch (_error) {
-      // Best-effort.
-    }
+  // LCD / LED idle plates (not a solid black fill) — registered + leftover walk.
+  if (typeof wipeNodeGraphNumberReadoutScreensToColdBoot === "function") {
+    wipeNodeGraphNumberReadoutScreensToColdBoot();
   }
-  // Pixel Grid keeps its own rolling framebuffer (skipped in the 2d plate loop).
-  if (typeof wipeNodeGraphRasterRgbScreensToColdBoot === "function") {
+  // Type-wide leftover faces whose canvases may not be in the set yet.
+  for (const key of Object.keys(nodeGraphModuleScopeFaceWipes)) {
     try {
-      wipeNodeGraphRasterRgbScreensToColdBoot();
+      nodeGraphModuleScopeFaceWipes[key](null, "#000000", { all: true });
     } catch (_error) {
       // Best-effort.
     }
@@ -188,6 +256,73 @@ function wipeNodeGraphModuleScopeScreensToColdBoot() {
     }
   }
 }
+
+function nodeGraphModuleScopeWipePhosphorCanvas(canvas, bg) {
+  if (!canvas) return;
+  if ("_lineBurnPhasor" in canvas) canvas._lineBurnPhasor = 0;
+  if ("_lineBurnResetWasHigh" in canvas) canvas._lineBurnResetWasHigh = false;
+  if ("_lineBurnSignalWasHigh" in canvas) canvas._lineBurnSignalWasHigh = false;
+  if ("_lineBurnSweepOriginFrame" in canvas) delete canvas._lineBurnSweepOriginFrame;
+  if ("_nodeGraphOneDimensionalBurnLastDrawnFrame" in canvas) {
+    delete canvas._nodeGraphOneDimensionalBurnLastDrawnFrame;
+  }
+  const phosphorKeys = ["_phosphorEnergyGl", "_xyPadPhosphorEnergyGl"];
+  for (const key of phosphorKeys) {
+    const face = canvas[key];
+    if (face && typeof nodeGraphPhosphorEnergyGlDestroy === "function") {
+      try {
+        nodeGraphPhosphorEnergyGlDestroy(face);
+      } catch (_error) { /* best-effort */ }
+    }
+    canvas[key] = null;
+  }
+  const context = canvas.getContext?.("2d");
+  if (context && canvas.width > 0 && canvas.height > 0) {
+    if (typeof nodeGraphFacePlateFillCanvas === "function") {
+      nodeGraphFacePlateFillCanvas(context, canvas, bg);
+    }
+  }
+}
+
+function nodeGraphModuleScopeWipeWaterfallCanvas(canvas) {
+  if (canvas && typeof nodeGraphWaterfallWipeHistory === "function") {
+    nodeGraphWaterfallWipeHistory(canvas);
+  }
+}
+
+function nodeGraphModuleScopeWipeSpectrogramCanvas() {
+  if (typeof clearNodeGraphSpectrogramHistory === "function") {
+    try {
+      clearNodeGraphSpectrogramHistory();
+    } catch (_error) { /* best-effort */ }
+  }
+}
+
+function nodeGraphModuleScopeWipeNumberReadoutCanvas(canvas, bg, options) {
+  if (options?.all && typeof wipeNodeGraphNumberReadoutScreensToColdBoot === "function") {
+    return;
+  }
+  if (canvas) {
+    canvas._numberReadoutLastValueText = "";
+    canvas._numberReadoutLastTextChangeAt = 0;
+    canvas._nodeGraphNumberReadoutText = "";
+  }
+}
+
+(function registerNodeGraphModuleScopeBuiltinFaceWipes() {
+  const phosphorTypes = [
+    "scope2d", "phosphorLight", "lineBurn", "dot", "xyPad",
+    "videoscopeBurn", "oscilloscopeBankBurn", "hypersawBurn",
+  ];
+  for (let i = 0; i < phosphorTypes.length; i += 1) {
+    nodeGraphModuleScopeRegisterFaceWipe(phosphorTypes[i], nodeGraphModuleScopeWipePhosphorCanvas);
+  }
+  nodeGraphModuleScopeRegisterFaceWipe("waterfall", nodeGraphModuleScopeWipeWaterfallCanvas);
+  nodeGraphModuleScopeRegisterFaceWipe("waterfallRgb", nodeGraphModuleScopeWipeWaterfallCanvas);
+  nodeGraphModuleScopeRegisterFaceWipe("waterfallXyz", nodeGraphModuleScopeWipeWaterfallCanvas);
+  nodeGraphModuleScopeRegisterFaceWipe("spectrogramBurn", nodeGraphModuleScopeWipeSpectrogramCanvas);
+  nodeGraphModuleScopeRegisterFaceWipe("numberReadout", nodeGraphModuleScopeWipeNumberReadoutCanvas);
+})();
 
 /**
  * Drop a face canvas from the persistent map (and DOM) so the next draw can
@@ -507,7 +642,7 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
       }
     }
 
-    // Pixel Grid rolling framebuffer (Display Settings Clear).
+    // Scan Grid rolling framebuffer (Display Settings Clear).
     if (typeof clearNodeGraphRasterRgbForNode === "function") {
       try {
         clearNodeGraphRasterRgbForNode(id);
@@ -550,9 +685,10 @@ function clearNodeGraphDisplaySettingsPhosphor(nodeIdOrIds = null, options = {})
  * Clear capture rings / optionally wipe painted faces.
  *
  * App policy: only intentional Stop / full offline reset should set
- * preserveDisplay:false (cold-boot wipe). Wire reconnects, plan re-arms,
- * pause, and bypass must pass preserveDisplay:true so phosphor residual
- * (Value LED / Pitch / 1D / 2D energy) is never killed.
+ * preserveDisplay:false (global cold-boot wipe). Wire reconnects, plan
+ * re-arms, and pause pass preserveDisplay:true so phosphor residual is
+ * never killed. Power-off / bypass wipes **that module's face** via
+ * nodeGraphModuleScopeWipeNode — it does not clear every display.
  */
 function clearNodeGraphModuleScopeBuffers(options = {}) {
   const preserveDisplay = options?.preserveDisplay === true;

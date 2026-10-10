@@ -736,10 +736,9 @@ function nodeGraphFacePlateBackground(settings, fallback = nodeGraphFacePlateDef
   );
   const faceStyle = String(settings?.faceStyle || "").toLowerCase();
   // Hue hex is storage; amount is backgroundBrightness. Brightness 0 is black,
-  // even when the stored hex is #ff0000 (hue 0). LED faces keep the full hex.
+  // even when the stored hex is #ff0000 (hue 0). Same HBS as LED digit Light.
   const bright = settings?.backgroundBrightness;
-  if (faceStyle !== "led" && faceStyle !== "led-value"
-    && bright != null && Number.isFinite(Number(bright))
+  if (bright != null && Number.isFinite(Number(bright))
     && typeof nodeGraphHueBrightnessCss === "function") {
     const hueFromField = Number(settings.backgroundHue);
     const hue = Number.isFinite(hueFromField)

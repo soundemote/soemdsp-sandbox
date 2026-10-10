@@ -276,17 +276,17 @@ extern "C" void soemdsp_chaosfly_sample(
   // Face X/Y/Z track Volume too — Chaosfly is a visual module; silent face
   // while audio scaled felt like Volume was broken.
   const bool usePre = (mixMode == 0 || mixMode == 2 || mixMode == 5);
-  s.displayX = clamp(safe((usePre ? prefilter : out1) * volume), -4.0, 4.0);
-  s.displayY = clamp(safe(out2 * volume), -4.0, 4.0);
-  s.z = clamp(safe(out1 * volume), -4.0, 4.0);
+  s.displayX = safe((usePre ? prefilter : out1) * volume);
+  s.displayY = safe(out2 * volume);
+  s.z = safe(out1 * volume);
 
   // DC blockers stay on host rate (output hygiene, not part of chaos shape).
   const double dcHz = rate * 0.0000159155;
   left = onePoleHp(s.dcL, left, dcHz, rate);
   right = onePoleHp(s.dcR, right, dcHz, rate);
 
-  s.left = clamp(safe(left), -4.0, 4.0);
-  s.right = clamp(safe(right), -4.0, 4.0);
+  s.left = safe(left);
+  s.right = safe(right);
 }
 
 extern "C" double soemdsp_chaosfly_left(int handle) {
@@ -306,7 +306,7 @@ extern "C" double soemdsp_chaosfly_out(int handle) {
 
 extern "C" double soemdsp_chaosfly_z(int handle) {
   if (handle < 1 || handle > kMaxInstances) return 0.0;
-  return clamp(safe(gPool[handle - 1].z), -4.0, 4.0);
+  return gPool[handle - 1].z;
 }
 
 extern "C" double soemdsp_chaosfly_x(int handle) {
@@ -320,5 +320,5 @@ extern "C" double soemdsp_chaosfly_y(int handle) {
 }
 
 extern "C" int soemdsp_chaosfly_version() {
-  return 3; // phaseOffsetTurns + displayX/Y stereo image
+  return 4; // no ±4 brickwall on audio/face after Volume
 }

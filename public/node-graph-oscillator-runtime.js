@@ -349,19 +349,11 @@ function nodeGraphAdditiveDampingAlgorithmValue(value = 0) {
 }
 
 function nodeGraphRationalCurveValue(value = 0, skew = 0) {
-  const t = clampNodeSliderValue(nodeGraphFiniteNumber(value), 0, 1);
-  if (t <= 0) {
-    return 0;
-  }
-  if (t >= 1) {
-    return 1;
-  }
-  const safeSkew = clampNodeSliderValue(nodeGraphFiniteNumber(skew), -0.999999, 0.999999);
-  return clampNodeSliderValue(
-    ((1 + safeSkew) * t) / (1 - safeSkew + 2 * safeSkew * t),
-    0,
-    1,
-  );
+  const t = nodeGraphFiniteNumber(value);
+  const s = nodeGraphFiniteNumber(skew);
+  const den = 1 - s + 2 * s * t;
+  if (Math.abs(den) < 1e-12) return t;
+  return ((1 + s) * t) / den;
 }
 
 function nodeGraphAdditiveFilterFrequencyValue(value = 20000, sampleRate = nodeGraphMvp?.sampleRate || 44100) {

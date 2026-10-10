@@ -828,6 +828,7 @@ const nodeGraphModuleActionControlIds = [
   "nodeSceneTextBoxVerticalAlignControls",
   // Disable lives inside Visibility (under Hide unused) — not a top-level control.
   "nodeSceneCodeGroup",
+  "nodeSceneNativeLicense",
   "nodeSceneGroupIntoGroup",
   "nodeSceneGroupMetamodule",
   "nodeSceneDeleteModule",
@@ -1190,6 +1191,7 @@ function configureNodeSceneContextMenu(mode) {
   const nativeCodeGroup = document.getElementById("nodeSceneCodeGroup");
   const nativeCodeButton = document.getElementById("nodeSceneOpenNativeCode");
   const nativeLibButton = document.getElementById("nodeSceneOpenNativeLib");
+  const nativeLicense = document.getElementById("nodeSceneNativeLicense");
   const toggleOscilloscopeButton = document.getElementById("nodeSceneToggleOscilloscope");
   const toggleInterfaceControlsButton = document.getElementById("nodeSceneToggleInterfaceControls");
   const toggleSlidersButton = document.getElementById("nodeSceneToggleSliders");
@@ -1517,6 +1519,47 @@ function configureNodeSceneContextMenu(mode) {
   }
   if (nativeLibButton) {
     nativeLibButton.hidden = !nativeLibEntry;
+  }
+  if (nativeLicense) {
+    const showLicense = moduleMode && !multiModuleMode && nativeCodeEntry;
+    nativeLicense.hidden = !showLicense;
+    if (showLicense) {
+      const info = typeof nodeGraphLicenseInfoForEntry === "function"
+        ? nodeGraphLicenseInfoForEntry(nativeCodeEntry)
+        : null;
+      nativeLicense.replaceChildren();
+      if (info) {
+        const prefix = document.createTextNode("License: ");
+        const licenseLink = document.createElement("a");
+        licenseLink.href = info.licenseUrl;
+        licenseLink.target = "_blank";
+        licenseLink.rel = "noopener noreferrer";
+        licenseLink.textContent = info.license;
+        nativeLicense.append(prefix, licenseLink);
+        if (info.upstreamLicense) {
+          nativeLicense.append(document.createTextNode(" · Upstream: "));
+          if (info.upstreamLicenseUrl) {
+            const upstreamLink = document.createElement("a");
+            upstreamLink.href = info.upstreamLicenseUrl;
+            upstreamLink.target = "_blank";
+            upstreamLink.rel = "noopener noreferrer";
+            upstreamLink.textContent = info.upstreamLicense;
+            nativeLicense.append(upstreamLink);
+          } else {
+            nativeLicense.append(document.createTextNode(info.upstreamLicense));
+          }
+        }
+        if (info.noticeUrl) {
+          nativeLicense.append(document.createTextNode(" · "));
+          const noticeLink = document.createElement("a");
+          noticeLink.href = info.noticeUrl;
+          noticeLink.target = "_blank";
+          noticeLink.rel = "noopener noreferrer";
+          noticeLink.textContent = "Notice";
+          nativeLicense.append(noticeLink);
+        }
+      }
+    }
   }
   toggleButtonsButton.hidden = !showInletOutletVisibilityChrome || (multiModuleMode && !multiCanButtons);
   toggleOscilloscopeButton.hidden = !(

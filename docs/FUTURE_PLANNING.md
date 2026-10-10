@@ -175,7 +175,7 @@ docs/ACID_SEQUENCER_PLAN.md
 
 ## Display shaders
 
-**Status:** plan + progress tracker in `docs/DISPLAY_SHADER_PLAN.md` (2026-10-06): move per-pixel display math into GLSL on one shared WebGL context; audio stays native C++/WASM. Do not build until Argi says go.
+**Status:** plan + progress tracker in `docs/DISPLAY_SHADER_PLAN.md` (2026-10-06; GLSL-on-disk 2026-10-09; face wipe 2026-10-09): move per-pixel display math into GLSL on one shared WebGL context; audio stays native C++/WASM. Shipped present shaders that belong to a native module live as `.vert.glsl` / `.frag.glsl` next to that module’s wasm (`DISPLAY_SHADER_PLAN.md` §GLSL files next to WASM). Stop / power-off must use one face-wipe registry (`DISPLAY_SHADER_PLAN.md` §Face wipe registry, W1/W2). Do not start a G-row or W-row until Argi says go.
 
 ## Electro Snare
 
@@ -270,3 +270,24 @@ Not added: an FM kick (no single documented reference design) and the 909's samp
 | `simmons` | Simmons SDS-V tom: sine / triangle with a big downward bend plus filtered noise | SDS-V modules have tone pitch, bend, decay, noise, noise tone and click controls; the falling-pitch "peew" is the signature sound ([SDS-V Service Notes](https://synth-diy.org/yg-archives2/raw/Simmons_Drums/files/16_Manuals/4_SDS-V_SM.pdf); [Wikipedia, Simmons SDS-V](https://en.wikipedia.org/wiki/Simmons_SDS-V); [Still Not Working, SDS V](http://snw.lonningdal.no/sds5.php)) | Tune = tone pitch; Bend = big drop (1–2 oct suggested); Body Decay = VCA decay; Tone = noise filter; Noise = noise level |
 
 **Still open:** default algorithm; Bend time fixed per algorithm (proposed, as the snare) or tied to Body Decay (Simmons); Tune range (proposed 40–400 Hz) and default; low / mid / high as presets vs one free Tune (proposed: free Tune); shared resonator / noise helpers with Electro Snare (library helpers need Architect approval); velocity; Env definition.
+
+## Softpop Oscillator (pure tone ↔ noise)
+
+**Status:** ready to build (2026-10-07), owner SandyModules. Redefine `softpopOscillator` in place as a native C++ oscillator. **Model** by stable name, default `filter` (TPT/ZDF SVF constant-peak bandpass on noise + √Q trim + effective-frequency tilt correction `(1000/fc)^(α/2)`, α = +1 white / 0 pink / −1 brown) or `sine`. No Purity. One fixed param set, every knob active in both models: Frequency, Width (noise bandwidth = Filter Q on a log scale, and mod-noise speed; no Mod Rate knob), Pitch Mod (cents, exponential), Amp Mod (level-preserving), Amplitude, Color, Stereo, Seed. I/O: Reset, `f` in; Mono / Left / Right out; no pitch input, no Trigger. Frequency-only like `polyBlep`: a wired `f` (Hz) replaces the Frequency knob; Pitch Mod and the tilt use that effective frequency. Independent seeded noise per target and channel (`seed_mix`). **Argi approved (2026-10-07, APP_POLICY §19)** extracting the TPT SVF and white/pink/brown noise into `library/include/soemdsp/filter/tpt_svf.h` and `math/noise_colors.h`, with EQ Filter and Noise Generator refactored onto them under a bit-identical regression test. Plan: `docs/SOFTPOP_PLAN.md`.
+
+## Ohmicide Slew I / Slew II
+
+**Status:** seed only — planning note captured 2026-10-08. Do not implement until Architect says go.
+
+**Direction:** Port Ohm Force Ohmicide's **Slew 1** (amp slew-rate limiter / max `|dy/dt|` clip) and **Slew 2** (waveshaped slew rate distortion) as sandbox modules or modes. Useful dark edge-bevel / damage character for Softwave and general distortion.
+
+**Key fact:** existing `slewLimiter` (Up/Down Slew) is time-to-target glide, **not** Ohmicide's slope-clip law. Real Slew I needs a max-delta clipper (new native or Rate mode). Slew II = that clip into `softClipper` / `tubeSaturation`.
+
+**Have already:** `softClipper`, `tubeSaturation`, `gain`, `bias`, `mix`, `sampleHold`.  
+**Missing:** true slope-rate clip.
+
+Primary note:
+
+```text
+docs/OHMICIDE_SLEW_PLAN.md
+```

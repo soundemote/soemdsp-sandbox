@@ -291,6 +291,7 @@ PUBLIC_SCRIPT_PATHS = (
     "./public/modules/videoscope/videoscope-display.js",
     "./public/modules/spectrogram/spectrogram-gl.js",
     "./public/modules/spectrogram/spectrogram-display.js",
+    "./public/modules/spectrum1d/spectrum1d-display.js",
     "./public/modules/transport/transport-display.js",
     "./public/modules/vectorRgb/vector-rgb-display.js",
     "./public/modules/rasterRgb/raster-rgb-math.js",
@@ -5083,7 +5084,7 @@ def require_node_graph_mvp_contract() -> None:
     )
     require(
         'vectorRgb: "Vector RGB"' in script_sources["./public/node-graph-module-definitions.js"]
-        and 'rasterRgb: "Pixel Grid"' in script_sources["./public/node-graph-module-definitions.js"]
+        and 'rasterRgb: "Scan Grid"' in script_sources["./public/node-graph-module-definitions.js"]
         and 'gradientVectorscope: "Gradient Vectorscope"' in script_sources["./public/node-graph-module-definitions.js"]
         and "drawNodeGraphVectorRgbFaceItem" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
         and "TraceRgbPoints.stamp" in script_sources["./public/modules/vectorRgb/vector-rgb-display.js"]
@@ -5132,7 +5133,7 @@ def require_node_graph_mvp_contract() -> None:
         and "TraceWoscope.draw" in script_sources["./public/modules/gradientVectorscope/gradient-vectorscope-display.js"]
         and "TraceHistoryDraw" not in script_sources["./public/modules/gradientVectorscope/gradient-vectorscope-display.js"]
         and 'label: "Vector RGB"' in script_sources["./public/node-graph-module-store.js"]
-        and 'label: "Pixel Grid"' in script_sources["./public/node-graph-module-store.js"]
+        and 'label: "Scan Grid"' in script_sources["./public/node-graph-module-store.js"]
         and 'label: "Gradient Vectorscope"' in script_sources["./public/node-graph-module-store.js"],
         "RGB display trio (Vector / Raster / Gradient Vectorscope) should be registered",
     )
@@ -18464,6 +18465,33 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_power_decay_metadata_json",
             "soemdsp_power_decay_metadata_json_size",
         ],
+        "exponential_skew": [
+            "soemdsp_exponential_skew_create",
+            "soemdsp_exponential_skew_destroy",
+            "soemdsp_exponential_skew_sample",
+            "soemdsp_exponential_skew_is_idle",
+            "soemdsp_exponential_skew_version",
+            "soemdsp_exponential_skew_metadata_json",
+            "soemdsp_exponential_skew_metadata_json_size",
+        ],
+        "hyperbolic_decay": [
+            "soemdsp_hyperbolic_decay_create",
+            "soemdsp_hyperbolic_decay_destroy",
+            "soemdsp_hyperbolic_decay_sample",
+            "soemdsp_hyperbolic_decay_is_idle",
+            "soemdsp_hyperbolic_decay_version",
+            "soemdsp_hyperbolic_decay_metadata_json",
+            "soemdsp_hyperbolic_decay_metadata_json_size",
+        ],
+        "exponential_mix": [
+            "soemdsp_exponential_mix_create",
+            "soemdsp_exponential_mix_destroy",
+            "soemdsp_exponential_mix_sample",
+            "soemdsp_exponential_mix_is_idle",
+            "soemdsp_exponential_mix_version",
+            "soemdsp_exponential_mix_metadata_json",
+            "soemdsp_exponential_mix_metadata_json_size",
+        ],
         "robin_sinepulse": [
             "soemdsp_robin_sinepulse_create",
             "soemdsp_robin_sinepulse_destroy",
@@ -18676,6 +18704,17 @@ def require_native_module_contract(base_url: str) -> None:
             "soemdsp_softwave_destroy",
             "soemdsp_softwave_reset",
             "soemdsp_softwave_sample",
+        ],
+        "softpop_oscillator": [
+            "soemdsp_softpop_oscillator_create",
+            "soemdsp_softpop_oscillator_destroy",
+            "soemdsp_softpop_oscillator_reset",
+            "soemdsp_softpop_oscillator_sample",
+            "soemdsp_softpop_oscillator_left",
+            "soemdsp_softpop_oscillator_right",
+            "soemdsp_softpop_oscillator_version",
+            "soemdsp_softpop_oscillator_metadata_json",
+            "soemdsp_softpop_oscillator_metadata_json_size",
         ],
         "helmholtz": [
             "soemdsp_helmholtz_create",

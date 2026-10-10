@@ -1,207 +1,73 @@
 // Fractal Brownian Field present: fBm per pixel in GLSL (shared picture device).
+// Source lives next to the wasm:
+//   native_modules/fbm_field/fbm_field.vert.glsl
+//   native_modules/fbm_field/fbm_field.frag.glsl
 // Audio X/Y/Z probes stay in C++/WASM (same fieldAt). Display no longer calls
-// fill_grid when GL works — only uniforms (seed, octaves, domainTime, …).
+// fill_grid when GL works â€” only uniforms (seed, octaves, domainTime, â€¦).
 
-const NODE_GRAPH_FBM_FIELD_GL_REV = 3;
+const NODE_GRAPH_FBM_FIELD_GL_REV = 5;
+const NODE_GRAPH_FBM_FIELD_GLSL_REV = "1";
 
-const NODE_GRAPH_FBM_FIELD_GL_VS = `
-attribute vec2 aPos;
-void main() {
-  gl_Position = vec4(aPos, 0.0, 1.0);
-}
-`;
+const nodeGraphFbmFieldGlsl = {
+  vs: "",
+  fs: "",
+  promise: null,
+  failed: false,
+};
 
-// Port of native_modules/fbm_field/fbm_field.cpp fieldAt / fbm2d / fbm3d / fade.
-// Float murmur-style hash (highp). Typical zoom/scale matches the look; extreme
-// lattice coords may diverge slightly from WASM audio probes (WISIWIH approx).
-const NODE_GRAPH_FBM_FIELD_GL_FS = `
-#ifdef GL_FRAGMENT_PRECISION_HIGH
-precision highp float;
-#else
-precision mediump float;
-#endif
-
-uniform sampler2D uPalette;
-uniform vec2 uResolution;
-uniform float uDomainTime;
-uniform float uZoom;
-uniform float uPanX;
-uniform float uPanY;
-uniform float uRotate;
-uniform float uSeed;
-uniform float uOctaves;
-uniform float uPersistence;
-uniform float uLacunarity;
-uniform float uScale;
-uniform float uSmoothness;
-uniform float uContrast;
-uniform float uBrightness;
-uniform float uMotion;
-
-// Lattice hashes stay in small float magnitudes (fp32-safe): integer lattice
-// coords + seed folded to [0,4096) by the caller. Not bit-identical to the C++
-// uint32 hash (WebGL1 has no integer bit ops); same value-noise statistics.
-float hash2d(float ix, float iy, float seed) {
-  vec3 p3 = fract(vec3(ix, iy, seed) * 0.1031);
-  p3 += dot(p3, p3.zyx + 31.32);
-  return fract((p3.x + p3.y) * p3.z) * 2.0 - 1.0;
-}
-
-float hash3d(float ix, float iy, float iz, float seed) {
-  vec4 p4 = fract(vec4(ix, iy, iz, seed) * vec4(0.1031, 0.1030, 0.0973, 0.1099));
-  p4 += dot(p4, p4.wzxy + 33.33);
-  return fract((p4.x + p4.y) * (p4.z + p4.w)) * 2.0 - 1.0;
-}
-
-float fade(float t, float smoothness) {
-  float x = clamp(t, 0.0, 1.0);
-  float s = clamp(smoothness, 0.0, 1.0);
-  if (s <= 0.0) return x;
-  float hermite = x * x * (3.0 - 2.0 * x);
-  if (s <= 0.5) {
-    float u = s * 2.0;
-    return x + (hermite - x) * u;
+function nodeGraphFbmFieldGlslCandidateUrls(fileName) {
+  let embedBase = "";
+  try {
+    const path = String(window.location.pathname || "");
+    const idx = path.indexOf("/soemdsp-sandbox");
+    if (idx >= 0) {
+      embedBase = `${path.slice(0, idx)}/soemdsp-sandbox/`;
+    }
+  } catch (_error) {
+    embedBase = "";
   }
-  float quintic = x * x * x * (x * (x * 6.0 - 15.0) + 10.0);
-  float u = (s - 0.5) * 2.0;
-  return hermite + (quintic - hermite) * u;
+  const rel = `native_modules/fbm_field/${fileName}?v=fbm-glsl-${NODE_GRAPH_FBM_FIELD_GLSL_REV}`;
+  return [
+    embedBase ? `${embedBase}${rel}` : "",
+    `./${rel}`,
+    `/${rel}`,
+    `/soemdsp-sandbox/${rel}`,
+  ].filter(Boolean);
 }
 
-float valueNoise2d(float x, float y, float seed, float smoothness) {
-  float x0 = floor(x);
-  float y0 = floor(y);
-  float fx = x - x0;
-  float fy = y - y0;
-  float u = fade(fx, smoothness);
-  float v = fade(fy, smoothness);
-  float a = hash2d(x0, y0, seed);
-  float b = hash2d(x0 + 1.0, y0, seed);
-  float c = hash2d(x0, y0 + 1.0, seed);
-  float d = hash2d(x0 + 1.0, y0 + 1.0, seed);
-  float x1 = a + (b - a) * u;
-  float x2 = c + (d - c) * u;
-  return x1 + (x2 - x1) * v;
-}
-
-float valueNoise3d(float x, float y, float z, float seed, float smoothness) {
-  float x0 = floor(x);
-  float y0 = floor(y);
-  float z0 = floor(z);
-  float fx = x - x0;
-  float fy = y - y0;
-  float fz = z - z0;
-  float u = fade(fx, smoothness);
-  float v = fade(fy, smoothness);
-  float w = fade(fz, smoothness);
-  float n000 = hash3d(x0, y0, z0, seed);
-  float n100 = hash3d(x0 + 1.0, y0, z0, seed);
-  float n010 = hash3d(x0, y0 + 1.0, z0, seed);
-  float n110 = hash3d(x0 + 1.0, y0 + 1.0, z0, seed);
-  float n001 = hash3d(x0, y0, z0 + 1.0, seed);
-  float n101 = hash3d(x0 + 1.0, y0, z0 + 1.0, seed);
-  float n011 = hash3d(x0, y0 + 1.0, z0 + 1.0, seed);
-  float n111 = hash3d(x0 + 1.0, y0 + 1.0, z0 + 1.0, seed);
-  float x00 = n000 + (n100 - n000) * u;
-  float x10 = n010 + (n110 - n010) * u;
-  float x01 = n001 + (n101 - n001) * u;
-  float x11 = n011 + (n111 - n011) * u;
-  float yz0 = x00 + (x10 - x00) * v;
-  float yz1 = x01 + (x11 - x01) * v;
-  return yz0 + (yz1 - yz0) * w;
-}
-
-float fbm2d(float x, float y, float seed, float octaves, float persistence, float lacunarity, float scale, float smoothness) {
-  float total = 0.0;
-  float amplitude = 1.0;
-  float noiseFreq = 1.0;
-  float maxValue = 0.0;
-  float baseSeed = mod(seed * 1009.0 + 17.0, 4096.0);
-  for (int i = 0; i < 8; i++) {
-    if (float(i) >= octaves) break;
-    float sx = x * scale * noiseFreq;
-    float sy = y * scale * noiseFreq;
-    total += valueNoise2d(sx, sy, mod(baseSeed + float(i) * 1013.0, 4096.0), smoothness) * amplitude;
-    maxValue += amplitude;
-    amplitude *= persistence;
-    noiseFreq *= lacunarity;
+async function nodeGraphFbmFieldGlslFetchText(fileName) {
+  const urls = nodeGraphFbmFieldGlslCandidateUrls(fileName);
+  for (let i = 0; i < urls.length; i += 1) {
+    try {
+      const res = await fetch(urls[i], { cache: "no-cache" });
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (text && text.indexOf("void main()") >= 0) return text;
+    } catch (_error) {
+      // try next candidate
+    }
   }
-  return maxValue > 0.0 ? total / maxValue : 0.0;
+  return "";
 }
 
-float fbm3d(float x, float y, float z, float seed, float octaves, float persistence, float lacunarity, float scale, float smoothness) {
-  float total = 0.0;
-  float amplitude = 1.0;
-  float noiseFreq = 1.0;
-  float maxValue = 0.0;
-  float baseSeed = mod(seed * 1009.0 + 17.0, 4096.0);
-  for (int i = 0; i < 8; i++) {
-    if (float(i) >= octaves) break;
-    float sx = x * scale * noiseFreq;
-    float sy = y * scale * noiseFreq;
-    float sz = z * scale * noiseFreq;
-    total += valueNoise3d(sx, sy, sz, mod(baseSeed + float(i) * 1013.0, 4096.0), smoothness) * amplitude;
-    maxValue += amplitude;
-    amplitude *= persistence;
-    noiseFreq *= lacunarity;
-  }
-  return maxValue > 0.0 ? total / maxValue : 0.0;
+function nodeGraphFbmFieldLoadGlsl() {
+  if (nodeGraphFbmFieldGlsl.promise) return nodeGraphFbmFieldGlsl.promise;
+  nodeGraphFbmFieldGlsl.promise = (async () => {
+    const vs = await nodeGraphFbmFieldGlslFetchText("fbm_field.vert.glsl");
+    const fs = await nodeGraphFbmFieldGlslFetchText("fbm_field.frag.glsl");
+    if (!vs || !fs) {
+      nodeGraphFbmFieldGlsl.failed = true;
+      console.warn("[Fractal Brownian Field] missing native_modules/fbm_field/*.glsl");
+      return null;
+    }
+    nodeGraphFbmFieldGlsl.vs = vs;
+    nodeGraphFbmFieldGlsl.fs = fs;
+    return nodeGraphFbmFieldGlsl;
+  })();
+  return nodeGraphFbmFieldGlsl.promise;
 }
 
-float fieldAt(float spatialX, float spatialY, float domainT, float motion, float seed, float octaves, float persistence, float lacunarity, float scale, float smoothness, float span) {
-  if (motion > 0.5) {
-    return fbm3d(spatialX, spatialY, domainT * span, seed, octaves, persistence, lacunarity, scale, smoothness);
-  }
-  float scrollX = domainT * span;
-  float scrollY = domainT * span * 0.73;
-  return fbm2d(spatialX + scrollX, spatialY + scrollY, seed, octaves, persistence, lacunarity, scale, smoothness);
-}
-
-float bipolarToMono(float bipolar, float contrast) {
-  float mid = bipolar * 0.5 + 0.5;
-  float c = max(contrast, 0.0);
-  if (abs(c - 1.0) > 1e-6) {
-    mid = 0.5 + (mid - 0.5) * c;
-  }
-  return clamp(mid, 0.0, 1.0);
-}
-
-void main() {
-  // Pixel centres; Y matches C++ fill_grid (j=0 = top → ny≈+1).
-  vec2 frag = gl_FragCoord.xy;
-  float u = frag.x / max(uResolution.x, 1.0);
-  float vBottom = frag.y / max(uResolution.y, 1.0);
-  float vTop = 1.0 - vBottom;
-  float nx = 2.0 * u - 1.0;
-  float ny = 1.0 - 2.0 * vTop;
-
-  float safeZoom = max(uZoom, 0.05);
-  float span = 1.0 / safeZoom;
-  float ang = uRotate * 6.283185307179586;
-  float cosR = cos(ang);
-  float sinR = sin(ang);
-  float px = nx * span;
-  float py = ny * span;
-  float rx = px * cosR - py * sinR;
-  float ry = px * sinR + py * cosR;
-  float spatialX = rx + uPanX;
-  float spatialY = ry + uPanY;
-
-  float seed = mod(floor(clamp(uSeed, 0.0, 99999.0)), 4096.0);
-  float octaves = clamp(floor(uOctaves + 0.5), 1.0, 8.0);
-  float pers = clamp(uPersistence, 0.0, 0.99);
-  float lac = clamp(uLacunarity, 1.0, 4.0);
-  float sc = max(uScale, 0.000001);
-  float sm = clamp(uSmoothness, 0.0, 1.0);
-  float contrast = max(uContrast, 0.0);
-  float bright = max(uBrightness, 0.0);
-  float motion = clamp(floor(uMotion + 0.5), 0.0, 1.0);
-
-  float bipolar = fieldAt(spatialX, spatialY, uDomainTime, motion, seed, octaves, pers, lac, sc, sm, span);
-  float mono = clamp(bipolarToMono(bipolar, contrast) * bright, 0.0, 1.0);
-  vec3 col = texture2D(uPalette, vec2(mono, 0.5)).rgb;
-  gl_FragColor = vec4(col, 1.0);
-}
-`;
+nodeGraphFbmFieldLoadGlsl();
 
 /** @type {WeakMap<HTMLCanvasElement, object>} */
 const nodeGraphFbmFieldGlStates = new WeakMap();
@@ -249,6 +115,11 @@ function nodeGraphFbmFieldGlEnsure(canvas) {
     return state;
   }
   if (state?.gaveUp) return null;
+  if (nodeGraphFbmFieldGlsl.failed) return null;
+  if (!nodeGraphFbmFieldGlsl.vs || !nodeGraphFbmFieldGlsl.fs) {
+    nodeGraphFbmFieldLoadGlsl();
+    return null;
+  }
 
   const gl = picture?.gl || null;
   if (!gl) {
@@ -257,7 +128,7 @@ function nodeGraphFbmFieldGlEnsure(canvas) {
   }
 
   try {
-    const program = nodeGraphFbmFieldGlLink(gl, NODE_GRAPH_FBM_FIELD_GL_VS, NODE_GRAPH_FBM_FIELD_GL_FS);
+    const program = nodeGraphFbmFieldGlLink(gl, nodeGraphFbmFieldGlsl.vs, nodeGraphFbmFieldGlsl.fs);
     const buf = picture.quad;
     const aPos = gl.getAttribLocation(program, "aPos");
 
@@ -361,7 +232,7 @@ function nodeGraphFbmFieldGlUploadPalette(state, stops) {
 }
 
 /**
- * Present field from uniforms (no WASM face grid). canvas sized to gridW×gridH.
+ * Present field from uniforms (no WASM face grid). canvas sized to gridWÃ—gridH.
  */
 function nodeGraphFbmFieldGlPresentParams(canvas, params = {}) {
   const state = nodeGraphFbmFieldGlEnsure(canvas);
@@ -408,7 +279,7 @@ function nodeGraphFbmFieldGlPresentParams(canvas, params = {}) {
   gl.uniform1f(state.uniforms.uLacunarity, Math.max(1, Math.min(4, Number(params.lacunarity) || 2)));
   gl.uniform1f(state.uniforms.uScale, Math.max(1e-6, Number(params.scale) || 1));
   gl.uniform1f(state.uniforms.uSmoothness, Math.max(0, Math.min(1, Number(params.smoothness) || 0.55)));
-  // Explicit zero valid for contrast/brightness — never coerce with ||.
+  // Explicit zero valid for contrast/brightness â€” never coerce with ||.
   const contrast = Number(params.contrast);
   gl.uniform1f(state.uniforms.uContrast, Number.isFinite(contrast) ? Math.max(0, contrast) : 1);
   const brightness = Number(params.brightness);
@@ -471,7 +342,7 @@ function nodeGraphFbmFieldPresentCanvas2d(canvas, monoGrid, gridW, gridH, option
 }
 
 /**
- * Legacy entry: prefer params path; mono grid → Canvas2D fallback.
+ * Legacy entry: prefer params path; mono grid â†’ Canvas2D fallback.
  */
 function nodeGraphFbmFieldGlPresent(canvas, monoGrid, gridW, gridH, options = {}) {
   if (options && options.fieldParams) {

@@ -346,6 +346,11 @@ function assignNodeGraphTypedDisplaySettingsToNode(node, displayType, settings) 
     node.traceDisplaySettings = normalizeNodeGraphScope2dSettings(settings);
     return node.traceDisplaySettings;
   }
+  if (displayType === "spectrumLine") {
+    node.traceDisplaySettings = normalizeNodeGraphSpectrumLineSettings(settings, node);
+    syncNodeGraphSpectrumLineDisplaySettingsToParams(node, node.traceDisplaySettings);
+    return node.traceDisplaySettings;
+  }
   if (displayType === "spectrogramBurn") {
     const merged = { ...(settings || {}) };
     if (merged.fftSize == null && node.params?.fftSize != null) {
@@ -679,8 +684,12 @@ function nodeGraphMergeDisplaySettingsDirty(existing, form, dirtyKeys) {
   if (dirtyKeys.has("dot1Brightness") && formObj.brightness !== undefined) {
     base.brightness = formObj.brightness;
   }
-  if (dirtyKeys.has("dot1Color") && formObj.color !== undefined) {
-    base.color = formObj.color;
+  if (dirtyKeys.has("dot1Color")) {
+    const ink = formObj.color !== undefined ? formObj.color : formObj.dot1Color;
+    if (ink !== undefined) {
+      base.color = ink;
+      base.dot1Color = ink;
+    }
   }
   if (dirtyKeys.has("backgroundColor") && formObj.background !== undefined) {
     base.background = formObj.background;
@@ -844,7 +853,7 @@ function applyNodeGraphTraceDisplaySettingsForm(options = {}) {
         storedSettings = stored;
       }
       anyApplied = true;
-      if (settingsSchema === "spectrogramBurn") {
+      if (settingsSchema === "spectrogramBurn" || settingsSchema === "spectrumLine") {
         needsParamSync = true;
       }
     }
